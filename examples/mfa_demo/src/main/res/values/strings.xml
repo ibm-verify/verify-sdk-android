@@ -1,7 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!--
   ~ Copyright contributors to the IBM Verify SDK for Android project
   -->
-
 <resources>
     <string name="app_name">MFA Demo</string>
+    
+    <!-- Screen titles -->
+    <string name="title_mfa_demo">IBM Verify SDK MFA Demo</string>
+    
+    <!-- Card titles -->
+    <string name="label_authenticator_info">Authenticator Information</string>
+    <string name="label_transaction_info">Transaction Information</string>
+    
+    <!-- Field labels -->
+    <string name="label_authenticator_name">Authenticator Name</string>
+    <string name="label_service_name">Service Name</string>
+    <string name="label_transaction_message">Transaction Message</string>
+    <string name="label_factor_type">Factor Type</string>
+    
+    <!-- Button labels -->
+    <string name="button_check_transactions">Check Transactions</string>
+    <string name="button_delete_authenticator">Delete Authenticator</string>
+    <string name="button_approve">Approve</string>
+    <string name="button_deny">Deny</string>
+    <string name="button_dismiss">Dismiss</string>
+    <string name="dialog_delete_cancel">Cancel</string>
+    <string name="dialog_delete_confirm">Delete</string>
+    
+    <!-- Content descriptions -->
+    <string name="content_desc_scan_qr">Scan QR Code</string>
+    <string name="content_desc_loading">Loading</string>
+    
+    <!-- Biometric -->
+    <string name="biometric_title">Biometric Authentication</string>
+    <string name="biometric_subtitle">Authenticate to approve transaction</string>
+    <string name="biometric_negative_button">Cancel</string>
+    
+    <!-- Error messages -->
+    <string name="error_biometric_auth">Biometric authentication error: %1$s</string>
+    <string name="error_biometric_failed">Biometric authentication failed. Please try again.</string>
+    <string name="error_registration_failed">Registration failed: %1$s</string>
+    <string name="error_no_authenticator">No authenticator found. Please scan a QR code first.</string>
+    <string name="error_check_transactions_failed">Failed to check transactions: %1$s</string>
+    <string name="error_no_pending_transactions">No pending transactions found</string>
+    <string name="error_complete_transaction_failed">Failed to complete transaction: %1$s</string>
+    <string name="error_no_active_transaction">No active transaction to complete</string>
+    <string name="error_unknown_authenticator_type">Unknown authenticator type</string>
+    <string name="error_unknown_authenticator_type_load">Unknown authenticator type: %1$s</string>
+    <string name="error_load_authenticator_failed">Failed to load authenticator: %1$s</string>
+    <string name="error_no_matching_factor">No matching factor type found</string>
+    <string name="error_no_factor_type">No factor type in transaction</string>
+    <string name="error_no_matching_factor_for_type">No matching factor found for type: %1$s</string>
+    <string name="error_unknown">Unknown error</string>
+    
+    <!-- Success messages -->
+    <string name="success_authenticator_registered">Authenticator registered successfully</string>
+    <string name="success_transaction_approved">Transaction approved successfully</string>
+    <string name="success_transaction_denied">Transaction denied successfully</string>
+    <string name="success_authenticator_deleted">Authenticator deleted successfully</string>
+    
+    <!-- Dialog messages -->
+    <string name="dialog_delete_title">Delete Authenticator?</string>
+    <string name="dialog_delete_message">Are you sure you want to delete this authenticator? This action cannot be undone.</string>
+    
+    <!-- QR Scanner -->
+    <string name="qr_scanner_prompt">Scan QR Code</string>
+    
+    <!-- Misc -->
+    <string name="permission_denied">Permission denied</string>
+    <string name="no_transaction_message">No transaction message</string>
+    <string name="unknown_factor_type">Unknown</string>
 </resources>
