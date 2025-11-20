@@ -45,7 +45,7 @@ import com.ibm.security.verifysdk.dc.demoapp.data.WalletManager
 import com.ibm.security.verifysdk.dc.demoapp.ui.WalletViewModel
 import com.ibm.security.verifysdk.dc.demoapp.ui.WalletViewModelFactory
 import com.ibm.security.verifysdk.dc.demoapp.ui.credential.CredentialScreen
-import com.ibm.security.verifysdk.dc.demoapp.ui.theme.IBMSecurityVerifySDKTheme
+import com.ibm.security.verifysdk.dc.demoapp.ui.theme.IBMVerifySDKTheme
 import com.ibm.security.verifysdk.dc.demoapp.ui.verification.VerificationDoneScreen
 import com.ibm.security.verifysdk.dc.demoapp.ui.verification.VerificationIdentityDetailsScreen
 import com.ibm.security.verifysdk.dc.demoapp.ui.verification.VerificationRequestScreen
@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            IBMSecurityVerifySDKTheme {
+            IBMVerifySDKTheme {
                 MyApp(
                     walletViewModel
                 )
