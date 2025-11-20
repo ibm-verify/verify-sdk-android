@@ -7,6 +7,7 @@ package com.ibm.security.verifysdk.dc.model
 import com.ibm.security.verifysdk.dc.model.CredentialFormat.INDY
 import com.ibm.security.verifysdk.dc.model.CredentialFormat.JSON_LD
 import com.ibm.security.verifysdk.dc.model.CredentialFormat.MDOC
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNames
@@ -32,9 +33,11 @@ enum class CredentialFormat {
     @SerialName("jsonld")
     JSON_LD,
 
+    @OptIn(ExperimentalSerializationApi::class)
     @JsonNames("mso_mdoc", "mso_mdoc_detail", "mso_mdoc_preview")
     MDOC,
 
+    @OptIn(ExperimentalSerializationApi::class)
     @JsonNames("dc+sd-jwt")
     SDJWT;
 

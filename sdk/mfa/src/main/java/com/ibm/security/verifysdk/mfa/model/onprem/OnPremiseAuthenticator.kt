@@ -8,11 +8,13 @@ import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.core.serializer.URLSerializer
 import com.ibm.security.verifysdk.mfa.FactorType
 import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import java.net.URL
 
 
+@OptIn(InternalSerializationApi::class)
 @Serializable
 class OnPremiseAuthenticator (
     override val refreshUri: URL,

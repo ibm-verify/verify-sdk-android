@@ -236,9 +236,11 @@ class CloudAuthenticatorService(
             parsePendingTransaction(response)
                 .fold(
                     onSuccess = {
+                        _currentPendingTransaction = it.first
                         Result.success(it)
                     },
                     onFailure = {
+                        _currentPendingTransaction = null
                         Result.failure(it)
                     })
         } else {

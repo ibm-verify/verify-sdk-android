@@ -43,6 +43,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
@@ -70,6 +71,7 @@ class OnPremiseRegistrationProvider(data: String) :
     private lateinit var authenticatorId: String
 
     private var currentFactor: SignatureEnrollableFactor? = null
+    @OptIn(InternalSerializationApi::class)
     private var factors: MutableList<FactorType> = mutableListOf()
 
 
@@ -91,6 +93,7 @@ class OnPremiseRegistrationProvider(data: String) :
         }
     }
 
+    @OptIn(InternalSerializationApi::class)
     internal suspend fun initiate(
         accountName: String,
         skipTotpEnrollment: Boolean = true,
@@ -300,6 +303,7 @@ class OnPremiseRegistrationProvider(data: String) :
     }
 
 
+    @OptIn(InternalSerializationApi::class)
     override suspend fun enroll(keyName: String, publicKey: String, signedData: String, httpClient: HttpClient) {
 
         try {
@@ -399,6 +403,7 @@ class OnPremiseRegistrationProvider(data: String) :
         }
     }
 
+    @OptIn(InternalSerializationApi::class)
     override suspend fun finalize(httpClient: HttpClient): Result<MFAAuthenticatorDescriptor> {
         return try {
             log.entering()

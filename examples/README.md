@@ -1,0 +1,65 @@
+# IBM Verify SDK - Example Applications
+
+This directory contains demonstration Android applications showcasing various capabilities of the IBM Verify SDK. Each example app is a standalone project that demonstrates specific SDK features and best practices.
+
+## Available Examples
+
+### 1. MFA Demo (`mfa_demo/`)
+
+Demonstrates the MFA (Multi-Factor Authentication) capabilities of the IBM Verify SDK.
+
+**Features:**
+
+- QR code-based authenticator registration
+- Transaction verification and approval/denial
+- Biometric authentication (Face ID/Fingerprint)
+- Support for Cloud and On-Premise authenticators
+- Modern Material Design 3 UI with Jetpack Compose
+
+**Documentation:** [mfa_demo/README.md](mfa_demo/README.md)
+
+---
+
+### 2. DC Demo (`dc_demo/`)
+
+Demonstrates digital credential management and verification using the IBM Verify SDK.
+
+**Features:**
+
+- Digital wallet management
+- Credential issuance and storage
+- Credential verification
+- Multiple credential types support (Driver's License, Employee ID, Banking, Medicare, etc.)
+- QR code-based credential exchange
+- Room database for persistent storage
+
+---
+
+### 3. DPoP Demo (`dpop_demo/`)
+
+Demonstrates configuring DPoP (Demonstrating Proof-of-Possession) flows with IBM Verify.
+
+**Features:**
+
+- DPoP token generation
+- Proof-of-possession authentication
+- Secure token binding
+- Network request signing
+
+**Documentation:** [dpop_demo/README.md](dpop_demo/README.md)
+
+**Additional Resources:** Supporting assets for articles published on [IBM Verify Docs](https://docs.verify.ibm.com/verify)
+
+---
+
+### 4. FIDO2 Demo (`fido2_demo/`)
+
+Demonstrates FIDO2 (WebAuthn) authentication capabilities using the IBM Verify SDK.
+
+**Features:*
+- FIDO2 registration
+- FIDO2 authentication
+- Passwordless authentication
+- Biometric authentication support
+
+**SDK Module:** `sdk:fido2`

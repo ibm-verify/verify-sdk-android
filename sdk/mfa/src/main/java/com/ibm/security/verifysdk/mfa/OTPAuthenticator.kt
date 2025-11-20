@@ -4,9 +4,11 @@
 
 package com.ibm.security.verifysdk.mfa
 
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
+@OptIn(InternalSerializationApi::class)
 @Serializable
 data class OTPAuthenticator(
     override val id: String = UUID.randomUUID().toString(),
