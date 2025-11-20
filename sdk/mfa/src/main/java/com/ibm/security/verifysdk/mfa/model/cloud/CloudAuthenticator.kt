@@ -9,6 +9,7 @@ import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.core.serializer.URLSerializer
 import com.ibm.security.verifysdk.mfa.FactorType
 import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import java.net.URL
@@ -29,6 +30,7 @@ import java.net.URL
  *
  * @since 3.0.2
  */
+@OptIn(InternalSerializationApi::class)
 @Serializable
 data class CloudAuthenticator(
     override val refreshUri: URL,

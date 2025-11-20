@@ -4,9 +4,11 @@
 
 package com.ibm.security.verifysdk.mfa
 
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
+@kotlinx.serialization.InternalSerializationApi
 @Serializable
 sealed class FactorType {
 
@@ -28,14 +30,20 @@ sealed class FactorType {
             is UserPresence -> value.displayName
         }
 
+    @Serializable
     data class Totp(val value: TOTPFactorInfo) : FactorType()
+    @Serializable
     data class Hotp(val value: HOTPFactorInfo) : FactorType()
+    @Serializable
     data class Face(val value: FaceFactorInfo) : FactorType()
+    @Serializable
     data class Fingerprint(val value: FingerprintFactorInfo) : FactorType()
+    @Serializable
     data class UserPresence(val value: UserPresenceFactorInfo) : FactorType()
 
 }
 
+@OptIn(InternalSerializationApi::class)
 fun FactorType.valueType(): Factor {
     return when (this) {
         is FactorType.Totp -> this.value

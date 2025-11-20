@@ -44,6 +44,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.addJsonObject
@@ -69,6 +70,7 @@ class CloudRegistrationProvider(data: String) :
 
     private var initializationInfo: InitializationInfo
     private var currentFactor: SignatureEnrollableFactor? = null
+    @OptIn(InternalSerializationApi::class)
     private var factors: MutableList<FactorType> = mutableListOf()
     private lateinit var tokenInfo: TokenInfo
     private lateinit var metaData: Metadata
@@ -91,6 +93,7 @@ class CloudRegistrationProvider(data: String) :
         }
     }
 
+    @OptIn(InternalSerializationApi::class)
     internal suspend fun initiate(
         accountName: String,
         skipTotpEnrollment: Boolean = true,
@@ -226,6 +229,7 @@ class CloudRegistrationProvider(data: String) :
         }
     }
 
+    @OptIn(InternalSerializationApi::class)
     override suspend fun enroll(keyName: String, publicKey: String, signedData: String, httpClient: HttpClient) {
 
         val algorithm = HashAlgorithmType.fromString(currentFactor?.algorithm ?: "")
@@ -313,6 +317,7 @@ class CloudRegistrationProvider(data: String) :
         }
     }
 
+    @OptIn(InternalSerializationApi::class)
     override suspend fun finalize(httpClient: HttpClient): Result<MFAAuthenticatorDescriptor> {
 
         return try {

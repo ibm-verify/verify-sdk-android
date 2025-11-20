@@ -33,6 +33,7 @@ interface AuthenticatorDescriptor {
      * A list of allowed factors the user can attempt to perform 2nd factor (2FA) and multi-factor
      * authentication (MFA).
      */
+    @kotlinx.serialization.InternalSerializationApi
     val allowedFactors: List<FactorType>
 }
 
