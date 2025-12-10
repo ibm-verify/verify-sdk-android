@@ -1,4 +1,4 @@
-package com.ibm.security.verifysdk.codeflow.demoapp
+package com.ibm.security.verifysdk.authcodeflow.demoapp
 
 import org.junit.Test
 

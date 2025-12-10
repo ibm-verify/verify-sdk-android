@@ -1,6 +1,5 @@
-package com.ibm.security.verifysdk.codeflow.demoapp.ui.theme
+package com.ibm.security.verifysdk.authcodeflow.demoapp.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -34,10 +33,10 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun IBMVerifySDKTheme(
+fun AuthCodeFlowDemoTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

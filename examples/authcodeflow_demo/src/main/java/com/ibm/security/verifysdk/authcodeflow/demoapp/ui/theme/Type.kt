@@ -1,4 +1,4 @@
-package com.ibm.security.verifysdk.codeflow.demoapp.ui.theme
+package com.ibm.security.verifysdk.authcodeflow.demoapp.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

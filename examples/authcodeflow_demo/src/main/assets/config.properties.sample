@@ -1,0 +1,7 @@
+# Auth Code Flow Demo Configuration
+# Copy this file to config.properties and update with your values
+
+# OAuth Server Configuration
+host=sdk.verify.ibm.com
+clientId=your-client-id-here
+redirect=https://sdk.verify.ibm.com/callback
