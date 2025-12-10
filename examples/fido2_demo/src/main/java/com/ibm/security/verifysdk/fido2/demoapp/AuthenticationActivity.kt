@@ -14,6 +14,7 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.textfield.TextInputEditText
 import com.ibm.security.verifysdk.core.helper.KeystoreHelper
 import com.ibm.security.verifysdk.fido2.api.Fido2Api
 import com.ibm.security.verifysdk.fido2.model.AssertionOptions
@@ -45,6 +46,18 @@ class AuthenticationActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_authentication)
 
+        // Set version info in toolbar
+        val versionName = packageManager.getPackageInfo(packageName, 0).versionName
+        val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            packageManager.getPackageInfo(packageName, 0).longVersionCode.toInt()
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0).versionCode
+        }
+        
+        val versionTextView: TextView = findViewById(R.id.text_view_version)
+        versionTextView.text = "$versionName ($versionCode)"
+
         val sharedPreferences =
             getSharedPreferences(application.packageName, Context.MODE_PRIVATE)
 
@@ -55,26 +68,26 @@ class AuthenticationActivity : AppCompatActivity() {
         val keyName = sharedPreferences.getString("keyName", null) ?: ""
         val userName = sharedPreferences.getString("userName", null)!!
 
-        val relyingPartyUrlTextView: TextView = findViewById(R.id.text_view_relying_party_url)
-        val nicknameTextView: TextView = findViewById(R.id.text_view_nickname)
-        val createdAtTextView: TextView = findViewById(R.id.text_view_created_at)
+        val relyingPartyUrlTextView: TextInputEditText = findViewById(R.id.text_view_relying_party_url)
+        val nicknameTextView: TextInputEditText = findViewById(R.id.text_view_nickname)
+        val createdAtTextView: TextInputEditText = findViewById(R.id.text_view_created_at)
         val initiateAuthentication: Button = findViewById(R.id.button_initiate_authentication)
         val removeAuthenticator: Button = findViewById(R.id.button_remove_authenticator)
-        val transactionMessage: TextView = findViewById(R.id.edit_text_transaction_message)
+        val transactionMessage: TextInputEditText = findViewById(R.id.edit_text_transaction_message)
         val allowTransaction: SwitchCompat = findViewById(R.id.allow_transaction_confirmation)
 
         allowTransaction.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
-                transactionMessage.text = reasons.random()
+                transactionMessage.text = android.text.Editable.Factory.getInstance().newEditable(reasons.random())
             } else {
-                transactionMessage.text = ""
+                transactionMessage.text = android.text.Editable.Factory.getInstance().newEditable("")
             }
         }
 
         val url = Url(relyingPartyUrl)
-        relyingPartyUrlTextView.text = url.hostWithPort
-        nicknameTextView.text = nickName
-        createdAtTextView.text = createdAt
+        relyingPartyUrlTextView.text = android.text.Editable.Factory.getInstance().newEditable(url.hostWithPort)
+        nicknameTextView.text = android.text.Editable.Factory.getInstance().newEditable(nickName)
+        createdAtTextView.text = android.text.Editable.Factory.getInstance().newEditable(createdAt)
 
         initiateAuthentication.setOnClickListener {
 
