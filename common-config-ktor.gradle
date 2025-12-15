@@ -1,7 +1,4 @@
 dependencies {
-    implementation libs.google.material
-}
-dependencies {
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.auth)
     implementation(libs.ktor.client.cio)
