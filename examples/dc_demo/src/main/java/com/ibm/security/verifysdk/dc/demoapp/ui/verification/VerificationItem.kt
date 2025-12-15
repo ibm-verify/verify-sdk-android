@@ -21,6 +21,8 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.navigation.ThreePaneScaffoldNavigator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
@@ -43,18 +45,21 @@ fun VerificationListItem(
     verification: VerificationInfo,
     navigator: ThreePaneScaffoldNavigator<Any>
 ) {
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                navigator.navigateTo(
-                    pane = ListDetailPaneScaffoldRole.Detail,
-                    content = Json.encodeToString(
-                        VerificationInfo.serializer(),
-                        verification
+                coroutineScope.launch {
+                    navigator.navigateTo(
+                        pane = ListDetailPaneScaffoldRole.Detail,
+                        contentKey = Json.encodeToString(
+                            VerificationInfo.serializer(),
+                            verification
+                        )
                     )
-                )
+                }
             }
     ) {
         VerificationDetailsDivider()

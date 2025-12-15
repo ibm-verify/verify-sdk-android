@@ -20,6 +20,8 @@ import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.navigation.ThreePaneScaffoldNavigator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +48,7 @@ fun CredentialListItem(
     credential: CredentialDescriptor,
     navigator: ThreePaneScaffoldNavigator<Any>
 ) {
+    val coroutineScope = rememberCoroutineScope()
     val itemView = remember(credential.jsonRepresentation) {
         credential.jsonRepresentation?.let { DefaultJson.decodeFromJsonElement<ViewDescriptor>(it) }
     }
@@ -54,10 +57,12 @@ fun CredentialListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                navigator.navigateTo(
-                    pane = ListDetailPaneScaffoldRole.Detail,
-                    content = Json.encodeToString(CredentialSerializer, credential)
-                )
+                coroutineScope.launch {
+                    navigator.navigateTo(
+                        pane = ListDetailPaneScaffoldRole.Detail,
+                        contentKey = Json.encodeToString(CredentialSerializer, credential)
+                    )
+                }
             }
     ) {
         HorizontalDivider(

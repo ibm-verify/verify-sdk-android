@@ -14,9 +14,9 @@ android {
     defaultConfig {
         applicationId = "com.ibm.security.verifysdk.dc.demoapp"
 
-        manifestPlaceholders["auth_redirect_scheme"] = "verifysdk"
-        manifestPlaceholders["auth_redirect_host"] = "callback"
-        manifestPlaceholders["auth_redirect_path"] = "/redirect"
+        manifestPlaceholders["auth_redirect_scheme"] = ""
+        manifestPlaceholders["auth_redirect_host"] = ""
+        manifestPlaceholders["auth_redirect_path"] = ""
     }
 
     buildFeatures {
@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.zxing.android.embedded)
     implementation(platform(libs.androidx.compose.bom))
+    implementation("androidx.compose.material:material-icons-extended")
 
     annotationProcessor(libs.androidx.room.compiler)
 
