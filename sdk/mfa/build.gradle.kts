@@ -11,9 +11,9 @@ apply(from = "$rootDir/common-publish.gradle")
 android {
     defaultConfig {
         // for IBM Verify Authentication SDK
-        manifestPlaceholders["auth_redirect_scheme"] = "verifysdk"
-        manifestPlaceholders["auth_redirect_host"] = "callback"
-        manifestPlaceholders["auth_redirect_path"] = "/redirect"
+        manifestPlaceholders["auth_redirect_scheme"] = ""
+        manifestPlaceholders["auth_redirect_host"] = ""
+        manifestPlaceholders["auth_redirect_path"] = ""
     }
 }
 

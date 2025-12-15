@@ -9,14 +9,6 @@ apply(from = "$rootDir/common-config.gradle")
 apply(from = "$rootDir/common-config-ktor.gradle")
 apply(from = "$rootDir/common-publish.gradle")
 
-android {
-    defaultConfig {
-        manifestPlaceholders["auth_redirect_scheme"] = "https"
-        manifestPlaceholders["auth_redirect_host"] = "sdk.verify.ibm.com"
-        manifestPlaceholders["auth_redirect_path"] = "/callback"
-    }
-}
-
 dependencies {
 
     api(project(":sdk:core"))
@@ -25,10 +17,10 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.browser)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.google.material)
     implementation(libs.kotlinx.datetime)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.logging.interceptor)
-    implementation(libs.material)
 
     androidTestImplementation(project(":sdk:test_utils"))
     androidTestImplementation(libs.androidx.espresso.core)

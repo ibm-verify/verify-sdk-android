@@ -37,7 +37,6 @@ fun Logger.entering(level: Level = Level.INFO) {
         Level.INFO -> info(message, ste.className, ste.methodName)
         Level.WARN -> warn(message, ste.className, ste.methodName)
         Level.ERROR -> error(message, ste.className, ste.methodName)
-        else -> warn(unsupportedLevelMessage, level)
     }
 }
 
@@ -68,7 +67,6 @@ fun Logger.exiting(level: Level = Level.INFO) {
         Level.INFO -> info(message, ste.className, ste.methodName)
         Level.WARN -> warn(message, ste.className, ste.methodName)
         Level.ERROR -> error(message, ste.className, ste.methodName)
-        else -> warn(unsupportedLevelMessage, level)
     }
 }
 
@@ -90,6 +88,5 @@ fun Logger.threadInfo(level: Level = Level.INFO) {
         Level.INFO -> info(message)
         Level.WARN -> warn(message)
         Level.ERROR -> error(message)
-        else -> warn(unsupportedLevelMessage, level)
     }
 }

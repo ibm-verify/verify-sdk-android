@@ -13,20 +13,7 @@
     <application>
         <activity
             android:name=".AuthenticationActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:allowBackup="false">
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="${auth_redirect_scheme}"
-                    android:host="${auth_redirect_host}"
-                    android:path="${auth_redirect_path}"
-                    tools:replace="android:host,android:path,android:scheme" />
-            </intent-filter>
-        </activity>
+            android:exported="true"/>
     </application>
 
 </manifest>

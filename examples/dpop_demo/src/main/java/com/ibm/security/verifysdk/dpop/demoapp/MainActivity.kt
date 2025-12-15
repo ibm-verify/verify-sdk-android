@@ -9,14 +9,23 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
@@ -89,13 +98,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             DPoPDemoTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Config()
-                }
+                Config()
             }
         }
 
@@ -105,98 +108,138 @@ class MainActivity : ComponentActivity() {
         keyStore.load(null)
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun Config() {
 
         val token: String? by accessToken.observeAsState()
         val validation: String? by tokenValidation.observeAsState()
+        
+        val versionName = packageManager.getPackageInfo(packageName, 0).versionName
+        val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            packageManager.getPackageInfo(packageName, 0).longVersionCode.toInt()
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0).versionCode
+        }
 
-        Column(
-            modifier = Modifier.fillMaxSize(),
-        )
-        {
-
-            Text(
-                modifier = Modifier
-                    .padding(all = 40.dp)
-                    .align(Alignment.CenterHorizontally),
-                text = "Sample app to demonstrate the use of DPoP token",
-                textAlign = TextAlign.Center,
-                fontSize = 20.sp
-            )
-
-            TextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
-                singleLine = true,
-                value = tokenEndpoint,
-                enabled = false,
-                onValueChange = {},
-                label = { Text("Token Endpoint") }
-            )
-
-            TextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
-                singleLine = true,
-                value = resourceEndpoint,
-                enabled = false,
-                onValueChange = {},
-                label = { Text("Resource Endpoint") }
-            )
-
-            TextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
-                singleLine = true,
-                value = clientId,
-                enabled = false,
-                onValueChange = {},
-                label = { Text("Client ID") }
-            )
-
-            TextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
-                singleLine = true,
-                value = clientSecret,
-                enabled = false,
-                onValueChange = {},
-                label = { Text("Client secret") }
-            )
-
-            TextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
-                singleLine = true,
-                value = token ?: "...",
-                enabled = false,
-                onValueChange = {},
-                label = { Text("Access token") }
-            )
-
-            TextField(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
-                singleLine = true,
-                value = validation ?: "...",
-                enabled = false,
-                onValueChange = {},
-                label = { Text("Token validation") }
-            )
-
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("IBM Verify SDK DPoP Demo")
+                            Text(
+                                text = "$versionName ($versionCode)",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                )
+            }
+        ) { paddingValues ->
             Column(
-                verticalArrangement = Arrangement.Bottom,
-                horizontalAlignment = Alignment.CenterHorizontally
-            )
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Configuration",
+                            style = MaterialTheme.typography.titleLarge
+                        )
 
-            {
+                        OutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            value = tokenEndpoint,
+                            readOnly = true,
+                            onValueChange = {},
+                            label = { Text("Token Endpoint") }
+                        )
+
+                        OutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            value = resourceEndpoint,
+                            readOnly = true,
+                            onValueChange = {},
+                            label = { Text("Resource Endpoint") }
+                        )
+
+                        OutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            value = clientId,
+                            readOnly = true,
+                            onValueChange = {},
+                            label = { Text("Client ID") }
+                        )
+
+                        OutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            value = clientSecret,
+                            readOnly = true,
+                            onValueChange = {},
+                            label = { Text("Client Secret") }
+                        )
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Token Information",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+
+                        OutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            value = token ?: "...",
+                            readOnly = true,
+                            onValueChange = {},
+                            label = { Text("Access Token") }
+                        )
+
+                        OutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            value = validation ?: "...",
+                            readOnly = true,
+                            onValueChange = {},
+                            label = { Text("Token Validation") }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
                 Button(
                     onClick = {
                         lifecycleScope.launch {
@@ -205,20 +248,20 @@ class MainActivity : ComponentActivity() {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 40.dp, vertical = 20.dp),
+                        .height(48.dp),
                     enabled = (token == "...")
                 ) {
-                    Text("Request DPoP token")
-
+                    Text("Request DPoP Token")
                 }
+                
                 Button(
                     onClick = { validateToken() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 40.dp),
+                        .height(48.dp),
                     enabled = (token != "..."),
                 ) {
-                    Text("Validate DPoP token")
+                    Text("Validate DPoP Token")
                 }
             }
         }

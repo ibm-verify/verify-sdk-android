@@ -2,7 +2,7 @@ android {
     namespace = "com.ibm.security.verifysdk." + project.path.replaceFirst("^:sdk:", "").replace(":", ".")
     testNamespace = "com.ibm.security.verifysdk." + project.path.replaceFirst("^:sdk:", "").replace(":", ".") + ".test"
 
-    compileSdk = 35
+    compileSdk = 36
     buildFeatures.buildConfig = true
 
     defaultConfig {
@@ -47,17 +47,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
-configurations.configureEach {
-    resolutionStrategy {
-        force("org.slf4j:slf4j-api:1.7.36")
-        force("org.slf4j:slf4j-android:1.7.36")
-    }
-}
-
 dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.skyscreamer.jsonassert)
-    androidTestImplementation(libs.slf4j.android)
+    androidTestImplementation(libs.slf4j.simple)
     androidTestImplementation(libs.slf4j.api)
     lintChecks libs.compose.lint.checks
     lintChecks libs.slack.lint.checks

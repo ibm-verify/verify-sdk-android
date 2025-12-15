@@ -11,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,8 +39,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +72,7 @@ import com.ibm.security.verifysdk.mfa.demoapp.Constants.KEY_AUTHENTICATOR_TYPE
 import com.ibm.security.verifysdk.mfa.demoapp.Constants.PREFS_NAME
 import com.ibm.security.verifysdk.mfa.demoapp.Constants.TYPE_CLOUD
 import com.ibm.security.verifysdk.mfa.demoapp.Constants.TYPE_ONPREM
+import com.ibm.security.verifysdk.mfa.demoapp.ui.theme.MFADemoTheme
 import com.ibm.security.verifysdk.mfa.model.cloud.CloudAuthenticator
 import com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseAuthenticator
 import kotlinx.coroutines.Dispatchers
@@ -268,7 +266,6 @@ class MainActivity : FragmentActivity() {
         integrator.initiateScan()
     }
 
-    @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         val intentResult: IntentResult? =
@@ -322,7 +319,12 @@ class MainActivity : FragmentActivity() {
                 } catch (e: Exception) {
                     log.error("QR code registration failed", e)
                     updateUiState {
-                        copy(errorMessage = getString(R.string.error_registration_failed, e.message ?: getString(R.string.error_unknown)))
+                        copy(
+                            errorMessage = getString(
+                                R.string.error_registration_failed,
+                                e.message ?: getString(R.string.error_unknown)
+                            )
+                        )
                     }
                 } finally {
                     updateUiState { copy(isLoading = false) }
@@ -388,7 +390,12 @@ class MainActivity : FragmentActivity() {
             } catch (e: Exception) {
                 log.error("Failed to check transactions", e)
                 updateUiState {
-                    copy(errorMessage = getString(R.string.error_check_transactions_failed, e.message ?: getString(R.string.error_unknown)))
+                    copy(
+                        errorMessage = getString(
+                            R.string.error_check_transactions_failed,
+                            e.message ?: getString(R.string.error_unknown)
+                        )
+                    )
                 }
             } finally {
                 updateUiState { copy(isLoading = false) }
@@ -477,7 +484,12 @@ class MainActivity : FragmentActivity() {
                                         throw it
                                     }
                             } else {
-                                throw IllegalStateException(getString(R.string.error_no_matching_factor_for_type, currentFactorType))
+                                throw IllegalStateException(
+                                    getString(
+                                        R.string.error_no_matching_factor_for_type,
+                                        currentFactorType
+                                    )
+                                )
                             }
                         }
 
@@ -492,7 +504,7 @@ class MainActivity : FragmentActivity() {
                 } else {
                     getString(R.string.success_transaction_denied)
                 }
-                
+
                 updateUiState {
                     copy(
                         transactionMessage = "",
@@ -504,7 +516,12 @@ class MainActivity : FragmentActivity() {
             } catch (e: Exception) {
                 log.error("Failed to complete transaction", e)
                 updateUiState {
-                    copy(errorMessage = getString(R.string.error_complete_transaction_failed, e.message ?: getString(R.string.error_unknown)))
+                    copy(
+                        errorMessage = getString(
+                            R.string.error_complete_transaction_failed,
+                            e.message ?: getString(R.string.error_unknown)
+                        )
+                    )
                 }
             } finally {
                 updateUiState { copy(isLoading = false) }
@@ -568,7 +585,14 @@ class MainActivity : FragmentActivity() {
                     TYPE_ONPREM -> json.decodeFromString<OnPremiseAuthenticator>(jsonString)
                     else -> {
                         log.error("Unknown authenticator type: $type")
-                        updateUiState { copy(errorMessage = getString(R.string.error_unknown_authenticator_type_load, type)) }
+                        updateUiState {
+                            copy(
+                                errorMessage = getString(
+                                    R.string.error_unknown_authenticator_type_load,
+                                    type
+                                )
+                            )
+                        }
                         return
                     }
                 }
@@ -576,7 +600,14 @@ class MainActivity : FragmentActivity() {
                 updateAuthenticatorInfo()
             } catch (e: Exception) {
                 log.error("Failed to load authenticator: ${e.message}", e)
-                updateUiState { copy(errorMessage = getString(R.string.error_load_authenticator_failed, e.message ?: getString(R.string.error_unknown))) }
+                updateUiState {
+                    copy(
+                        errorMessage = getString(
+                            R.string.error_load_authenticator_failed,
+                            e.message ?: getString(R.string.error_unknown)
+                        )
+                    )
+                }
             }
         } else {
             log.info("No saved authenticator found")
@@ -633,10 +664,18 @@ fun MFADemoScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("IBM Verify SDK MFA Demo") },
+                title = {
+                    Column {
+                        Text("IBM Verify SDK MFA Demo")
+                        Text(
+                            text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
         },
@@ -666,7 +705,7 @@ fun MFADemoScreen(
                     Text(error)
                 }
             }
-            
+
             uiState.successMessage?.let { success ->
                 androidx.compose.material3.Snackbar(
                     action = {
@@ -738,7 +777,7 @@ fun MFADemoScreen(
                 LoadingOverlay()
             }
         }
-        
+
         // Delete confirmation dialog
         if (uiState.showDeleteConfirmation) {
             AlertDialog(
@@ -758,21 +797,6 @@ fun MFADemoScreen(
             )
         }
     }
-}
-
-@Composable
-fun MFADemoTheme(content: @Composable () -> Unit) {
-    val darkTheme = isSystemInDarkTheme()
-    val colorScheme = if (darkTheme) {
-        darkColorScheme()
-    } else {
-        lightColorScheme()
-    }
-    
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
 }
 
 /**
@@ -888,83 +912,7 @@ fun TransactionActionButtons(
         ) {
             Text(stringResource(R.string.button_deny))
         }
-        
-        @Preview(showBackground = true, name = "Light Mode")
-        @Composable
-        fun AuthenticatorInfoCardPreview() {
-            MFADemoTheme {
-                AuthenticatorInfoCard(
-                    authenticatorName = "John Doe",
-                    serviceName = "IBM Verify"
-                )
-            }
-        }
-        
-        @Preview(showBackground = true, name = "Dark Mode", uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
-        @Composable
-        fun AuthenticatorInfoCardDarkPreview() {
-            MFADemoTheme {
-                AuthenticatorInfoCard(
-                    authenticatorName = "John Doe",
-                    serviceName = "IBM Verify"
-                )
-            }
-        }
-        
-        @Preview(showBackground = true, name = "Light Mode")
-        @Composable
-        fun TransactionInfoCardPreview() {
-            MFADemoTheme {
-                TransactionInfoCard(
-                    transactionMessage = "Login to IBM Cloud",
-                    transactionFactorType = "User Presence"
-                )
-            }
-        }
-        
-        @Preview(showBackground = true, name = "Dark Mode", uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
-        @Composable
-        fun TransactionInfoCardDarkPreview() {
-            MFADemoTheme {
-                TransactionInfoCard(
-                    transactionMessage = "Login to IBM Cloud",
-                    transactionFactorType = "User Presence"
-                )
-            }
-        }
-        
-        @Preview(showBackground = true, name = "Enabled")
-        @Composable
-        fun TransactionActionButtonsEnabledPreview() {
-            MFADemoTheme {
-                TransactionActionButtons(
-                    hasTransaction = true,
-                    onDeny = {},
-                    onApprove = {}
-                )
-            }
-        }
-        
-        @Preview(showBackground = true, name = "Disabled")
-        @Composable
-        fun TransactionActionButtonsDisabledPreview() {
-            MFADemoTheme {
-                TransactionActionButtons(
-                    hasTransaction = false,
-                    onDeny = {},
-                    onApprove = {}
-                )
-            }
-        }
-        
-        @Preview(showBackground = true)
-        @Composable
-        fun LoadingOverlayPreview() {
-            MFADemoTheme {
-                LoadingOverlay()
-            }
-        }
-        
+
         Button(
             onClick = onApprove,
             modifier = Modifier
@@ -974,6 +922,90 @@ fun TransactionActionButtons(
         ) {
             Text(stringResource(R.string.button_approve))
         }
+    }
+}
+
+@Preview(showBackground = true, name = "Light Mode")
+@Composable
+fun AuthenticatorInfoCardPreview() {
+    MFADemoTheme {
+        AuthenticatorInfoCard(
+            authenticatorName = "John Doe",
+            serviceName = "IBM Verify"
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    name = "Dark Mode",
+    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+fun AuthenticatorInfoCardDarkPreview() {
+    MFADemoTheme {
+        AuthenticatorInfoCard(
+            authenticatorName = "John Doe",
+            serviceName = "IBM Verify"
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Light Mode")
+@Composable
+fun TransactionInfoCardPreview() {
+    MFADemoTheme {
+        TransactionInfoCard(
+            transactionMessage = "Login to IBM Cloud",
+            transactionFactorType = "User Presence"
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    name = "Dark Mode",
+    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+fun TransactionInfoCardDarkPreview() {
+    MFADemoTheme {
+        TransactionInfoCard(
+            transactionMessage = "Login to IBM Cloud",
+            transactionFactorType = "User Presence"
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Enabled")
+@Composable
+fun TransactionActionButtonsEnabledPreview() {
+    MFADemoTheme {
+        TransactionActionButtons(
+            hasTransaction = true,
+            onDeny = {},
+            onApprove = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Disabled")
+@Composable
+fun TransactionActionButtonsDisabledPreview() {
+    MFADemoTheme {
+        TransactionActionButtons(
+            hasTransaction = false,
+            onDeny = {},
+            onApprove = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun LoadingOverlayPreview() {
+    MFADemoTheme {
+        LoadingOverlay()
     }
 }
 

@@ -14,7 +14,6 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.core.ktx)
     implementation(libs.logging.interceptor)
-    implementation(libs.material)
 
     androidTestImplementation(project(":sdk:test_utils"))
     androidTestImplementation(libs.androidx.espresso.core)

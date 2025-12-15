@@ -7,14 +7,16 @@ package com.ibm.security.verifysdk.mfa
 
 import com.ibm.security.verifysdk.core.serializer.URLSerializer
 import com.ibm.security.verifysdk.core.serializer.UUIDSerializer
-import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import java.net.URL
 import java.util.UUID
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
+@OptIn(ExperimentalTime::class)
 @Serializable
-data class PendingTransactionInfo(
+data class PendingTransactionInfo (
     val id: String,
     val message: String,
     val postbackUri: URL,

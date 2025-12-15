@@ -7,8 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
-import android.widget.EditText
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import com.google.android.material.textfield.TextInputEditText
 import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -46,9 +47,21 @@ class RegistrationActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_registration)
 
+        // Set version info in toolbar
+        val versionName = packageManager.getPackageInfo(packageName, 0).versionName
+        val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            packageManager.getPackageInfo(packageName, 0).longVersionCode.toInt()
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0).versionCode
+        }
+        
+        val versionTextView: TextView = findViewById(R.id.text_view_version)
+        versionTextView.text = "$versionName ($versionCode)"
+
         findViewById<Button>(R.id.button_initiate_registration).setOnClickListener {
 
-            findViewById<EditText>(R.id.edit_text_access_token).let { editText ->
+            findViewById<TextInputEditText>(R.id.edit_text_access_token).let { editText ->
                 if (editText.text.toString().isNotEmpty()) {
                     getSharedPreferences(application.packageName, Context.MODE_PRIVATE).edit().putString(
                         "accessToken", editText.text.toString()
@@ -57,13 +70,13 @@ class RegistrationActivity : AppCompatActivity() {
             }
 
             val relyingPartyUrl =
-                findViewById<EditText>(R.id.edit_text_relying_party_url).text.toString()
+                findViewById<TextInputEditText>(R.id.edit_text_relying_party_url).text.toString()
             val nickName =
-                findViewById<EditText>(R.id.edit_text_nickname).text.toString()
+                findViewById<TextInputEditText>(R.id.edit_text_nickname).text.toString()
             val accessToken = getSharedPreferences(
                 application.packageName,
                 Context.MODE_PRIVATE
-            ).getString("accessToken", null) ?: "no access token found"
+            ).getString("accessToken", null) ?: ""
 
             lifecycleScope.launch {
                 getWhoAmI(accessToken)

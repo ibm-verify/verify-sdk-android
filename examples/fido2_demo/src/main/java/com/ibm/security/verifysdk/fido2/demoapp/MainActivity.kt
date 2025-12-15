@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.ibm.security.verifysdk.core.helper.KeystoreHelper
 import com.ibm.security.verifysdk.core.helper.NetworkHelper
@@ -23,6 +24,14 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Set version info in toolbar
+        val versionName = packageManager.getPackageInfo(packageName, 0).versionName
+        val versionCode =
+            packageManager.getPackageInfo(packageName, 0).longVersionCode.toInt()
+
+        val versionTextView: TextView = findViewById(R.id.text_view_version)
+        versionTextView.text = "$versionName ($versionCode)"
+        
         NetworkHelper.customLoggingInterceptor =
             HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
 

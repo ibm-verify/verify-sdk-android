@@ -166,7 +166,7 @@ fun VerificationScreen(
                                 .fillMaxSize()
                                 .padding(16.dp)
                         ) {
-                            val verification = navigator.currentDestination?.content?.toString()
+                            val verification = navigator.currentDestination?.contentKey?.toString()
                                 ?.takeIf { it.isNotEmpty() && it != "null" }
                                 ?.let { Json.decodeFromString<VerificationInfo>(it) }
 

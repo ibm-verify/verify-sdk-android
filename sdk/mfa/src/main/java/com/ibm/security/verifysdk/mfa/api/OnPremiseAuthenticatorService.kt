@@ -34,7 +34,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import kotlinx.datetime.Instant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
@@ -43,7 +42,10 @@ import kotlinx.serialization.json.buildJsonObject
 import org.slf4j.LoggerFactory
 import java.net.URL
 import java.util.UUID
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
+@OptIn(ExperimentalTime::class)
 class OnPremiseAuthenticatorService(
     private var _accessToken: String,
     private var _refreshUri: URL,

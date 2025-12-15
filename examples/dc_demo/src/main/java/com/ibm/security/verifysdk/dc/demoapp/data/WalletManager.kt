@@ -16,10 +16,11 @@ import com.ibm.security.verifysdk.dc.model.VerificationInfo
 import com.ibm.security.verifysdk.dc.model.VerificationPreviewInfo
 import kotlinx.serialization.ExperimentalSerializationApi
 import java.net.URL
+import kotlin.time.ExperimentalTime
 
 class WalletManager(val walletEntity: WalletEntity, private val viewModel: WalletViewModel) {
 
-    @OptIn(ExperimentalSerializationApi::class)
+    @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
     private suspend fun refreshToken() {
 
         if (walletEntity.wallet.token.shouldRefresh().not()) {

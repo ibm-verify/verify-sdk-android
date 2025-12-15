@@ -174,7 +174,7 @@ fun CredentialScreen(
                                     .fillMaxSize()
                                     .padding(16.dp)
                             ) {
-                                val credential = navigator.currentDestination?.content?.toString()
+                                val credential = navigator.currentDestination?.contentKey?.toString()
                                     ?.takeIf { it.isNotEmpty() && it != "null" }
                                     ?.let {
                                         Json.decodeFromString(CredentialSerializer, it)

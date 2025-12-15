@@ -32,7 +32,6 @@ import io.ktor.client.HttpClient
 import io.ktor.http.HttpMethod
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.datetime.Clock
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -44,6 +43,8 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * A class providing methods for FIDO2 operations.
@@ -269,6 +270,7 @@ class Fido2Api : BaseApi() {
      *
      * @return The constructed AuthenticatorAttestationResponse.
      */
+    @OptIn(ExperimentalTime::class)
     suspend fun buildAuthenticatorAttestationResponse(
         activity: FragmentActivity,
         executor: Executor,
@@ -486,6 +488,7 @@ class Fido2Api : BaseApi() {
      *
      * @return The constructed AuthenticatorAssertionResponse.
      */
+    @OptIn(ExperimentalTime::class)
     suspend fun buildAuthenticatorAssertionResponse(
         activity: FragmentActivity,
         executor: Executor,
@@ -509,7 +512,7 @@ class Fido2Api : BaseApi() {
         authenticatorDataParams.addAll(options.rpId.sha256().hexToByteArray().toList())
         authenticatorDataParams.add(flags)
 
-        val now = Clock.System.now().epochSeconds
+        val now = kotlin.time.Clock.System.now().epochSeconds
         val counter = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(now.toInt()).array()
         authenticatorDataParams.addAll(counter.toList())
 

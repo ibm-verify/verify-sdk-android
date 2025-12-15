@@ -91,3 +91,6 @@ sdk/.idea/androidTestResultsUserPreferences.xml
 wss-unified-agent.jar
 sdk/.idea/migrations.xml
 .idea/**
+
+# Demo app configuration files (contain sensitive data)
+**/config.properties

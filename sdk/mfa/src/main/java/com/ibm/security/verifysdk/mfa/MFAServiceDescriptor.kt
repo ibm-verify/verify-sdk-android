@@ -58,8 +58,8 @@ import java.net.URL
  * @property authenticatorId The unique identifier for the authenticator.
  *
  * @see MFAServiceController
- * @see CloudAuthenticatorService
- * @see OnPremiseAuthenticatorService
+ * @see com.ibm.security.verifysdk.mfa.api.CloudAuthenticatorService
+ * @see com.ibm.security.verifysdk.mfa.api.OnPremiseAuthenticatorService
  */
 interface MFAServiceDescriptor {
     val accessToken: String

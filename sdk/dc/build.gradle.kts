@@ -20,7 +20,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.datetime)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.material)
+    implementation(libs.google.material)
 
     androidTestImplementation(project(":sdk:test_utils"))
     androidTestImplementation(libs.androidx.espresso.core)
