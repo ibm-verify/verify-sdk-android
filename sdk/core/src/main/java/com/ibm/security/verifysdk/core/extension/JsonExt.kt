@@ -64,7 +64,6 @@ fun JsonElement.toKotlinType(): Any? {
         }
         is JsonObject -> this.mapValues { it.value.toKotlinType() }
         is JsonArray -> this.map { it.toKotlinType() }
-        else -> this.toString()
     }
 }
 
