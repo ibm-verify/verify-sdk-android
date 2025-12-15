@@ -913,90 +913,6 @@ fun TransactionActionButtons(
             Text(stringResource(R.string.button_deny))
         }
 
-        @Preview(showBackground = true, name = "Light Mode")
-        @Composable
-        fun AuthenticatorInfoCardPreview() {
-            MFADemoTheme {
-                AuthenticatorInfoCard(
-                    authenticatorName = "John Doe",
-                    serviceName = "IBM Verify"
-                )
-            }
-        }
-
-        @Preview(
-            showBackground = true,
-            name = "Dark Mode",
-            uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
-        )
-        @Composable
-        fun AuthenticatorInfoCardDarkPreview() {
-            MFADemoTheme {
-                AuthenticatorInfoCard(
-                    authenticatorName = "John Doe",
-                    serviceName = "IBM Verify"
-                )
-            }
-        }
-
-        @Preview(showBackground = true, name = "Light Mode")
-        @Composable
-        fun TransactionInfoCardPreview() {
-            MFADemoTheme {
-                TransactionInfoCard(
-                    transactionMessage = "Login to IBM Cloud",
-                    transactionFactorType = "User Presence"
-                )
-            }
-        }
-
-        @Preview(
-            showBackground = true,
-            name = "Dark Mode",
-            uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
-        )
-        @Composable
-        fun TransactionInfoCardDarkPreview() {
-            MFADemoTheme {
-                TransactionInfoCard(
-                    transactionMessage = "Login to IBM Cloud",
-                    transactionFactorType = "User Presence"
-                )
-            }
-        }
-
-        @Preview(showBackground = true, name = "Enabled")
-        @Composable
-        fun TransactionActionButtonsEnabledPreview() {
-            MFADemoTheme {
-                TransactionActionButtons(
-                    hasTransaction = true,
-                    onDeny = {},
-                    onApprove = {}
-                )
-            }
-        }
-
-        @Preview(showBackground = true, name = "Disabled")
-        @Composable
-        fun TransactionActionButtonsDisabledPreview() {
-            MFADemoTheme {
-                TransactionActionButtons(
-                    hasTransaction = false,
-                    onDeny = {},
-                    onApprove = {}
-                )
-            }
-        }
-
-        @Preview(showBackground = true)
-        @Composable
-        fun LoadingOverlayPreview() {
-            MFADemoTheme {
-                LoadingOverlay()
-            }
-        }
-
         Button(
             onClick = onApprove,
             modifier = Modifier
@@ -1006,6 +922,90 @@ fun TransactionActionButtons(
         ) {
             Text(stringResource(R.string.button_approve))
         }
+    }
+}
+
+@Preview(showBackground = true, name = "Light Mode")
+@Composable
+fun AuthenticatorInfoCardPreview() {
+    MFADemoTheme {
+        AuthenticatorInfoCard(
+            authenticatorName = "John Doe",
+            serviceName = "IBM Verify"
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    name = "Dark Mode",
+    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+fun AuthenticatorInfoCardDarkPreview() {
+    MFADemoTheme {
+        AuthenticatorInfoCard(
+            authenticatorName = "John Doe",
+            serviceName = "IBM Verify"
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Light Mode")
+@Composable
+fun TransactionInfoCardPreview() {
+    MFADemoTheme {
+        TransactionInfoCard(
+            transactionMessage = "Login to IBM Cloud",
+            transactionFactorType = "User Presence"
+        )
+    }
+}
+
+@Preview(
+    showBackground = true,
+    name = "Dark Mode",
+    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+fun TransactionInfoCardDarkPreview() {
+    MFADemoTheme {
+        TransactionInfoCard(
+            transactionMessage = "Login to IBM Cloud",
+            transactionFactorType = "User Presence"
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Enabled")
+@Composable
+fun TransactionActionButtonsEnabledPreview() {
+    MFADemoTheme {
+        TransactionActionButtons(
+            hasTransaction = true,
+            onDeny = {},
+            onApprove = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Disabled")
+@Composable
+fun TransactionActionButtonsDisabledPreview() {
+    MFADemoTheme {
+        TransactionActionButtons(
+            hasTransaction = false,
+            onDeny = {},
+            onApprove = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun LoadingOverlayPreview() {
+    MFADemoTheme {
+        LoadingOverlay()
     }
 }
 
