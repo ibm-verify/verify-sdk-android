@@ -9,6 +9,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.core.net.toUri
 
 /**
  * 'Proxy' activity to handle the attempt to get an authorization code. The activity
@@ -31,46 +32,42 @@ internal class AuthenticationActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        intent.getStringExtra("url")?.let {
-            url = it
-        }
-        builder.setShowTitle(true)
-
-        val customTabsIntent = builder.build()
-        customTabsIntent.intent.data = Uri.parse(url)
-        customTabsIntent.intent.putExtra(
-            Intent.EXTRA_REFERRER,
-            Uri.parse("android-app://" + applicationContext.packageName)
-        )
-
-        val getCode = this.activityResultRegistry.register(
-            "code",
-            ActivityResultContracts.StartActivityForResult()
-        ) { }
-        getCode.launch(customTabsIntent.intent)
+        url = intent.getStringExtra("url") ?: ""
+        hasAuthenticationStarted = false
+        code = ""
     }
 
     override fun onResume() {
         super.onResume()
 
-        if (hasAuthenticationStarted) {
-            if (code.isNotEmpty()) {
-                setResult(RESULT_OK, Intent().apply {
-                    putExtra("code", code)
-                })
-            } else {
-                setResult(RESULT_CANCELED, Intent())
-            }
-            finish()
-        } else {
+        if (!hasAuthenticationStarted) {
             hasAuthenticationStarted = true
+            launchCustomTab()
+            return
         }
+
+        if (code.isNotEmpty()) {
+            setResult(RESULT_OK, Intent().apply {
+                putExtra("code", code)
+            })
+        } else {
+            setResult(RESULT_CANCELED, Intent())
+        }
+        finish()
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    private fun launchCustomTab() {
+        val intent = builder.build().intent.apply {
+            data = url.toUri()
+            putExtra(Intent.EXTRA_REFERRER, ("android-app://${packageName}").toUri())
+        }
+        startActivity(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
 
-        intent?.data?.getQueryParameter("code")?.let {
+        intent.data?.getQueryParameter("code")?.let {
             code = it
         }
     }
