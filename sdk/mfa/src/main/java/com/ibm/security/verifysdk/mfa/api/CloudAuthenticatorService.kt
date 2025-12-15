@@ -37,8 +37,9 @@ import org.json.JSONObject
 import java.net.URL
 import java.util.Locale
 import java.util.UUID
+import kotlin.time.ExperimentalTime
 
-@OptIn(ExperimentalSerializationApi::class)
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 class CloudAuthenticatorService(
     private var _accessToken: String,
     private var _refreshUri: URL,
