@@ -3,5 +3,9 @@
 
 # OAuth Server Configuration
 host=sdk.verify.ibm.com
+
+# Standard OAuth Client ID
 clientId=your-client-id-here
+
+# OAuth Redirect URL
 redirect=https://sdk.verify.ibm.com/callback
