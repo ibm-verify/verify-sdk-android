@@ -9,7 +9,7 @@ composeBom = "2025.12.00"
 composeLintChecksVersion = "1.4.2"
 constraintlayout = "2.2.1"
 coreKtx = "1.17.0"
-dokka = "2.1.0"
+dokka = "1.9.20"
 espressoCore = "3.7.0"
 fuelAndroid = "2.3.1"
 jackson = "2.20.1"
@@ -45,7 +45,6 @@ runtimeLivedata = "1.10.0"
 slackLintChecksVersion = "0.11.1"
 slf4jSimpleVersion = "2.0.17"
 slf4jVersion = "2.0.17"
-versioningPluginVersion = "2.1.0"
 zxingAndroidEmbeddedVersion = "4.3.0"
 
 [libraries]
@@ -116,7 +115,6 @@ slack-lint-checks = { module = "com.slack.lint:slack-lint-checks", version.ref =
 #slf4j-android = { group = "org.slf4j", name = "slf4j-android", version.ref = "slf4jVersion" }
 slf4j-api= { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4jVersion" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4jSimpleVersion" }
-versioning-plugin = { group = "org.jetbrains.dokka", name = "versioning-plugin", version.ref = "versioningPluginVersion" }
 zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version.ref = "zxingAndroidEmbeddedVersion" }
 google-material = { group = "com.google.android.material", name = "material", version.ref = "materialVersion" }
 
