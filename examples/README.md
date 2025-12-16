@@ -56,10 +56,28 @@ Demonstrates configuring DPoP (Demonstrating Proof-of-Possession) flows with IBM
 
 Demonstrates FIDO2 (WebAuthn) authentication capabilities using the IBM Verify SDK.
 
-**Features:*
+**Features:**
 - FIDO2 registration
 - FIDO2 authentication
 - Passwordless authentication
 - Biometric authentication support
 
 **SDK Module:** `sdk:fido2`
+
+---
+
+### 5. AuthCodeFlow Demo (`authcodeflow_demo/`)
+
+Demonstrates OAuth 2.0 Authorization Code Flow with PKCE and OIDC using the IBM Verify SDK.
+
+**Features:**
+
+- OAuth 2.0 Authorization Code Flow
+- PKCE (Proof Key for Code Exchange) support
+- Browser-based authentication via system browser
+- Android App Links for OAuth redirect handling
+- Token exchange
+
+**Documentation:** [authcodeflow_demo/README.md](authcodeflow_demo/README.md)
+
+**SDK Module:** `sdk:authentication`

@@ -66,7 +66,8 @@ rootCoverage {
         "**/*Test*.*",
         "android/**/*.*",
         "**/*\$Lambda$*.*",  // Jacoco can't handle several "$" in class names.
-        "**/*\$inlined$*.*"  // Kotlin specific classes Jacoco can't handle.
+        "**/*\$inlined$*.*",  // Kotlin specific classes Jacoco can't handle.
+        "**/net/bytebuddy/**"  // Exclude byte-buddy from Jacoco instrumentation
     )
 
     generateHtml = true

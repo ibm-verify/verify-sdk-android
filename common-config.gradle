@@ -21,7 +21,23 @@ android {
         }
         named("debug") {
             enableUnitTestCoverage = true
-            enableAndroidTestCoverage = true
+            // Disable androidTest coverage to avoid Jacoco transformation issues with byte-buddy
+            enableAndroidTestCoverage = false
+        }
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/LICENSE.md', 'META-INF/LICENSE-notice.md']
+        }
+        jniLibs {
+            pickFirsts += ['**/*.so']
+        }
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
         }
     }
 
