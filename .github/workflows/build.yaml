@@ -67,7 +67,7 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'build.gradle.kts', 'settings.gradle.kts', 'libs.versions.toml') }}-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/buildSrc/**/*.kt') }}      
    
       - name: Build and test SDKs
-        run: ./gradlew --no-daemon assembleRelease publishToMavenLocal dokkaGeneratePublicationJavadoc test
+        run: ./gradlew --no-daemon assembleRelease publishToMavenLocal dokkaJavadoc test
 
       - name: Store build and test artifacts
         uses: actions/upload-artifact@v4.3.1
@@ -255,12 +255,12 @@ jobs:
           mkdir -p ./sdk/documentation/android/authentication/docs
           mkdir -p ./sdk/documentation/android/mfa/docs
           mkdir -p ./sdk/documentation/android/dc/docs
-          mv ./sdk/core/build/dokka/javadoc/* ./sdk/documentation/android/core/docs/ 2>/dev/null || mv ./sdk/core/build/dokka/html/* ./sdk/documentation/android/core/docs/ 2>/dev/null || true
-          mv ./sdk/fido2/build/dokka/javadoc/* ./sdk/documentation/android/fido2/docs/ 2>/dev/null || mv ./sdk/fido2/build/dokka/html/* ./sdk/documentation/android/fido2/docs/ 2>/dev/null || true
-          mv ./sdk/adaptive/build/dokka/javadoc/* ./sdk/documentation/android/adaptive/docs/ 2>/dev/null || mv ./sdk/adaptive/build/dokka/html/* ./sdk/documentation/android/adaptive/docs/ 2>/dev/null || true
-          mv ./sdk/authentication/build/dokka/javadoc/* ./sdk/documentation/android/authentication/docs/ 2>/dev/null || mv ./sdk/authentication/build/dokka/html/* ./sdk/documentation/android/authentication/docs/ 2>/dev/null || true
-          mv ./sdk/mfa/build/dokka/javadoc/* ./sdk/documentation/android/mfa/docs/ 2>/dev/null || mv ./sdk/mfa/build/dokka/html/* ./sdk/documentation/android/mfa/docs/ 2>/dev/null || true
-          mv ./sdk/dc/build/dokka/javadoc/* ./sdk/documentation/android/dc/docs/ 2>/dev/null || mv ./sdk/dc/build/dokka/html/* ./sdk/documentation/android/dc/docs/ 2>/dev/null || true
+          mv ./sdk/core/build/dokka/javadoc/* ./sdk/documentation/android/core/docs/
+          mv ./sdk/fido2/build/dokka/javadoc/* ./sdk/documentation/android/fido2/docs/
+          mv ./sdk/adaptive/build/dokka/javadoc/* ./sdk/documentation/android/adaptive/docs/
+          mv ./sdk/authentication/build/dokka/javadoc/* ./sdk/documentation/android/authentication/docs/
+          mv ./sdk/mfa/build/dokka/javadoc/* ./sdk/documentation/android/mfa/docs/
+          mv ./sdk/dc/build/dokka/javadoc/* ./sdk/documentation/android/dc/docs/
 
       - name: Zip code coverage report
         run: |
