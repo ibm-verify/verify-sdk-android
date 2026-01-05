@@ -32,6 +32,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
@@ -203,9 +204,8 @@ class OnPremiseAuthenticatorService(
             val response = httpClient.put {
                 url(pendingTransaction.postbackUri.toString())
                 accept(ContentType.Application.Json)
-                contentType(ContentType.Application.Json)
                 bearerAuth(accessToken)
-                setBody(data)
+                setBody(TextContent(data.toString(), ContentType.Application.Json))
             }
 
             if (response.status.isSuccess()) {
@@ -241,10 +241,10 @@ class OnPremiseAuthenticatorService(
 
             val response = httpClient.patch {
                 url(updateUrl)
-                contentType(ContentType.Application.Json)
                 accept(ContentType.Application.Json)
                 bearerAuth(accessToken)
-                setBody(data)
+                setBody(TextContent(data.toString(), ContentType.Application.Json))
+
             }
 
             if (response.status.isSuccess()) {

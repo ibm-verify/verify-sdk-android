@@ -42,6 +42,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.InternalSerializationApi
@@ -111,8 +112,7 @@ class CloudRegistrationProvider(data: String) :
             val response = httpClient.post {
                 url(registrationUrl.toString())
                 accept(ContentType.Application.Json)
-                contentType(ContentType.Application.Json)
-                setBody(constructRequestBody("code"))
+                setBody(TextContent(constructRequestBody("code").toString(), ContentType.Application.Json))
             }
 
             if (response.status.isSuccess()) {
@@ -259,9 +259,8 @@ class CloudRegistrationProvider(data: String) :
         val response = httpClient.post {
             url(currentFactor?.uri.toString())
             accept(ContentType.Application.Json)
-            contentType(ContentType.Application.Json)
             bearerAuth(tokenInfo.accessToken)
-            setBody(requestBody)
+            setBody(TextContent(requestBody.toString(), ContentType.Application.Json))
         }
 
         if (response.status.isSuccess()) {
@@ -329,8 +328,7 @@ class CloudRegistrationProvider(data: String) :
             val response = httpClient.post {
                 url(registrationUrl.toString())
                 accept(ContentType.Application.Json)
-                contentType(ContentType.Application.Json)
-                setBody(constructRequestBody("refreshToken"))
+                setBody(TextContent(constructRequestBody("refreshToken").toString(), ContentType.Application.Json))
             }
 
             if (response.status.isSuccess()) {
