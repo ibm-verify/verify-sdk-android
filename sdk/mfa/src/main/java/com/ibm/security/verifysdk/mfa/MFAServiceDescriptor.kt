@@ -15,6 +15,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.InternalSerializationApi
@@ -218,9 +219,8 @@ suspend fun MFAServiceDescriptor.login(
         val response = httpClient.post {
             url(loginUri.toString())
             accept(ContentType.Application.Json)
-            contentType(ContentType.Application.Json)
             bearerAuth(accessToken)
-            setBody(body)
+            setBody(TextContent(body.toString(), ContentType.Application.Json))
         }
 
         if (response.status.isSuccess()) {

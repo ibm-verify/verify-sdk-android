@@ -31,7 +31,15 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.client.request.setBody
+import io.ktor.http.content.TextContent
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
@@ -89,8 +97,7 @@ class CloudAuthenticatorService(
 
         return try {
             val attributes = refreshTokenPrepareAttributes(accountName, pushToken)
-            val data = refreshTokenPrepareRequestData(refreshToken, attributes)
-            val response = refreshTokenMakeNetworkRequest(data, httpClient)
+            val response = refreshTokenMakeNetworkRequest(refreshToken, attributes, httpClient)
 
             refreshTokenHandleResponse(response)
         } catch (e: Throwable) {
@@ -120,19 +127,38 @@ class CloudAuthenticatorService(
     /**
      * Makes a network request to refresh the token.
      *
-     * @param data The request data to be sent.
+     * @param refreshToken The refresh token to be included in the request.
+     * @param attributes The attributes to be included in the request.
      * @return The HTTP response from the server.
      */
     private suspend fun refreshTokenMakeNetworkRequest(
-        data: Map<String, Any>,
+        refreshToken: String,
+        attributes: Map<String, Any>,
         httpClient: HttpClient = NetworkHelper.getInstance
     ): HttpResponse {
+        // Build JSON manually to avoid serialization issues with Map<String, Any>
+        val jsonBody = buildJsonObject {
+            put("refreshToken", refreshToken)
+            putJsonObject("attributes") {
+                attributes.forEach { (key, value) ->
+                    when (value) {
+                        is String -> put(key, value)
+                        is Boolean -> put(key, value)
+                        is Int -> put(key, value)
+                        is Long -> put(key, value)
+                        is Double -> put(key, value)
+                        is Float -> put(key, value)
+                        else -> put(key, value.toString())
+                    }
+                }
+            }
+        }
+        
         return httpClient.post {
             url(refreshUri.toString())
-            contentType(ContentType.Application.Json)
             accept(ContentType.Application.Json)
             parameter("metadataInResponse", true)
-            setBody(data)
+            setBody(TextContent(jsonBody.toString(), ContentType.Application.Json))
         }
     }
 
@@ -157,22 +183,6 @@ class CloudAuthenticatorService(
         }
     }
 
-    /**
-     * Prepares the request data to be sent in the network request.
-     *
-     * @param refreshToken The refresh token to be included in the request.
-     * @param attributes The attributes to be included in the request.
-     * @return A map containing the refresh token and attributes.
-     */
-    private fun refreshTokenPrepareRequestData(
-        refreshToken: String,
-        attributes: Map<String, Any>
-    ): Map<String, Any> {
-        return mapOf(
-            "refreshToken" to refreshToken,
-            "attributes" to attributes
-        )
-    }
 
     /**
      * Retrieves the next pending transaction from the server.
@@ -259,20 +269,23 @@ class CloudAuthenticatorService(
             val pendingTransaction =
                 currentPendingTransaction ?: throw MFAServiceError.InvalidPendingTransaction()
 
-            val data = arrayOf(
-                mapOf(
-                    "id" to pendingTransaction.factorID.toString().lowercase(Locale.ROOT),
-                    "userAction" to userAction.value,
-                    "signedData" to (if (userAction == UserAction.VERIFY) signedData else null)
-                )
-            )
+            val jsonBody = buildJsonArray {
+                addJsonObject {
+                    put("id", pendingTransaction.factorID.toString().lowercase(Locale.ROOT))
+                    put("userAction", userAction.value)
+                    if (userAction == UserAction.VERIFY) {
+                        put("signedData", signedData)
+                    } else {
+                        put("signedData", JsonNull)
+                    }
+                }
+            }
 
             val response = httpClient.post {
                 url(pendingTransaction.postbackUri.toString())
                 accept(ContentType.Application.Json)
-                contentType(ContentType.Application.Json)
                 bearerAuth(accessToken)
-                setBody(data)
+                setBody(TextContent(jsonBody.toString(), ContentType.Application.Json))
             }
 
             if (response.status.isSuccess()) {
