@@ -13,7 +13,7 @@ import java.util.Locale
  *
  * @param rawValue The name of the algorithm.
  */
-@Serializable
+@Serializable(with = HashAlgorithmTypeSerializer::class)
 enum class HashAlgorithmType(private val rawValue: String) {
     /**
      * This hash algorithm isn’t considered cryptographically secure, but is provided for backward

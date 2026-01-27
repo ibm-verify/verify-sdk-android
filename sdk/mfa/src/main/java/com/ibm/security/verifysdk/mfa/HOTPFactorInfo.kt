@@ -26,7 +26,8 @@ data class HOTPFactorInfo(
     @Serializable(with = UUIDSerializer::class)
     override val id: UUID = UUID.randomUUID(),
     override val displayName: String = "HMAC-based one-time password (HOTP)",
-    override val secret: String,
+    override var secret: String,
+    @Serializable(with = HashAlgorithmTypeSerializer::class)
     override val algorithm: HashAlgorithmType = HashAlgorithmType.SHA1,
     override val digits: Int = 6,
     private var _counter: Int = 0

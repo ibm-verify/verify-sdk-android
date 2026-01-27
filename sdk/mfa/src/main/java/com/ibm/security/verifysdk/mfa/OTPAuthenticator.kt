@@ -19,8 +19,8 @@ data class OTPAuthenticator(
 
     init {
         require(
-            allowedFactors.filterIsInstance<HOTPFactorInfo>()
-                .isNotEmpty() || allowedFactors.filterIsInstance<TOTPFactorInfo>().isNotEmpty()
+            allowedFactors.filterIsInstance<FactorType.Hotp>()
+                .isNotEmpty() || allowedFactors.filterIsInstance<FactorType.Totp>().isNotEmpty()
         ) {
             "Only TOTP and HOTP factors are allowed."
         }
@@ -46,36 +46,38 @@ data class OTPAuthenticator(
                 }
             }
             val secret = dictionary["secret"] ?: return null
-            val algorithm = HashAlgorithmType.valueOf(dictionary["algorithm"] ?: "sha1")
-            val digits =
-                dictionary["digits"]?.toIntOrNull()?.takeIf { it == 6 || it == 8 } ?: return null
+            val algorithm = HashAlgorithmType.fromString(dictionary["algorithm"] ?: "sha1")
+            val digits = dictionary["digits"]?.toIntOrNull()?.takeIf { it == 6 || it == 8 } ?: 6
 
             val value = when (type) {
-                EnrollableType.HOTP -> dictionary["counter"]?.toIntOrNull()
+                EnrollableType.HOTP -> dictionary["counter"]?.toIntOrNull() ?: 0
                 EnrollableType.TOTP -> dictionary["period"]?.toIntOrNull()
                     ?.takeIf { it in 10..300 }
+                    ?: 30 // seconds - default period
 
                 else -> null
             } ?: return null
 
-            val allowedFactors = emptyList<FactorType>()
-
-            when (type) {
-                EnrollableType.TOTP -> allowedFactors.plus(
-                    TOTPFactorInfo(
-                        secret = secret,
-                        digits = digits,
-                        algorithm = algorithm,
-                        period = value
+            val allowedFactors = when (type) {
+                EnrollableType.TOTP -> listOf(
+                    FactorType.Totp(
+                        TOTPFactorInfo(
+                            secret = secret,
+                            digits = digits,
+                            algorithm = algorithm,
+                            period = value
+                        )
                     )
                 )
 
-                EnrollableType.HOTP -> allowedFactors.plus(
-                    HOTPFactorInfo(
-                        secret = secret,
-                        digits = digits,
-                        algorithm = algorithm,
-                        _counter = value
+                EnrollableType.HOTP -> listOf(
+                    FactorType.Hotp(
+                        HOTPFactorInfo(
+                            secret = secret,
+                            digits = digits,
+                            algorithm = algorithm,
+                            _counter = value
+                        )
                     )
                 )
 
