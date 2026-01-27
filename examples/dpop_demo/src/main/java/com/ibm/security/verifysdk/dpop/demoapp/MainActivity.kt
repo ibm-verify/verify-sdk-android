@@ -63,9 +63,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var tokenInfo: TokenInfo
 
     // Change these parameters according to your IBM Verify tenant
-    private val tenant = "verify.ice.ibmcloud.com" // without protocol
-    private val clientId = "b29c2bc2-a7ae-4cf7-b437-46d28f7a0121"
-    private val clientSecret = "ZXBpYHG4gm"
+    private val tenant = "<your-tenant>" // without protocol
+    private val clientId = "<your-client-id>"
+    private val clientSecret = "<your-client-secret>"
     private val resourceServer = "10.0.2.2" // without protocol and port
     private val resourceServerPort = "8080"
 
