@@ -6,6 +6,7 @@ package com.ibm.security.verifysdk.mfa
 
 import com.ibm.security.verifysdk.core.serializer.UUIDSerializer
 import kotlinx.serialization.Serializable
+import java.time.Instant
 import java.util.Date
 import java.util.UUID
 
@@ -27,7 +28,8 @@ data class TOTPFactorInfo(
     @Serializable(with = UUIDSerializer::class)
     override val id: UUID = UUID.randomUUID(),
     override val displayName: String = "Time-based one-time password (TOTP)",
-    override val secret: String,
+    override var secret: String,
+    @Serializable(with = HashAlgorithmTypeSerializer::class)
     override val algorithm: HashAlgorithmType = HashAlgorithmType.SHA1,
     override val digits: Int = 6,
     val period: Int = 30
@@ -48,7 +50,7 @@ data class TOTPFactorInfo(
      */
     @SuppressWarnings
     fun generatePasscode(): String {
-        return generatePasscode(Date().time / 1000L)
+        return generatePasscode(Instant.now().epochSecond)
     }
 
     @SuppressWarnings
