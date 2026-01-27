@@ -1,8 +1,6 @@
 package com.ibm.security.verifysdk.dpop.demoapp
 
 import android.os.Bundle
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,60 +27,45 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.lifecycleScope
+import com.ibm.security.verifysdk.authentication.DPoPHelper
+import com.ibm.security.verifysdk.authentication.model.TokenInfo
+import com.ibm.security.verifysdk.core.helper.ContextHelper
+import com.ibm.security.verifysdk.core.helper.NetworkHelper as CoreNetworkHelper
 import com.ibm.security.verifysdk.dpop.demoapp.ui.theme.DPoPDemoTheme
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
-import io.ktor.http.Parameters
 import io.ktor.http.contentType
 import io.ktor.http.formUrlEncode
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.jose4j.jwk.RsaJsonWebKey
-import org.jose4j.jws.JsonWebSignature
-import org.jose4j.jwt.JwtClaims
-import org.jose4j.lang.JoseException
-import java.nio.charset.StandardCharsets
-import java.security.Key
-import java.security.KeyPairGenerator
-import java.security.KeyStore
-import java.security.MessageDigest
-import java.security.NoSuchAlgorithmException
-import java.security.interfaces.RSAPublicKey
-import java.security.spec.RSAKeyGenParameterSpec
-import java.util.Base64
 
 class MainActivity : ComponentActivity() {
 
     companion object {
         const val TAG = "DPoP-Demo"
-        const val RSA_KEY_NAME = "rsa-dpop-demo-key.com.ibm.security.verifysdk.dpop"
-        const val ANDROID_KEYSTORE = "AndroidKeyStore"
+        const val DPOP_KEY_ALIAS = "rsa-dpop-demo-key.com.ibm.security.verifysdk.dpop"
     }
 
-    private lateinit var networkHelper: NetworkHelper
-    private lateinit var networkHelperCustomSSL: NetworkHelper
-    private lateinit var dpopToken: DpopToken
-    private lateinit var keyStore: KeyStore
+    private lateinit var customNetworkHelper: NetworkHelper
+    private lateinit var tokenInfo: TokenInfo
 
     // Change these parameters according to your IBM Verify tenant
     private val tenant = "verify.ice.ibmcloud.com" // without protocol
-    private val clientId = ""
-    private val clientSecret = ""
+    private val clientId = "b29c2bc2-a7ae-4cf7-b437-46d28f7a0121"
+    private val clientSecret = "ZXBpYHG4gm"
     private val resourceServer = "10.0.2.2" // without protocol and port
     private val resourceServerPort = "8080"
 
@@ -102,10 +85,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        networkHelper = NetworkHelper()
-        networkHelperCustomSSL = NetworkHelper(resourceServer)
-        keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)
-        keyStore.load(null)
+        ContextHelper.init(applicationContext)
+        
+        // Use custom NetworkHelper only for resource server with custom SSL
+        customNetworkHelper = NetworkHelper(resourceServer)
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -116,12 +99,8 @@ class MainActivity : ComponentActivity() {
         val validation: String? by tokenValidation.observeAsState()
         
         val versionName = packageManager.getPackageInfo(packageName, 0).versionName
-        val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+        val versionCode =
             packageManager.getPackageInfo(packageName, 0).longVersionCode.toInt()
-        } else {
-            @Suppress("DEPRECATION")
-            packageManager.getPackageInfo(packageName, 0).versionCode
-        }
 
         Scaffold(
             topBar = {
@@ -275,76 +254,42 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun getRsaSigningKey(): Key {
-
-        if (keyStore.containsAlias(RSA_KEY_NAME)) {
-            Log.d(TAG, "Key $RSA_KEY_NAME found in KeyStore")
-        } else {
-            val keyGenParameterSpec = KeyGenParameterSpec.Builder(
-                RSA_KEY_NAME,
-                KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
-            )
-                .setDigests(KeyProperties.DIGEST_SHA256)
-                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-                .setAlgorithmParameterSpec(RSAKeyGenParameterSpec(2048, RSAKeyGenParameterSpec.F4))
-                .build()
-
-            val keyPairGenerator =
-                KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, ANDROID_KEYSTORE)
-            keyPairGenerator.initialize(keyGenParameterSpec)
-            Log.d(TAG, "Key $RSA_KEY_NAME generated")
-            keyPairGenerator.generateKeyPair()
-        }
-
-        return keyStore.getKey(RSA_KEY_NAME, null)
-    }
-
     private fun validateToken() {
-        val headers = HashMap<String, String>()
-        headers["DPoP"] = generateDpopHeader(
-            htu = resourceEndpoint,
-            htm = "GET",
-            accessToken = dpopToken.accessToken
-        )
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    // Generate DPoP proof token using the SDK's DPoPHelper
+                    val dpopProof = DPoPHelper.generateDPoPToken(
+                        htu = resourceEndpoint,
+                        htm = "GET",
+                        accessToken = tokenInfo.accessToken,
+                        keyAlias = DPOP_KEY_ALIAS
+                    )
+                    
+                    Log.d(TAG, "DPoP proof generated for token validation")
 
-//        apiServiceCustomSSL.validateDpopToken(
-//            headers,
-//            String.format("DPoP %s", dpopToken.accessToken),
-//            resourceEndpoint
-//        )
-//            .enqueue(object : Callback<ResponseBody> {
-//                override fun onResponse(
-//                    call: Call<ResponseBody>,
-//                    response: Response<ResponseBody>
-//                ) {
-//                    Log.d(TAG, String.format("Response code: %d", response.code()))
-//                    if (response.isSuccessful) {
-//                        Log.d(TAG, "DPoP token validation successful")
-//                        tokenValidation.value =
-//                            String.format(
-//                                Locale.getDefault(),
-//                                "%d - DPoP token validation successful",
-//                                response.code()
-//                            )
-//                    } else {
-//                        Log.d(TAG, "DPoP token validation failed")
-//                        tokenValidation.value =
-//                            String.format(
-//                                Locale.getDefault(),
-//                                "%d - DPoP token validation failed",
-//                                response.code()
-//                            )
-//                    }
-//                }
-//
-//                override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
-//                    throw (t)
-//                }
-//            })
+                    // Use custom NetworkHelper for resource server with custom SSL
+                    val response = customNetworkHelper.client.get(resourceEndpoint) {
+                        header("Authorization", "DPoP ${tokenInfo.accessToken}")
+                        header("DPoP", dpopProof)
+                    }
 
+                    if (response.status.isSuccess()) {
+                        Log.d(TAG, "DPoP token validation successful")
+                        tokenValidation.postValue("${response.status.value} - DPoP token validation successful")
+                    } else {
+                        Log.d(TAG, "DPoP token validation failed: ${response.status}")
+                        tokenValidation.postValue("${response.status.value} - DPoP token validation failed")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error validating DPoP token: ${e.message}", e)
+                    tokenValidation.postValue("Error: ${e.message}")
+                }
+            }
+        }
     }
 
-    private suspend fun requestDpopToken(): Result<DpopToken> {
+    private suspend fun requestDpopToken(): Result<TokenInfo> {
 
         return try {
             val formData = mutableMapOf(
@@ -354,61 +299,36 @@ class MainActivity : ComponentActivity() {
                 "scope" to "openid"
             )
 
-            val response = networkHelper.client.post {
+            // Generate DPoP proof token using the SDK's DPoPHelper
+            val dpopProof = DPoPHelper.generateDPoPToken(
+                htu = tokenEndpoint,
+                htm = "POST",
+                accessToken = null,
+                keyAlias = DPOP_KEY_ALIAS
+            )
+            
+            Log.d(TAG, "DPoP proof generated for token request")
+
+            // Use Core SDK NetworkHelper for IBM Verify OAuth server
+            val response = CoreNetworkHelper.getInstance.post {
                 url(tokenEndpoint)
-                header(
-                    "DPoP",
-                    generateDpopHeader(htu = tokenEndpoint, htm = "POST", accessToken = null)
-                )
+                header("DPoP", dpopProof)
                 accept(ContentType.Application.Json)
                 contentType(ContentType.Application.FormUrlEncoded)
                 setBody(formData.toList().formUrlEncode())
             }
 
             if (response.status.isSuccess()) {
-                dpopToken = response.body()
-                accessToken.postValue(dpopToken.accessToken)
-                Result.success(dpopToken)
+                tokenInfo = response.body()
+                accessToken.postValue(tokenInfo.accessToken)
+                Log.d(TAG, "DPoP token received successfully")
+                Result.success(tokenInfo)
             } else {
                 throw (Exception("HTTP error: ${response.status}"))
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Error requesting DPoP token: ${e.message}", e)
             throw (e)
-        }
-    }
-
-    private fun generateDpopHeader(htu: String, htm: String, accessToken: String?): String {
-        return try {
-            val jwtClaims = JwtClaims()
-            jwtClaims.setGeneratedJwtId()
-            jwtClaims.setIssuedAtToNow()
-            jwtClaims.setClaim("htm", htm)
-            jwtClaims.setClaim("htu", htu)
-            if (accessToken != null) {
-                val bytes = accessToken.toByteArray(StandardCharsets.UTF_8)
-                val messageDigest = MessageDigest.getInstance("SHA-256")
-                messageDigest.update(bytes, 0, bytes.size)
-                val digest = messageDigest.digest()
-                val base64encodedFromDigest =
-                    Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
-                Log.d(TAG, "Token: $accessToken")
-                Log.d(TAG, "Base64 encoded (digest): $base64encodedFromDigest")
-                jwtClaims.setClaim("ath", base64encodedFromDigest)
-            }
-            val jws = JsonWebSignature()
-            jws.payload = jwtClaims.toJson()
-            jws.key = getRsaSigningKey()
-            jws.algorithmHeaderValue = "RS256"
-            jws.jwkHeader =
-                RsaJsonWebKey(keyStore.getCertificate(RSA_KEY_NAME).publicKey as RSAPublicKey)
-            jws.setHeader("typ", "dpop+jwt")
-            val jwt: String = jws.compactSerialization
-            Log.d(TAG, "JWT: $jwt")
-            jwt
-        } catch (e: JoseException) {
-            throw RuntimeException(e)
-        } catch (e: NoSuchAlgorithmException) {
-            throw RuntimeException(e)
         }
     }
 }

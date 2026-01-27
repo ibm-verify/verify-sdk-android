@@ -29,13 +29,13 @@ android {
 dependencies {
 
     implementation(project(":sdk:core"))
+    implementation(project(":sdk:authentication"))
 
     implementation(libs.androidx.material3)
     implementation(libs.androidx.runtime.livedata)
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.jose4j)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.auth)
     implementation(libs.ktor.client.content.negotiation)
