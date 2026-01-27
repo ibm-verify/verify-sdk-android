@@ -2,6 +2,8 @@
  * Copyright contributors to the IBM Verify SDK for Android project
  */
 
+@file:OptIn(ExperimentalTime::class)
+
 package com.ibm.security.verifysdk.authentication
 
 import android.os.Bundle
@@ -11,7 +13,6 @@ import androidx.test.filters.SmallTest
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.authentication.model.shouldRefresh
 import com.ibm.security.verifysdk.core.serializer.DefaultJson
-import kotlinx.datetime.Clock
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -20,6 +21,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Instant
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalSerializationApi::class)
 @RunWith(AndroidJUnit4::class)
@@ -88,7 +91,7 @@ internal class TokenInfoTestCloud {
     fun constructor_withSerializer_happyPath_shouldReturnObject() {
 
         val oAuthToken = Json.decodeFromString<TokenInfo>(cloudTokenDefault)
-        assertTrue((System.currentTimeMillis() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
+        assertTrue((Instant.now().toEpochMilli() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
 
         val additionalData = oAuthToken.additionalData
         assertTrue(additionalData.size == 1)  // grant_id
@@ -98,7 +101,7 @@ internal class TokenInfoTestCloud {
     fun constructor_withSerializer_IdTokenhappyPath_shouldReturnObject() {
 
         val oAuthToken = Json.decodeFromString<TokenInfo>(cloudTokenWithIdToken)
-        assertTrue((System.currentTimeMillis() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
+        assertTrue((Instant.now().toEpochMilli() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
 
         val additionalData = oAuthToken.additionalData
         assertEquals("ey...", oAuthToken.idToken)
@@ -259,7 +262,7 @@ internal class TokenInfoTestCloud {
     fun constructor_noAccessTokenValue_shouldUseDefault() {
         val oAuthToken = Json.decodeFromString<TokenInfo>(cloudTokenNoAccessToken)
         assertEquals("", oAuthToken.accessToken)
-        assertTrue((System.currentTimeMillis() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
+        assertTrue((Instant.now().toEpochMilli() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
     }
 
     private val cloudTokenDefault = """

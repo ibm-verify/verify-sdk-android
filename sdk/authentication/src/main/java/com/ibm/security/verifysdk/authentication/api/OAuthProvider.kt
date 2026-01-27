@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import com.ibm.security.verifysdk.authentication.AuthenticationActivity
 import com.ibm.security.verifysdk.authentication.CodeChallengeMethod
+import com.ibm.security.verifysdk.authentication.DPoPHelper
 import com.ibm.security.verifysdk.authentication.model.OIDCMetadataInfo
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.core.AuthenticationException
@@ -79,6 +80,27 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
             }
             NetworkHelper.initialize()
         }
+
+    /**
+     * If set to `true`, DPoP (Demonstrating Proof-of-Possession) headers will be included
+     * in token requests and token refresh requests.
+     *
+     * When enabled, a DPoP proof token will be automatically generated and included in the
+     * "DPoP" header for OAuth 2.0 token endpoint requests.
+     *
+     * @version 3.1.0
+     */
+    var useDPoP: Boolean = false
+
+    /**
+     * The key alias to use for DPoP key storage in the Android KeyStore.
+     *
+     * Defaults to [DPoPHelper.DEFAULT_KEY_ALIAS]. Set this to a custom value if you want
+     * to use a different key for DPoP operations.
+     *
+     * @version 3.1.0
+     */
+    var dpopKeyAlias: String = DPoPHelper.DEFAULT_KEY_ALIAS
 
     var additionalHeaders: MutableMap<String, String> = mutableMapOf()
     var additionalParameters: MutableMap<String, String> = mutableMapOf()
@@ -270,11 +292,22 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
                 formData["scope"] = it.joinToString(separator = " ")
             }
 
+            val headers = additionalHeaders.toMutableMap()
+            if (useDPoP) {
+                val dpopToken = DPoPHelper.generateDPoPToken(
+                    htu = url.toString(),
+                    htm = "POST",
+                    accessToken = null,
+                    keyAlias = dpopKeyAlias
+                )
+                headers["DPoP"] = dpopToken
+            }
+
             performRequest<TokenInfo>(
                 httpClient = httpClient,
                 method = HttpMethod.Post,
                 url = url,
-                headers = additionalHeaders,
+                headers = headers,
                 contentType = ContentType.Application.FormUrlEncoded,
                 body = (formData.toList() + additionalParameters.toList()).formUrlEncode()
             )
@@ -323,11 +356,22 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
                 formData["scope"] = it.joinToString(separator = " ")
             }
 
+            val headers = additionalHeaders.toMutableMap()
+            if (useDPoP) {
+                val dpopToken = DPoPHelper.generateDPoPToken(
+                    htu = url.toString(),
+                    htm = "POST",
+                    accessToken = null,
+                    keyAlias = dpopKeyAlias
+                )
+                headers["DPoP"] = dpopToken
+            }
+
             performRequest<TokenInfo>(
                 httpClient = httpClient,
                 method = HttpMethod.Post,
                 url = url,
-                headers = additionalHeaders,
+                headers = headers,
                 contentType = ContentType.Application.FormUrlEncoded,
                 body = (formData.toList() + additionalParameters.toList()).formUrlEncode()
             )
@@ -375,11 +419,22 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
                 formData["scope"] = it.joinToString(separator = " ")
             }
 
+            val headers = additionalHeaders.toMutableMap()
+            if (useDPoP) {
+                val dpopToken = DPoPHelper.generateDPoPToken(
+                    htu = url.toString(),
+                    htm = "POST",
+                    accessToken = null,
+                    keyAlias = dpopKeyAlias
+                )
+                headers["DPoP"] = dpopToken
+            }
+
             performRequest<TokenInfo>(
                 httpClient = httpClient,
                 method = HttpMethod.Post,
                 url = url,
-                headers = additionalHeaders,
+                headers = headers,
                 contentType = ContentType.Application.FormUrlEncoded,
                 body = (formData.toList() + additionalParameters.toList()).formUrlEncode()
             )
