@@ -18,6 +18,7 @@ dependencies {
     implementation(libs.androidx.browser)
     implementation(libs.androidx.core.ktx)
     implementation(libs.google.material)
+    implementation(libs.jose4j)
     implementation(libs.kotlinx.datetime)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.logging.interceptor)

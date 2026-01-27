@@ -1,3 +1,6 @@
+/*
+ * Copyright contributors to the IBM Verify SDK for Android project
+ */
 package com.ibm.security.verifysdk.authentication
 
 import org.junit.Assert.assertEquals

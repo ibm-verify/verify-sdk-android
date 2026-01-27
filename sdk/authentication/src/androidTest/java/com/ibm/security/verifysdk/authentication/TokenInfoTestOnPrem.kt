@@ -2,6 +2,8 @@
  * Copyright contributors to the IBM Verify SDK for Android project
  */
 
+@file:OptIn(ExperimentalTime::class)
+
 package com.ibm.security.verifysdk.authentication
 
 import android.os.Bundle
@@ -18,6 +20,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Instant
+import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalSerializationApi::class)
 @RunWith(AndroidJUnit4::class)
@@ -28,7 +32,7 @@ internal class TokenInfoTestOnPrem {
     fun constructor_happyPath_shouldReturnObject() {
 
         val oAuthToken = Json.decodeFromString<TokenInfo>(onpremTokenDefaultWithAdditionalData)
-        assertTrue((System.currentTimeMillis() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
+        assertTrue((Instant.now().toEpochMilli() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
 
         val additionalData = oAuthToken.additionalData
         assertEquals(true, additionalData["ISV_push_enabled"])
