@@ -165,7 +165,7 @@ internal class OAuthProviderTest {
         val result =
             oAuthProvider.authorize(
                 url = URL("http://localhost/oauth2/token"),
-                redirectUrl = URL("https://callback"),
+                redirectUrl = "https://callback",
                 authorizationCode = "authorizationCode",
                 codeVerifier = "codeVerifier",
                 scope = arrayOf("name", "age")
@@ -189,7 +189,7 @@ internal class OAuthProviderTest {
         val result =
             oAuthProvider.authorize(
                 url = URL("http://localhost/oauth2/token"),
-                redirectUrl = URL("https://callback"),
+                redirectUrl = "https://callback",
                 authorizationCode = "authorizationCode",
                 codeVerifier = null,
                 scope = arrayOf("name", "age")
@@ -214,7 +214,7 @@ internal class OAuthProviderTest {
         val result =
             oAuthProviderSecretNull.authorize(
                 url = URL("http://localhost:4444/oauth2/token"),
-                redirectUrl = URL("https://callback"),
+                redirectUrl = "https://callback",
                 authorizationCode = "authorizationCode",
                 codeVerifier = "codeVerifier",
                 scope = arrayOf("name", "age")
@@ -244,7 +244,7 @@ internal class OAuthProviderTest {
         val result =
             oAuthProvider.authorize(
                 url = URL("http://localhost:4444/oauth2/token"),
-                redirectUrl = URL("https://callback"),
+                redirectUrl = "https://callback",
                 authorizationCode = "authorizationCode",
                 codeVerifier = "codeVerifier",
                 scope = arrayOf("name", "age")
@@ -267,7 +267,7 @@ internal class OAuthProviderTest {
         val result =
             oAuthProvider.authorize(
                 url = URL("http://localhost:4444/oauth2/token"),
-                redirectUrl = URL("https://callback"),
+                redirectUrl = "https://callback",
                 authorizationCode = "authorizationCode",
                 codeVerifier = "codeVerifier",
                 scope = arrayOf("name", "age")

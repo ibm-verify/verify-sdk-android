@@ -253,9 +253,9 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
      *
      * @param   httpClient  The [HttpClient] used to make the network request.
      * @param   url  The `URL` for the OpenID Connect service provider issuer.
-     * @param   redirectUrl  The redirect `URL` that is registered with the OpenID Connect service
+     * @param   redirectUrl  The redirect URL that is registered with the OpenID Connect service
      *                      provider. This parameter is required when the code was obtained through
-     *                      `authorizeWithBrowser`.
+     *                      `authorizeWithBrowser`. Can be null if not required by the authorization server.
      * @param   authorizationCode  The authorization code received from the authorization server.
      * @param   codeVerifier  The PKCE code verifier used to redeem the authorization code.
      * @param   scope  The scope of the access request.
@@ -265,7 +265,7 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
     suspend fun authorize(
         httpClient: HttpClient = NetworkHelper.getInstance,
         url: URL,
-        redirectUrl: URL? = null,
+        redirectUrl: String? = null,
         authorizationCode: String,
         codeVerifier: String? = null,
         scope: Array<String>? = null
@@ -277,7 +277,7 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
                 "code" to authorizationCode,
                 "code_verifier" to (codeVerifier ?: ""),
                 "grant_type" to "authorization_code",
-                "redirect_uri" to (redirectUrl?.toString() ?: "")
+                "redirect_uri" to (redirectUrl ?: "")
             )
 
             clientSecret?.let {
