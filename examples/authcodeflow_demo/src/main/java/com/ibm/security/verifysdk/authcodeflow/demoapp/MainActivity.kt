@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity() {
                     oAuthProvider.authorize(
                         httpClient = NetworkHelper.getInstance,
                         url = URL(tokenEndpoint),
-                        redirectUrl = URL(redirect),
+                        redirectUrl = redirect,
                         code,
                         codeVerifier
                     )
