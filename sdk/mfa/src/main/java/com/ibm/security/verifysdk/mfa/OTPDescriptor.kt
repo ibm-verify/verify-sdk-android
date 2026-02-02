@@ -5,11 +5,11 @@
 package com.ibm.security.verifysdk.mfa
 
 import com.ibm.security.verifysdk.core.extension.decodeBase32
-import java.time.Instant
-import java.util.Date
 import java.util.Locale
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 interface OTPDescriptor {
     var secret: String
@@ -17,8 +17,9 @@ interface OTPDescriptor {
     val algorithm: HashAlgorithmType
 
     companion object {
+        @OptIn(ExperimentalTime::class)
         fun remainingTime(interval: Double = 30.0): Int {
-            val currentTimeRemaining = (Instant.now().epochSecond % interval).toInt()
+            val currentTimeRemaining = (Clock.System.now().epochSeconds % interval).toInt()
             return interval.toInt() - currentTimeRemaining
         }
     }

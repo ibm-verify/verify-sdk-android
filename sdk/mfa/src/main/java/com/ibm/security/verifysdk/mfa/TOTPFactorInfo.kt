@@ -6,9 +6,10 @@ package com.ibm.security.verifysdk.mfa
 
 import com.ibm.security.verifysdk.core.serializer.UUIDSerializer
 import kotlinx.serialization.Serializable
-import java.time.Instant
-import java.util.Date
 import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
  * Represents information about a Time-based One-Time Password (TOTP) factor.
@@ -48,9 +49,10 @@ data class TOTPFactorInfo(
      *
      * @return The generated TOTP passcode.
      */
+    @OptIn(ExperimentalTime::class)
     @SuppressWarnings
     fun generatePasscode(): String {
-        return generatePasscode(Instant.now().epochSecond)
+        return generatePasscode(Clock.System.now().epochSeconds)
     }
 
     @SuppressWarnings
