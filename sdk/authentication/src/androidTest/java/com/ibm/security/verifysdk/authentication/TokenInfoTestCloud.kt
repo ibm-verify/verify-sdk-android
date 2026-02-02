@@ -20,7 +20,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.time.Instant
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -91,7 +90,7 @@ internal class TokenInfoTestCloud {
     fun constructor_withSerializer_happyPath_shouldReturnObject() {
 
         val oAuthToken = Json.decodeFromString<TokenInfo>(cloudTokenDefault)
-        assertTrue((Instant.now().toEpochMilli() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
+        assertTrue((Clock.System.now().toEpochMilliseconds() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
 
         val additionalData = oAuthToken.additionalData
         assertTrue(additionalData.size == 1)  // grant_id
@@ -101,7 +100,7 @@ internal class TokenInfoTestCloud {
     fun constructor_withSerializer_IdTokenhappyPath_shouldReturnObject() {
 
         val oAuthToken = Json.decodeFromString<TokenInfo>(cloudTokenWithIdToken)
-        assertTrue((Instant.now().toEpochMilli() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
+        assertTrue((Clock.System.now().toEpochMilliseconds() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
 
         val additionalData = oAuthToken.additionalData
         assertEquals("ey...", oAuthToken.idToken)
@@ -153,7 +152,7 @@ internal class TokenInfoTestCloud {
 
         val tokenInfo = DefaultJson.decodeFromString<TokenInfo>(cloudTokenDefault)
         val tokenInfoJson = tokenInfo.toJson(false)
-        val currentTime = Instant.now().epochSecond
+        val currentTime = Clock.System.now().epochSeconds
 
         assertTrue(
             tokenInfoJson.get("createdOn").toString().startsWith(currentTime.toString().take(5))
@@ -170,7 +169,7 @@ internal class TokenInfoTestCloud {
 
         val tokenInfo = DefaultJson.decodeFromString<TokenInfo>(cloudTokenDefault)
         val tokenInfoJson = tokenInfo.toJson()
-        val currentTime = Instant.now().epochSecond
+        val currentTime = Clock.System.now().epochSeconds
 
         assertTrue(
             tokenInfoJson.get("createdOn").toString().startsWith(currentTime.toString().take(5))
@@ -187,7 +186,7 @@ internal class TokenInfoTestCloud {
 
         val tokenInfo = DefaultJson.decodeFromString<TokenInfo>(cloudTokenWithIdToken)
         val tokenInfoJson = tokenInfo.toJson()
-        val currentTime = Instant.now().epochSecond
+        val currentTime = Clock.System.now().epochSeconds
 
         assertTrue(
             tokenInfoJson.get("createdOn").toString().startsWith(currentTime.toString().take(5))
@@ -262,7 +261,7 @@ internal class TokenInfoTestCloud {
     fun constructor_noAccessTokenValue_shouldUseDefault() {
         val oAuthToken = Json.decodeFromString<TokenInfo>(cloudTokenNoAccessToken)
         assertEquals("", oAuthToken.accessToken)
-        assertTrue((Instant.now().toEpochMilli() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
+        assertTrue((Clock.System.now().toEpochMilliseconds() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
     }
 
     private val cloudTokenDefault = """

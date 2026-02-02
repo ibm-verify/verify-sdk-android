@@ -6,6 +6,7 @@ package com.ibm.security.verifysdk.core.extension
 
 import org.slf4j.Logger
 import org.slf4j.event.Level
+import java.util.Locale
 
 private const val unsupportedLevelMessage =
     "Log level {} is not supported. See https://developer.android.com/reference/android/util/Log#summary"
@@ -80,7 +81,7 @@ fun Logger.exiting(level: Level = Level.INFO) {
 fun Logger.threadInfo(level: Level = Level.INFO) {
 
     val message =
-        String.format("threadName=${Thread.currentThread().name}; threadId=${Thread.currentThread().id};")
+        String.format(Locale.getDefault(),"threadName=${Thread.currentThread().name}; threadId=${Thread.currentThread().id};")
 
     when (level) {
         Level.TRACE -> trace(message)
