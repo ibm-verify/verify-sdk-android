@@ -94,3 +94,4 @@ sdk/.idea/migrations.xml
 
 # Demo app configuration files (contain sensitive data)
 **/config.properties
+examples/mfa_demo/google-services.json
