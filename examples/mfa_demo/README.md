@@ -12,6 +12,7 @@ This demo app demonstrates how to integrate IBM Verify SDK's MFA functionality i
 - Transaction verification and approval
 - Biometric authentication (UserPresence/Fingerprint)
 - Multiple authenticator types (Cloud and On-Premise)
+- Firebase Cloud Messaging (FCM) for push notifications
 - Modern Material Design 3 UI with Jetpack Compose
 
 ## Features
@@ -21,7 +22,15 @@ This demo app demonstrates how to integrate IBM Verify SDK's MFA functionality i
 - **Transaction Management**: Check for pending transactions and approve/deny them
 - **Biometric Authentication**: Support for Face ID and Fingerprint authentication
 - **Authenticator Management**: Delete registered authenticators
+- **Push Notifications**: Receive Firebase Cloud Messaging notifications for MFA transactions
 - **Persistent Storage**: Authenticator data is saved locally using SharedPreferences
+
+## Prerequisites
+
+### Firebase Cloud Messaging Setup
+
+If you want to receive push notifications in the app, you need to setup Firebase Cloud Messaging as described [here](./PUSH_NOTIFICATION_SETUP.md)
+
 
 ## Building the Project
 
@@ -111,9 +120,62 @@ examples/mfa_demo/build/outputs/apk/debug/mfa_demo-debug.apk
 2. Confirm deletion in the dialog
 3. The authenticator will be removed from local storage
 
+## Push Notifications
+
+The app can be configured to receive Firebase Cloud Messaging (FCM) push notifications for MFA transactions.
+
+### How It Works
+
+1. **Token Registration**: When the app starts, it automatically retrieves an FCM token and saves it locally
+2. **Receiving Notifications**: The `MFAFirebaseMessagingService` handles incoming push notifications
+3. **Notification Display**: Push notifications are displayed in the system notification tray
+4. **Transaction Alerts**: Notifications can alert users to pending MFA transactions
+
+### Testing Push Notifications
+
+You can test push notifications using the Firebase Console:
+
+1. Go to the [Firebase Console](https://console.firebase.google.com/)
+2. Select your project
+3. Navigate to **Cloud Messaging** in the left sidebar
+4. Click **"Send your first message"**
+5. Enter a notification title and text
+6. Click **"Send test message"**
+7. Enter your FCM token (check the app logs for the token)
+8. Click **"Test"**
+
+### FCM Token
+
+The FCM token is logged when the app starts and can be found in the Android Studio Logcat:
+
+```
+FCM Token: <your-token-here>
+```
+
+This token is sent to the backend server during an token refresh flow to enable push notifications.
+
+
+## Troubleshooting
+
+### Firebase Issues
+
+- **Missing google-services.json**: Ensure the file is in the correct location (`examples/mfa_demo/`)
+- **Build errors**: Sync Gradle files after adding the google-services.json file
+- **No notifications**: Check that the app has notification permissions enabled in device settings
+- **Token not generated**: Verify Firebase is properly configured in the Firebase Console
+
+### Notification Permissions
+
+On Android 13 (API level 33) and above, you need to grant notification permissions:
+
+1. When prompted, tap **"Allow"** to enable notifications
+2. Or go to **Settings > Apps > MFA Demo > Notifications** and enable them manually
+
 ## Additional Resources
 
 - [IBM Verify SDK Documentation](https://github.com/ibm-verify/verify-sdk-android)
+- [Firebase Cloud Messaging Documentation](https://firebase.google.com/docs/cloud-messaging)
 - [Jetpack Compose Documentation](https://developer.android.com/jetpack/compose)
 - [Material Design 3](https://m3.material.io/)
 - [Android Biometric Authentication](https://developer.android.com/training/sign-in/biometric-auth)
+- [Android Notification Permissions](https://developer.android.com/develop/ui/views/notifications/notification-permission)

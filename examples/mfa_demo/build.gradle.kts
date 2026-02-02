@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
+    id("com.google.gms.google-services")
 }
 
 apply(from = "$rootDir/common-config-demos.gradle")
@@ -30,6 +31,11 @@ dependencies {
     implementation(libs.zxing.android.embedded)
     implementation(libs.androidx.biometric)
     
+    // Firebase Cloud Messaging
+    implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-messaging")
+
     // Compose dependencies
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
