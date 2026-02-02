@@ -12,11 +12,12 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.jetbrains.compose) apply false
     alias(libs.plugins.compose.compiler) apply false
+    id("com.google.gms.google-services") version "4.4.4" apply false
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.0.13"
-extra["versionCode"] = "114"
+extra["versionName"] = "3.0.14"
+extra["versionCode"] = "115"
 
 dependencies {
     add("implementation", enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.15.3"))
