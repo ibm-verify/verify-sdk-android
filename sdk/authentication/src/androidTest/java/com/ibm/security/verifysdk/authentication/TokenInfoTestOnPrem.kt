@@ -20,7 +20,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.time.Instant
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -32,7 +32,7 @@ internal class TokenInfoTestOnPrem {
     fun constructor_happyPath_shouldReturnObject() {
 
         val oAuthToken = Json.decodeFromString<TokenInfo>(onpremTokenDefaultWithAdditionalData)
-        assertTrue((Instant.now().toEpochMilli() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
+        assertTrue((Clock.System.now().toEpochMilliseconds() - oAuthToken.createdOn.toEpochMilliseconds()) < 1000) // token was created within the last second
 
         val additionalData = oAuthToken.additionalData
         assertEquals(true, additionalData["ISV_push_enabled"])

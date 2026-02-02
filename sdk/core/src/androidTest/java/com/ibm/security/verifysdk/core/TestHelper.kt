@@ -9,6 +9,7 @@ import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
 import java.lang.reflect.Field
+import java.util.Locale
 
 class TestHelper {
 
@@ -22,7 +23,12 @@ class TestHelper {
 
             // Process ID to filter the messages
             val currentProcessId = android.os.Process.myPid().toString()
-            val startMessage = String.format("%s%s", Constants.TEST_HELPER_START_MESSAGE, testName)
+            val startMessage = String.format(
+                Locale.getDefault(),
+                "%s%s",
+                Constants.TEST_HELPER_START_MESSAGE,
+                testName
+            )
             val command = arrayOf("logcat", "-d", "-v", "threadtime")
             var isRecording = false
 

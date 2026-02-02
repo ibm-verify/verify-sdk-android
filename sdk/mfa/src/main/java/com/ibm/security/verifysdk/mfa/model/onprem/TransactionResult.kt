@@ -4,14 +4,15 @@
 
 package com.ibm.security.verifysdk.mfa.model.onprem
 
-import com.ibm.security.verifysdk.core.serializer.DateSerializer
+import com.ibm.security.verifysdk.core.serializer.InstantIsoSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonTransformingSerializer
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
-import java.util.Date
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @Serializable
 internal data class TransactionResult(
@@ -29,10 +30,11 @@ internal data class TransactionResult(
         val transactionId: String
     )
 
+    @OptIn(ExperimentalTime::class)
     @Serializable
     data class TransactionInfo(
-        @Serializable(with = DateSerializer::class)
-        val creationTime: Date,
+        @Serializable(with = InstantIsoSerializer::class)
+        val creationTime: Instant,
         val requestUrl: String,
         val transactionId: String,
         @SerialName("authnPolicyURI")

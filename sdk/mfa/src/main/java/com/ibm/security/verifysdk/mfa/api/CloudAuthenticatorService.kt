@@ -43,6 +43,8 @@ import kotlinx.serialization.json.putJsonObject
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.Locale
 import java.util.UUID
 import kotlin.time.ExperimentalTime
@@ -73,9 +75,18 @@ class CloudAuthenticatorService(
     override val authenticatorId: String
         get() = _authenticatorId
 
-    internal enum class TransactionFilter(val value: String) {
-        NEXT_PENDING("?filter=id,creationTime,transactionData,authenticationMethods&search=state=%22PENDING%22&sort=-creationTime"),
-        PENDING_BY_IDENTIFIER("?filter=id,creationTime,transactionData,authenticationMethods&search=state=\\u{22}PENDING\\u{22}&id=\\u{22}%@\\u{22}")
+    internal enum class TransactionFilter {
+        NEXT_PENDING,
+        PENDING_BY_IDENTIFIER;
+
+        fun build(transactionId: String? = null): String =
+            when (this) {
+                NEXT_PENDING ->
+                    """?filter=id,creationTime,transactionData,authenticationMethods,correlationEnabled,correlationValue,&search=state="PENDING"&sort=-creationTime"""
+
+                PENDING_BY_IDENTIFIER ->
+                    """?filter=id,creationTime,transactionData,authenticationMethods,correlationEnabled,correlationValue,&search=state="PENDING"&id="$transactionId""""
+            }
     }
 
     /**
@@ -212,9 +223,10 @@ class CloudAuthenticatorService(
      */
     private fun nextTransactionBuildTransactionUri(transactionID: String?): URL {
         return if (transactionID != null) {
-            URL("${transactionUri}${TransactionFilter.PENDING_BY_IDENTIFIER.value}/${transactionID}")
+            val encodedId = URLEncoder.encode(transactionID, StandardCharsets.UTF_8.name())
+            URL("$transactionUri${TransactionFilter.PENDING_BY_IDENTIFIER.build(encodedId)}")
         } else {
-            URL("${transactionUri}${TransactionFilter.NEXT_PENDING.value}")
+            URL("$transactionUri${TransactionFilter.NEXT_PENDING.build()}")
         }
     }
 

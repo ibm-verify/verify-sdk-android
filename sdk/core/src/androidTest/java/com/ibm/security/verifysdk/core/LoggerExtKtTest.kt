@@ -4,6 +4,7 @@
 
 package com.ibm.security.verifysdk.core
 
+import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
 import com.ibm.security.verifysdk.core.extension.entering
@@ -15,6 +16,7 @@ import org.junit.runner.RunWith
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.event.Level
+import java.util.Locale
 
 
 /**
@@ -51,8 +53,9 @@ internal class LoggerExtKtTest {
         assert(
             logcatMessage.contains(
                 String.format(
-                    "I %s: %s",
-                    javaClass.simpleName,
+                    Locale.getDefault(),
+                    "INFO %s - %s",
+                    javaClass.canonicalName,
                     Constants.LOGGER_TEST_SIMPLE_TEST_MESSAGE
                 )
             )
@@ -74,11 +77,13 @@ internal class LoggerExtKtTest {
         val logcatMessage =
             TestHelper.getLogsAfterTestStart("log_validMessageWithVarArgs_shouldWriteToLogcat")
                 .toString()
+
         assert(
             logcatMessage.contains(
                 String.format(
-                    "I %s: %s %s %s %s",
-                    javaClass.simpleName,
+                    Locale.getDefault(),
+                    "INFO %s - %s %s %s %s",
+                    javaClass.canonicalName,
                     Constants.LOGGER_TEST_SIMPLE_TEST_MESSAGE,
                     Constants.LOGGER_TEST_A1, Constants.LOGGER_TEST_B2, Constants.LOGGER_TEST_C3
                 )
@@ -102,8 +107,9 @@ internal class LoggerExtKtTest {
         assert(
             logcatMessage.contains(
                 String.format(
-                    "W %s: %s",
-                    javaClass.simpleName,
+                    Locale.getDefault(),
+                    "WARN %s - %s",
+                    javaClass.canonicalName,
                     Constants.LOGGER_TEST_SIMPLE_TEST_MESSAGE
                 )
             )
@@ -122,7 +128,15 @@ internal class LoggerExtKtTest {
         val logcatMessage =
             TestHelper.getLogsAfterTestStart("logThreadInfo_default_shouldWriteToLogcat")
                 .toString()
-        assert(logcatMessage.contains(String.format("I %s:", javaClass.simpleName)))
+        assert(
+            logcatMessage.contains(
+                String.format(
+                    Locale.getDefault(),
+                    "INFO %s -",
+                    javaClass.canonicalName
+                )
+            )
+        )
         assert(logcatMessage.contains(Regex("threadName=[^;]*; threadId=[^0-9]*[0-9]+;")))
     }
 
@@ -138,7 +152,15 @@ internal class LoggerExtKtTest {
         val logcatMessage =
             TestHelper.getLogsAfterTestStart("logThreadInfo_info_shouldWriteToLogcat")
                 .toString()
-        assert(logcatMessage.contains(String.format("I %s:", javaClass.simpleName)))
+        assert(
+            logcatMessage.contains(
+                String.format(
+                    Locale.getDefault(),
+                    "INFO %s -",
+                    javaClass.canonicalName
+                )
+            )
+        )
         assert(logcatMessage.contains(Regex("threadName=[^;]*; threadId=[^0-9]*[0-9]+;")))
     }
 
@@ -154,7 +176,15 @@ internal class LoggerExtKtTest {
         val logcatMessage =
             TestHelper.getLogsAfterTestStart("logThreadInfo_warn_shouldWriteToLogcat")
                 .toString()
-        assert(logcatMessage.contains(String.format("W %s:", javaClass.simpleName)))
+        assert(
+            logcatMessage.contains(
+                String.format(
+                    Locale.getDefault(),
+                    "WARN %s -",
+                    javaClass.canonicalName
+                )
+            )
+        )
         assert(logcatMessage.contains(Regex("threadName=[^;]*; threadId=[^0-9]*[0-9]+;")))
     }
 
@@ -171,7 +201,15 @@ internal class LoggerExtKtTest {
         val logcatMessage =
             TestHelper.getLogsAfterTestStart("logThreadInfo_error_shouldWriteToLogcat")
                 .toString()
-        assert(logcatMessage.contains(String.format("E %s", javaClass.simpleName)))
+        assert(
+            logcatMessage.contains(
+                String.format(
+                    Locale.getDefault(),
+                    "ERROR %s",
+                    javaClass.canonicalName
+                )
+            )
+        )
         assert(logcatMessage.contains(Regex("threadName=[^;]*; threadId=[^0-9]*[0-9]+;")))
     }
 
@@ -324,13 +362,23 @@ internal class LoggerExtKtTest {
         assert(
             logcatMessage.contains(
                 String.format(
+                    Locale.getDefault(),
                     "%s=%s",
                     Constants.LOGGER_CLASS,
                     javaClass.name
                 )
             )
         )
-        assert(logcatMessage.contains(String.format("%s=%s", Constants.LOGGER_METHOD, methodName)))
+        assert(
+            logcatMessage.contains(
+                String.format(
+                    Locale.getDefault(),
+                    "%s=%s",
+                    Constants.LOGGER_METHOD,
+                    methodName
+                )
+            )
+        )
         assert(logcatMessage.contains(entryOrExit))
     }
 }

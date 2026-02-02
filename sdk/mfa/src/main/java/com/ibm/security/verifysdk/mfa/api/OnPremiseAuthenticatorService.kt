@@ -330,7 +330,7 @@ class OnPremiseAuthenticatorService(
                         factorID = UUID(0, 0), // not used for OnPrem
                         factorType = verificationInfo.type,
                         dataToSign = dataToSign,
-                        timeStamp = Instant.fromEpochMilliseconds(transactionInfoResult.creationTime.time),
+                        timeStamp = transactionInfoResult.creationTime,
                         additionalData = createAdditionalData(attributeInfo)
                     )
                 )
