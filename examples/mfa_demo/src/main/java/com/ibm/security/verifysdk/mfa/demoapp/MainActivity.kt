@@ -55,8 +55,10 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.zxing.integration.android.IntentIntegrator
 import com.google.zxing.integration.android.IntentResult
+import com.ibm.security.verifysdk.core.ErrorMessage
 import com.ibm.security.verifysdk.core.extension.threadInfo
 import com.ibm.security.verifysdk.core.helper.ContextHelper
+import com.google.firebase.messaging.FirebaseMessaging
 import com.ibm.security.verifysdk.mfa.EnrollableType
 import com.ibm.security.verifysdk.mfa.FactorType
 import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
@@ -78,6 +80,7 @@ import com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseAuthenticator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
@@ -103,7 +106,7 @@ data class MFADemoUiState(
     val showDeleteConfirmation: Boolean = false
 )
 
-@OptIn(InternalSerializationApi::class)
+@OptIn(InternalSerializationApi::class, ExperimentalSerializationApi::class)
 class MainActivity : FragmentActivity() {
 
     private val log: Logger = LoggerFactory.getLogger(javaClass.name)
@@ -146,6 +149,7 @@ class MainActivity : FragmentActivity() {
 
         ContextHelper.init(applicationContext)
 
+        initializeFirebaseMessaging()
         setupBiometricPrompt()
 
         loadAuthenticator()
@@ -166,6 +170,87 @@ class MainActivity : FragmentActivity() {
                 )
             }
         }
+        
+        // Handle intent extras from push notification
+        handleIntentExtras(intent)
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // Handle intent extras when activity is already running
+        handleIntentExtras(intent)
+    }
+    
+    /**
+     * Handle intent extras passed from push notification.
+     * If the intent contains transaction data, automatically check and process the transaction.
+     *
+     * @param intent The intent containing potential transaction data
+     */
+    private fun handleIntentExtras(intent: Intent?) {
+        intent?.let {
+            val shouldHandleTransaction = it.getBooleanExtra(Constants.EXTRA_HANDLE_TRANSACTION, false)
+            val transactionId = it.getStringExtra(Constants.EXTRA_TRANSACTION_ID)
+            val authenticatorId = it.getStringExtra(Constants.EXTRA_AUTHENTICATOR_ID)
+            
+            if (shouldHandleTransaction && transactionId != null && authenticatorId != null) {
+                log.info("Handling immediate transaction from push notification")
+                log.info("Transaction ID: $transactionId")
+                log.info("Authenticator ID: $authenticatorId")
+                
+                // Clear the intent extras to prevent re-processing
+                it.removeExtra(Constants.EXTRA_HANDLE_TRANSACTION)
+                it.removeExtra(Constants.EXTRA_TRANSACTION_ID)
+                it.removeExtra(Constants.EXTRA_AUTHENTICATOR_ID)
+                
+                // Automatically check for pending transactions
+                checkPendingTransaction(authenticatorId, transactionId)
+            }
+        }
+    }
+
+    /**
+     * Initialize Firebase Cloud Messaging and retrieve the FCM token.
+     * The token is saved to SharedPreferences and logged for debugging.
+     */
+    private fun initializeFirebaseMessaging() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                log.warn("Failed to get FCM token", task.exception)
+                return@addOnCompleteListener
+            }
+
+            // Get the FCM token
+            val token = task.result
+            log.info("FCM Token: $token")
+
+            // Save the token to SharedPreferences
+            saveFcmToken(token)
+        }
+    }
+
+    /**
+     * Save the FCM token to SharedPreferences.
+     * 
+     * @param token The FCM token to save
+     */
+    private fun saveFcmToken(token: String) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit {
+            putString(Constants.KEY_FCM_TOKEN, token)
+        }
+        log.info("FCM token saved to SharedPreferences")
+    }
+
+    /**
+     * Retrieve the saved FCM token from SharedPreferences.
+     * 
+     * @return The saved FCM token, or null if not found
+     */
+    private fun getFcmToken(): String? {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(Constants.KEY_FCM_TOKEN, null)
     }
 
     /**
@@ -280,7 +365,7 @@ class MainActivity : FragmentActivity() {
                     withContext(Dispatchers.IO) {
                         log.threadInfo()
                         val result = MFARegistrationController(qrCode)
-                            .initiate("IBM Verify SDK", false)
+                            .initiate("IBM Verify SDK", false, pushToken = getFcmToken())
                             .onSuccess {
                                 log.info("Success: ${it.accountName}")
                             }
@@ -318,11 +403,16 @@ class MainActivity : FragmentActivity() {
                     }
                 } catch (e: Exception) {
                     log.error("QR code registration failed", e)
+                    val errorMsg = e.message?.let {
+                        Json.decodeFromString<ErrorMessage>(it).errorDescription
+                    }?: run {
+                        getString(R.string.error_unknown)
+                    }
                     updateUiState {
                         copy(
                             errorMessage = getString(
                                 R.string.error_registration_failed,
-                                e.message ?: getString(R.string.error_unknown)
+                                errorMsg
                             )
                         )
                     }
@@ -333,7 +423,10 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    private fun checkPendingTransaction() {
+    private fun checkPendingTransaction(authenticatorId: String? = null, transactionId: String? = null) {
+
+        // The authenticator should usually be looked up with the authenticatorId, but because
+        // this is a single-authenticator app, we can use the one that is registered.
         val authenticator = mfaAuthenticatorDescriptor
         if (authenticator == null) {
             updateUiState { copy(errorMessage = getString(R.string.error_no_authenticator)) }
@@ -347,7 +440,7 @@ class MainActivity : FragmentActivity() {
 
             try {
                 withContext(Dispatchers.IO) {
-                    mfaService?.nextTransaction()
+                    mfaService?.nextTransaction(transactionId)
                         ?.onSuccess { nextTransactionInfo ->
                             log.info("Success: $nextTransactionInfo")
                             val message = mfaService?.currentPendingTransaction?.message
@@ -375,14 +468,22 @@ class MainActivity : FragmentActivity() {
                                 )
                             }
                         }
-                        ?.onFailure {
-                            log.info("Failure: $it")
+                        ?.onFailure { error ->
+                            log.info("Failure: $error")
+                            // Extract messageDescription from ErrorMessage if available
+                            val errorMsg = try {
+                                error.message?.let { msg ->
+                                    Json.decodeFromString<ErrorMessage>(msg).errorDescription
+                                } ?: getString(R.string.error_no_pending_transactions)
+                            } catch (jsonException: Exception) {
+                                getString(R.string.error_no_pending_transactions)
+                            }
                             updateUiState {
                                 copy(
                                     transactionMessage = "",
                                     transactionFactorType = "",
                                     hasTransaction = false,
-                                    errorMessage = getString(R.string.error_no_pending_transactions)
+                                    errorMessage = errorMsg
                                 )
                             }
                         }
@@ -416,7 +517,7 @@ class MainActivity : FragmentActivity() {
             updateUiState { copy(isLoading = true, errorMessage = null) }
 
             try {
-                withContext(Dispatchers.IO) {
+                val result = withContext(Dispatchers.IO) {
                     when (authenticator) {
                         is CloudAuthenticator -> {
                             val factorType = authenticator.allowedFactors.firstOrNull {
@@ -430,18 +531,17 @@ class MainActivity : FragmentActivity() {
                                     }
                                     .onFailure {
                                         log.error("Failure: $it")
-                                        throw it
                                     }
                             } else {
-                                throw IllegalStateException(getString(R.string.error_no_matching_factor))
+                                Result.failure(IllegalStateException(getString(R.string.error_no_matching_factor)))
                             }
                         }
 
                         is OnPremiseAuthenticator -> {
                             val currentFactorType = service.currentPendingTransaction?.factorType
-                            if (currentFactorType == null) {
-                                throw IllegalStateException(getString(R.string.error_no_factor_type))
-                            }
+                                ?: return@withContext Result.failure<Unit>(
+                                    IllegalStateException(getString(R.string.error_no_factor_type))
+                                )
 
                             val matchingFactor =
                                 authenticator.allowedFactors.firstOrNull { factor ->
@@ -481,47 +581,57 @@ class MainActivity : FragmentActivity() {
                                     }
                                     .onFailure {
                                         log.error("Failure: $it")
-                                        throw it
                                     }
                             } else {
-                                throw IllegalStateException(
-                                    getString(
-                                        R.string.error_no_matching_factor_for_type,
-                                        currentFactorType
+                                Result.failure(
+                                    IllegalStateException(
+                                        getString(
+                                            R.string.error_no_matching_factor_for_type,
+                                            currentFactorType
+                                        )
                                     )
                                 )
                             }
                         }
 
                         else -> {
-                            throw IllegalStateException(getString(R.string.error_unknown_authenticator_type))
+                            Result.failure(IllegalStateException(getString(R.string.error_unknown_authenticator_type)))
                         }
                     }
                 }
 
-                val successMsg = if (userAction == UserAction.VERIFY) {
-                    getString(R.string.success_transaction_approved)
-                } else {
-                    getString(R.string.success_transaction_denied)
-                }
+                // Handle the result
+                result.onSuccess {
+                    val successMsg = if (userAction == UserAction.VERIFY) {
+                        getString(R.string.success_transaction_approved)
+                    } else {
+                        getString(R.string.success_transaction_denied)
+                    }
 
-                updateUiState {
-                    copy(
-                        transactionMessage = "",
-                        transactionFactorType = "",
-                        hasTransaction = false,
-                        successMessage = successMsg
-                    )
-                }
-            } catch (e: Exception) {
-                log.error("Failed to complete transaction", e)
-                updateUiState {
-                    copy(
-                        errorMessage = getString(
-                            R.string.error_complete_transaction_failed,
-                            e.message ?: getString(R.string.error_unknown)
+                    updateUiState {
+                        copy(
+                            transactionMessage = "",
+                            transactionFactorType = "",
+                            hasTransaction = false,
+                            successMessage = successMsg
                         )
-                    )
+                    }
+                }.onFailure { error ->
+                    log.error("Failed to complete transaction", error)
+                    // Extract messageDescription from ErrorMessage if available
+                    val errorMsg = error.message?.let {
+                        Json.decodeFromString<ErrorMessage>(it).errorDescription
+                    }?: run {
+                        getString(R.string.error_unknown)
+                    }
+                    updateUiState {
+                        copy(
+                            errorMessage = getString(
+                                R.string.error_complete_transaction_failed,
+                                errorMsg
+                            )
+                        )
+                    }
                 }
             } finally {
                 updateUiState { copy(isLoading = false) }
@@ -694,7 +804,7 @@ fun MFADemoScreen(
             uiState.errorMessage?.let { error ->
                 androidx.compose.material3.Snackbar(
                     action = {
-                        androidx.compose.material3.TextButton(onClick = onDismissError) {
+                        TextButton(onClick = onDismissError) {
                             Text(stringResource(R.string.button_dismiss))
                         }
                     },

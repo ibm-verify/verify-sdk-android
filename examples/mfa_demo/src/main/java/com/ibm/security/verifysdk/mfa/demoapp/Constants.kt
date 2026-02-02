@@ -15,6 +15,12 @@ object Constants {
     const val PREFS_NAME = "mfa_demo_prefs"
     const val KEY_AUTHENTICATOR = "authenticator"
     const val KEY_AUTHENTICATOR_TYPE = "authenticator_type"
+    const val KEY_FCM_TOKEN = "fcm_token"
     const val TYPE_CLOUD = "cloud"
     const val TYPE_ONPREM = "onprem"
+    
+    // Intent extra keys for push notification data
+    const val EXTRA_TRANSACTION_ID = "extra_transaction_id"
+    const val EXTRA_AUTHENTICATOR_ID = "extra_authenticator_id"
+    const val EXTRA_HANDLE_TRANSACTION = "extra_handle_transaction"
 }
