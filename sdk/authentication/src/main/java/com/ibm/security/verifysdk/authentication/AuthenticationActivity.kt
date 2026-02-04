@@ -22,7 +22,7 @@ import androidx.core.net.toUri
  *
  * @since 3.0.0
  */
-internal class AuthenticationActivity : ComponentActivity() {
+class AuthenticationActivity : ComponentActivity() {
 
     private val builder = CustomTabsIntent.Builder()
     private var url: String = ""

@@ -31,5 +31,12 @@ dependencies {
     implementation(libs.kotlinx.datetime)
     implementation(libs.rootbeer.lib)
 
+    // Android instrumented test dependencies
+    androidTestImplementation(kotlin("test"))
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.ktor.client.mock)
+    androidTestImplementation(libs.mockito.kotlin)
 }

@@ -28,3 +28,8 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
     @Throws
     suspend fun finalize(httpClient: HttpClient = NetworkHelper.getInstance): Result<MFAAuthenticatorDescriptor>
 }
+
+/**
+ * Type alias representing a JSON string containing registration initiation data.
+ */
+typealias RegistrationInitiation = String

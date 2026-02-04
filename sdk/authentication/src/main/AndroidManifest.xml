@@ -12,7 +12,7 @@
 
     <application>
         <activity
-            android:name=".AuthenticationActivity"
+            android:name="com.ibm.security.verifysdk.authentication.AuthenticationActivity"
             android:exported="true"/>
     </application>
 
