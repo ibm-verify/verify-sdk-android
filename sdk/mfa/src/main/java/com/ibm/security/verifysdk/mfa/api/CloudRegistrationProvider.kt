@@ -23,6 +23,7 @@ import com.ibm.security.verifysdk.mfa.MFAAttributeInfo
 import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
 import com.ibm.security.verifysdk.mfa.MFARegistrationDescriptor
 import com.ibm.security.verifysdk.mfa.MFARegistrationError
+import com.ibm.security.verifysdk.mfa.RegistrationInitiation
 import com.ibm.security.verifysdk.mfa.SignatureEnrollableFactor
 import com.ibm.security.verifysdk.mfa.TOTPFactorInfo
 import com.ibm.security.verifysdk.mfa.UserPresenceFactorInfo
@@ -58,8 +59,80 @@ import org.slf4j.LoggerFactory
 import java.net.URL
 import java.util.UUID
 
+/**
+ * Provider for cloud-based MFA registration with IBM Verify instances or custom mobile authenticators.
+ */
 class CloudRegistrationProvider(data: String) :
     MFARegistrationDescriptor<MFAAuthenticatorDescriptor> {
+
+    companion object {
+        /**
+         * Initiate an authenticator registration for IBM Verify instances or custom mobile authenticators.
+         *
+         * @param initiateUri The endpoint location to initiate a multi-factor device registration.
+         * @param accessToken The authenticated user token.
+         * @param clientId The unique identifier of the authenticator client to be associated with the registration.
+         * @param accountName The account name associated with the service.
+         * @param httpClient Optional HTTP client instance. Defaults to NetworkHelper.getInstance.
+         * @return A [RegistrationInitiation] JSON string representing the registration initiation.
+         * @throws Exception if the request fails or data cannot be parsed.
+         *
+         * Example usage:
+         * ```kotlin
+         * val accountName = "Test Account"
+         *
+         * // Obtain the JSON payload containing the code and registration endpoint.
+         * val initiateUrl = URL("https://tenanturl/v1.0/authenticators/initiation")
+         * val result = CloudRegistrationProvider.inAppInitiate(
+         *     initiateUri = initiateUrl,
+         *     accessToken = "09876zxyt",
+         *     clientId = "a8f0043d-acf5-4150-8622-bde8690dce7d",
+         *     accountName = accountName
+         * )
+         *
+         * // Create the registration controller
+         * val provider = CloudRegistrationProvider(result)
+         *
+         * // Instantiate the provider
+         * provider.initiate(accountName, pushToken = "abc123")
+         * ```
+         */
+        suspend fun inAppInitiate(
+            initiateUri: URL,
+            accessToken: String,
+            clientId: String,
+            accountName: String,
+            httpClient: HttpClient = NetworkHelper.getInstance
+        ): RegistrationInitiation {
+            // Construct the request body
+            val requestBody = buildJsonObject {
+                put("clientId", clientId)
+                put("accountName", accountName)
+            }
+
+            // Make the HTTP POST request
+            val response = httpClient.post {
+                url(initiateUri.toString())
+                accept(ContentType.Application.Json)
+                contentType(ContentType.Application.Json)
+                bearerAuth(accessToken)
+                setBody(TextContent(requestBody.toString(), ContentType.Application.Json))
+            }
+
+            // Check if the response is successful
+            if (response.status.isSuccess()) {
+                val responseBody = response.bodyAsText()
+
+                if (responseBody.isEmpty()) {
+                    throw MFARegistrationError.DataInitializationFailed
+                }
+                
+                return responseBody
+            } else {
+                throw MFARegistrationError.FailedToParse
+            }
+        }
+    }
 
     private val log = LoggerFactory.getLogger(javaClass)
 
