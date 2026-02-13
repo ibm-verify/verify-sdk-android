@@ -67,8 +67,6 @@ import com.ibm.security.verifysdk.mfa.MFAServiceController
 import com.ibm.security.verifysdk.mfa.MFAServiceDescriptor
 import com.ibm.security.verifysdk.mfa.UserAction
 import com.ibm.security.verifysdk.mfa.completeTransaction
-import com.ibm.security.verifysdk.mfa.demoapp.Constants.FACTOR_TYPE_FACE
-import com.ibm.security.verifysdk.mfa.demoapp.Constants.FACTOR_TYPE_FINGERPRINT
 import com.ibm.security.verifysdk.mfa.demoapp.Constants.KEY_AUTHENTICATOR
 import com.ibm.security.verifysdk.mfa.demoapp.Constants.KEY_AUTHENTICATOR_TYPE
 import com.ibm.security.verifysdk.mfa.demoapp.Constants.PREFS_NAME
@@ -125,8 +123,7 @@ class MainActivity : FragmentActivity() {
             polymorphic(FactorType::class) {
                 subclass(FactorType.Totp::class)
                 subclass(FactorType.Hotp::class)
-                subclass(FactorType.Face::class)
-                subclass(FactorType.Fingerprint::class)
+                subclass(FactorType.Biometric::class)
                 subclass(FactorType.UserPresence::class)
             }
         }
@@ -170,18 +167,18 @@ class MainActivity : FragmentActivity() {
                 )
             }
         }
-        
+
         // Handle intent extras from push notification
         handleIntentExtras(intent)
     }
-    
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         // Handle intent extras when activity is already running
         handleIntentExtras(intent)
     }
-    
+
     /**
      * Handle intent extras passed from push notification.
      * If the intent contains transaction data, automatically check and process the transaction.
@@ -190,20 +187,21 @@ class MainActivity : FragmentActivity() {
      */
     private fun handleIntentExtras(intent: Intent?) {
         intent?.let {
-            val shouldHandleTransaction = it.getBooleanExtra(Constants.EXTRA_HANDLE_TRANSACTION, false)
+            val shouldHandleTransaction =
+                it.getBooleanExtra(Constants.EXTRA_HANDLE_TRANSACTION, false)
             val transactionId = it.getStringExtra(Constants.EXTRA_TRANSACTION_ID)
             val authenticatorId = it.getStringExtra(Constants.EXTRA_AUTHENTICATOR_ID)
-            
+
             if (shouldHandleTransaction && transactionId != null && authenticatorId != null) {
                 log.info("Handling immediate transaction from push notification")
                 log.info("Transaction ID: $transactionId")
                 log.info("Authenticator ID: $authenticatorId")
-                
+
                 // Clear the intent extras to prevent re-processing
                 it.removeExtra(Constants.EXTRA_HANDLE_TRANSACTION)
                 it.removeExtra(Constants.EXTRA_TRANSACTION_ID)
                 it.removeExtra(Constants.EXTRA_AUTHENTICATOR_ID)
-                
+
                 // Automatically check for pending transactions
                 checkPendingTransaction(authenticatorId, transactionId)
             }
@@ -232,7 +230,7 @@ class MainActivity : FragmentActivity() {
 
     /**
      * Save the FCM token to SharedPreferences.
-     * 
+     *
      * @param token The FCM token to save
      */
     private fun saveFcmToken(token: String) {
@@ -245,7 +243,7 @@ class MainActivity : FragmentActivity() {
 
     /**
      * Retrieve the saved FCM token from SharedPreferences.
-     * 
+     *
      * @return The saved FCM token, or null if not found
      */
     private fun getFcmToken(): String? {
@@ -310,16 +308,15 @@ class MainActivity : FragmentActivity() {
 
         return when (authenticator) {
             is CloudAuthenticator -> {
-                val factorType = authenticator.allowedFactors.firstOrNull {
-                    it.id == service.currentPendingTransaction?.factorID
-                }
-                factorType is FactorType.Face || factorType is FactorType.Fingerprint
+                service.currentPendingTransaction?.factorID?.let { factorId ->
+                    authenticator.biometric?.id == factorId
+                } ?: false
             }
 
             is OnPremiseAuthenticator -> {
                 val factorTypeName = service.currentPendingTransaction?.factorType
-                factorTypeName?.contains(FACTOR_TYPE_FACE, ignoreCase = true) == true ||
-                        factorTypeName?.contains(FACTOR_TYPE_FINGERPRINT, ignoreCase = true) == true
+                factorTypeName?.contains("face", ignoreCase = true) == true ||
+                        factorTypeName?.contains("fingerprint", ignoreCase = true) == true
             }
 
             else -> false
@@ -365,7 +362,7 @@ class MainActivity : FragmentActivity() {
                     withContext(Dispatchers.IO) {
                         log.threadInfo()
                         val result = MFARegistrationController(qrCode)
-                            .initiate("IBM Verify SDK", false, pushToken = getFcmToken())
+                            .initiate("IBM Verify SDK", pushToken = getFcmToken())
                             .onSuccess {
                                 log.info("Success: ${it.accountName}")
                             }
@@ -375,17 +372,9 @@ class MainActivity : FragmentActivity() {
                             }
 
                         val mfaRegistrationProvider = result.getOrThrow()
-                        log.threadInfo()
                         log.info("Available enrollments: ${mfaRegistrationProvider.countOfAvailableEnrollments}")
-
-                        var nextEnrollment = mfaRegistrationProvider.nextEnrollment()
-                        while (nextEnrollment != null) {
-                            if (nextEnrollment.enrollableType != EnrollableType.FACE) {
-                                mfaRegistrationProvider.enroll()
-                            }
-                            nextEnrollment = mfaRegistrationProvider.nextEnrollment()
-                        }
-
+                        mfaRegistrationProvider.enrollUserPresence()
+                        mfaRegistrationProvider.enrollBiometric()
                         mfaRegistrationProvider.finalize()
                             .onSuccess {
                                 log.info("Success: $it")
@@ -405,7 +394,7 @@ class MainActivity : FragmentActivity() {
                     log.error("QR code registration failed", e)
                     val errorMsg = e.message?.let {
                         Json.decodeFromString<ErrorMessage>(it).errorDescription
-                    }?: run {
+                    } ?: run {
                         getString(R.string.error_unknown)
                     }
                     updateUiState {
@@ -423,7 +412,10 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    private fun checkPendingTransaction(authenticatorId: String? = null, transactionId: String? = null) {
+    private fun checkPendingTransaction(
+        authenticatorId: String? = null,
+        transactionId: String? = null
+    ) {
 
         // The authenticator should usually be looked up with the authenticatorId, but because
         // this is a single-authenticator app, we can use the one that is registered.
@@ -448,9 +440,13 @@ class MainActivity : FragmentActivity() {
 
                             val factorType = when (authenticator) {
                                 is CloudAuthenticator -> {
-                                    authenticator.allowedFactors.firstOrNull {
-                                        it.id == mfaService?.currentPendingTransaction?.factorID
-                                    }?.displayName ?: "Unknown"
+                                    mfaService?.currentPendingTransaction?.factorID?.let { factorId ->
+                                        when {
+                                            authenticator.biometric?.id == factorId -> authenticator.biometric?.displayName
+                                            authenticator.userPresence?.id == factorId -> authenticator.userPresence?.displayName
+                                            else -> null
+                                        }
+                                    } ?: "Unknown"
                                 }
 
                                 is OnPremiseAuthenticator -> {
@@ -520,8 +516,21 @@ class MainActivity : FragmentActivity() {
                 val result = withContext(Dispatchers.IO) {
                     when (authenticator) {
                         is CloudAuthenticator -> {
-                            val factorType = authenticator.allowedFactors.firstOrNull {
-                                it.id == service.currentPendingTransaction?.factorID
+                            val factorId = service.currentPendingTransaction?.factorID
+                            val factorType = when {
+                                authenticator.biometric?.id == factorId -> authenticator.biometric?.let {
+                                    FactorType.Biometric(
+                                        it
+                                    )
+                                }
+
+                                authenticator.userPresence?.id == factorId -> authenticator.userPresence?.let {
+                                    FactorType.UserPresence(
+                                        it
+                                    )
+                                }
+
+                                else -> null
                             }
 
                             if (factorType != null) {
@@ -543,36 +552,25 @@ class MainActivity : FragmentActivity() {
                                     IllegalStateException(getString(R.string.error_no_factor_type))
                                 )
 
-                            val matchingFactor =
-                                authenticator.allowedFactors.firstOrNull { factor ->
-                                    when (factor) {
-                                        is FactorType.UserPresence -> {
-                                            val keyParts = factor.value.keyName.split(".")
-                                            keyParts.getOrNull(1)?.equals(
-                                                currentFactorType,
-                                                ignoreCase = true
-                                            ) == true
-                                        }
+                            val matchingFactor: FactorType? = when {
+                                authenticator.biometric?.let {
+                                    val keyParts = it.keyName.split(".")
+                                    keyParts.getOrNull(1)
+                                        ?.equals(currentFactorType, ignoreCase = true) == true
+                                } == true -> authenticator.biometric?.let { FactorType.Biometric(it) }
 
-                                        is FactorType.Fingerprint -> {
-                                            val keyParts = factor.value.keyName.split(".")
-                                            keyParts.getOrNull(1)?.equals(
-                                                currentFactorType,
-                                                ignoreCase = true
-                                            ) == true
-                                        }
-
-                                        is FactorType.Face -> {
-                                            val keyParts = factor.value.keyName.split(".")
-                                            keyParts.getOrNull(1)?.equals(
-                                                currentFactorType,
-                                                ignoreCase = true
-                                            ) == true
-                                        }
-
-                                        else -> false
-                                    }
+                                authenticator.userPresence?.let {
+                                    val keyParts = it.keyName.split(".")
+                                    keyParts.getOrNull(1)
+                                        ?.equals(currentFactorType, ignoreCase = true) == true
+                                } == true -> authenticator.userPresence?.let {
+                                    FactorType.UserPresence(
+                                        it
+                                    )
                                 }
+
+                                else -> null
+                            }
 
                             if (matchingFactor != null) {
                                 service.completeTransaction(userAction, matchingFactor)
@@ -621,7 +619,7 @@ class MainActivity : FragmentActivity() {
                     // Extract messageDescription from ErrorMessage if available
                     val errorMsg = error.message?.let {
                         Json.decodeFromString<ErrorMessage>(it).errorDescription
-                    }?: run {
+                    } ?: run {
                         getString(R.string.error_unknown)
                     }
                     updateUiState {
