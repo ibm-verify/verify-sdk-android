@@ -8,7 +8,7 @@ import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
-@kotlinx.serialization.InternalSerializationApi
+@InternalSerializationApi
 @Serializable
 sealed class FactorType {
 
@@ -16,8 +16,7 @@ sealed class FactorType {
         get() = when (this) {
             is Totp -> value.id
             is Hotp -> value.id
-            is Face -> value.id
-            is Fingerprint -> value.id
+            is Biometric -> value.id
             is UserPresence -> value.id
         }
 
@@ -25,8 +24,7 @@ sealed class FactorType {
         get() = when (this) {
             is Totp -> value.displayName
             is Hotp -> value.displayName
-            is Face -> value.displayName
-            is Fingerprint -> value.displayName
+            is Biometric -> value.displayName
             is UserPresence -> value.displayName
         }
 
@@ -35,9 +33,7 @@ sealed class FactorType {
     @Serializable
     data class Hotp(val value: HOTPFactorInfo) : FactorType()
     @Serializable
-    data class Face(val value: FaceFactorInfo) : FactorType()
-    @Serializable
-    data class Fingerprint(val value: FingerprintFactorInfo) : FactorType()
+    data class Biometric(val value: BiometricFactorInfo) : FactorType()
     @Serializable
     data class UserPresence(val value: UserPresenceFactorInfo) : FactorType()
 
@@ -48,8 +44,7 @@ fun FactorType.valueType(): Factor {
     return when (this) {
         is FactorType.Totp -> this.value
         is FactorType.Hotp -> this.value
-        is FactorType.Face -> this.value
-        is FactorType.Fingerprint -> this.value
+        is FactorType.Biometric -> this.value
         is FactorType.UserPresence -> this.value
     }
 }
