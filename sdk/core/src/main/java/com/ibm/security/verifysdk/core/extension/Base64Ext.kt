@@ -1,3 +1,6 @@
+/*
+ * Copyright contributors to the IBM Verify SDK for Android project
+ */
 @file:OptIn(ExperimentalUnsignedTypes::class)
 
 package com.ibm.security.verifysdk.core.extension

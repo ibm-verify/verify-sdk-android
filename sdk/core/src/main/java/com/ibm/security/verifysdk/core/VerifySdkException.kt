@@ -3,59 +3,37 @@
  */
 package com.ibm.security.verifysdk.core
 
-import com.ibm.security.verifysdk.core.serializer.DefaultJson
-import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
 
 /**
- * VerifySdkException is a generic exception that can be thrown when working with Verify SDKs.
+ * A data class representing a standardized error response.
+ *
+ * @property id A unique identifier for the error.
+ * @property description A human-readable description of the error.
+ */
+@Serializable
+data class Error(val id: String, val description: String)
+
+/**
+ * VerifySdkException is a generic exception that can be thrown when working with the Verify SDK.
+ *
+ * @param error The structured error information.
+ * @param cause The underlying cause of the exception, if any.
  *
  * @since 3.0.0
  */
-@ExperimentalSerializationApi
 @Suppress("MemberVisibilityCanBePrivate")
-abstract class VerifySdkException(
-    private val errorMessage: String,
-    private val throwable: Throwable? = null
-) : Throwable(throwable) {
-
-    val error: String
-    val errorDescription: String
-
-    init {
-        val decodedErrorMessage = DefaultJson.decodeFromString<ErrorMessage>(errorMessage)
-        error = decodedErrorMessage.error
-        errorDescription = decodedErrorMessage.errorDescription
-    }
+open class VerifySdkException(
+    val error: Error,
+    override val cause: Throwable? = null
+) : Exception(error.description, cause) {
 
     /**
      * Returns a string representation of the exception object.
-     *
-     * @since 3.0.0
      */
     override fun toString(): String {
-
-        val newLine: String = System.lineSeparator() ?: "\n"
-
-        val stringBuilder = StringBuilder()
-        stringBuilder.append("error: $error")
-        stringBuilder.append(newLine)
-        stringBuilder.append("errorDescription: $errorDescription")
-        return stringBuilder.toString()
-    }
-
-    /**
-     * Returns a string representation of the exception object and adding the prefix.
-     *
-     * @param prefix  a prefix to be added before of the error message
-     *
-     * @since 3.0.0
-     */
-    fun toString(prefix: String): String {
-
-        val stringBuilder = StringBuilder()
-        stringBuilder.append(prefix)
-        stringBuilder.append(errorMessage)
-
-        return stringBuilder.toString()
+        val causeMessage = cause?.let { " | Cause: ${it.message}" } ?: ""
+        val className = this::class.simpleName ?: "VerifySdkException"
+        return "$className(error=${error.id}, description='${error.description}'$causeMessage)"
     }
 }
