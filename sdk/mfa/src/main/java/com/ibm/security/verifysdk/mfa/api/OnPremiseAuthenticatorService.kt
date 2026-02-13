@@ -13,7 +13,7 @@ import com.ibm.security.verifysdk.core.helper.ContextHelper
 import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.MFAAttributeInfo
 import com.ibm.security.verifysdk.mfa.MFAServiceDescriptor
-import com.ibm.security.verifysdk.mfa.MFAServiceError
+import com.ibm.security.verifysdk.mfa.MFAServiceException
 import com.ibm.security.verifysdk.mfa.NextTransactionInfo
 import com.ibm.security.verifysdk.mfa.PendingTransactionInfo
 import com.ibm.security.verifysdk.mfa.R
@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory
 import java.net.URL
 import java.util.UUID
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 @OptIn(ExperimentalTime::class)
 class OnPremiseAuthenticatorService(
@@ -58,7 +57,7 @@ class OnPremiseAuthenticatorService(
 ) : MFAServiceDescriptor {
 
     private val log = LoggerFactory.getLogger(javaClass)
-    private val decoder =  Json {
+    private val decoder = Json {
         encodeDefaults = true
         explicitNulls = false
         ignoreUnknownKeys = true
@@ -141,11 +140,14 @@ class OnPremiseAuthenticatorService(
         }
     }
 
-    override suspend fun nextTransaction(transactionID: String?, httpClient: HttpClient): Result<NextTransactionInfo> {
+    override suspend fun nextTransaction(
+        transactionID: String?,
+        httpClient: HttpClient
+    ): Result<NextTransactionInfo> {
 
         return try {
             log.entering()
-            val response =httpClient.get {
+            val response = httpClient.get {
                 url(transactionUri.toString())
                 accept(ContentType.Application.Json)
                 bearerAuth(accessToken)
@@ -175,7 +177,7 @@ class OnPremiseAuthenticatorService(
                     )
                 }
             } else {
-                Result.failure(MFAServiceError.InvalidDataResponse())
+                Result.failure(MFAServiceException.InvalidDataResponse())
             }
         } catch (e: Throwable) {
             Result.failure(e)
@@ -192,7 +194,7 @@ class OnPremiseAuthenticatorService(
 
         return try {
             val pendingTransaction =
-                currentPendingTransaction ?: throw MFAServiceError.InvalidPendingTransaction()
+                currentPendingTransaction ?: throw MFAServiceException.InvalidPendingTransaction()
 
             val data = buildJsonObject {
                 put(
@@ -211,7 +213,7 @@ class OnPremiseAuthenticatorService(
             if (response.status.isSuccess()) {
                 Result.success(Unit)
             } else {
-                Result.failure(MFAServiceError.General(response.bodyAsText()))
+                Result.failure(MFAServiceException.General(response.bodyAsText()))
             }
         } catch (e: Throwable) {
             return Result.failure(e)
@@ -252,9 +254,9 @@ class OnPremiseAuthenticatorService(
             } else {
                 response.bodyAsText().let { responseBody ->
                     if (responseBody.isEmpty()) {
-                        Result.failure(MFAServiceError.InvalidDataResponse())
+                        Result.failure(MFAServiceException.InvalidDataResponse())
                     } else {
-                        Result.failure(MFAServiceError.General(responseBody))
+                        Result.failure(MFAServiceException.General(responseBody))
                     }
                 }
             }
@@ -309,8 +311,10 @@ class OnPremiseAuthenticatorService(
                     dataToSign = value
                 }
                 val attributeInfo =
-                    transactionResult.attributes.filter { it.transactionId == transactionInfoResult.transactionId &&
-                            (it.uri == "mmfa:request:context:message" || it.uri == "mmfa:request:extras") }
+                    transactionResult.attributes.filter {
+                        it.transactionId == transactionInfoResult.transactionId &&
+                                (it.uri == "mmfa:request:context:message" || it.uri == "mmfa:request:extras")
+                    }
                 var verificationMessage =
                     ContextHelper.context.getString(R.string.PendingRequestMessageDefault)
                 attributeInfo.firstOrNull { it.uri == "mmfa:request:context:message" }?.values?.firstOrNull()
@@ -335,7 +339,7 @@ class OnPremiseAuthenticatorService(
                     )
                 )
             } else {
-                Result.failure(MFAServiceError.InvalidDataResponse())
+                Result.failure(MFAServiceException.InvalidDataResponse())
             }
         } catch (e: Exception) {
             Result.failure(e)
