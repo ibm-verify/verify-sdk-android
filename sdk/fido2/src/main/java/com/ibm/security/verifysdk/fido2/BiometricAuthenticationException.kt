@@ -4,6 +4,9 @@
 
 package com.ibm.security.verifysdk.fido2
 
+import com.ibm.security.verifysdk.core.Error
+import com.ibm.security.verifysdk.core.VerifySdkException
+
 /**
  * Represents an exception specific to biometric authentication.
  *
@@ -11,8 +14,12 @@ package com.ibm.security.verifysdk.fido2
  * processes. It extends the standard Exception class and provides a constructor
  * that accepts a message describing the error.
  *
- * @param message A string describing the exception.
+ * @param description A string describing the exception.
+ * @param cause The underlying cause of the exception, if any.
  *
  * @constructor Creates a BiometricAuthenticationException instance with the given message.
  */
-internal class BiometricAuthenticationException(message: String) : Exception(message)
+internal class BiometricAuthenticationException(
+    description: String,
+    cause: Throwable? = null
+) : VerifySdkException(Error("biometric_authentication_failed", description), cause)
