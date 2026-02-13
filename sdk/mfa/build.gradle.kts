@@ -38,5 +38,8 @@ dependencies {
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.ktor.client.mock)
-    androidTestImplementation(libs.mockito.kotlin)
+    androidTestImplementation(libs.mockito.kotlin) {
+        // Fix issue with byte-buddy and instrumentation tests
+        exclude(group = "org.mockito", module = "mockito-core")
+    }
 }

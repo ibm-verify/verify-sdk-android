@@ -22,6 +22,9 @@ dependencies {
 
     androidTestImplementation(project(":sdk:test_utils"))
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.mockito.kotlin)
+    androidTestImplementation(libs.mockito.kotlin) {
+        // Fix issue with byte-buddy and instrumentation tests
+        exclude(group = "org.mockito", module = "mockito-core")
+    }
     androidTestImplementation(libs.kotlinx.coroutines.test)
 }

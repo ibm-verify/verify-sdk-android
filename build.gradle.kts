@@ -75,6 +75,17 @@ rootCoverage {
     generateXml = true
 }
 
+tasks.named<JacocoReport>("rootCoverageReport") {
+    executionData.setFrom(
+        fileTree(rootDir) {
+            include("**/build/outputs/unit_test_code_coverage/**/test*.exec")
+            include("**/build/outputs/code_coverage/**/connected/**/*.ec")
+            exclude("examples/**")
+            exclude("**/examples/**")
+        }
+    )
+}
+
 tasks.jacocoTestCoverageVerification {
     violationRules {
         rule {
