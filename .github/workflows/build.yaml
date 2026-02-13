@@ -166,7 +166,16 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
 
       - name: Build and test SDKs
-        run: ./gradlew --parallel --build-cache assembleRelease publishToMavenLocal dokkaJavadoc testDebugUnitTest connectedDebugAndroidTest
+        run: ./gradlew --parallel --build-cache assembleRelease publishToMavenLocal dokkaJavadoc testDebugUnitTest
+
+      - name: Run connected tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: Nexus 6
+          script: ./gradlew --parallel --build-cache connectedDebugAndroidTest
 
       - name: Store build outputs + reports
         uses: actions/upload-artifact@v4.3.1
@@ -296,7 +305,16 @@ jobs:
 
       # Rebuild from the merge commit to ensure release artifacts match what landed on main.
       - name: Build and test SDKs (release gate)
-        run: ./gradlew --parallel --build-cache assembleRelease publishToMavenLocal dokkaJavadoc testDebugUnitTest connectedDebugAndroidTest
+        run: ./gradlew --parallel --build-cache assembleRelease publishToMavenLocal dokkaJavadoc testDebugUnitTest
+
+      - name: Run connected tests (release gate)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: Nexus 6
+          script: ./gradlew --parallel --build-cache connectedDebugAndroidTest
 
       - name: Store build outputs + reports
         uses: actions/upload-artifact@v4.3.1
