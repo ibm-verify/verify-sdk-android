@@ -136,24 +136,23 @@ class MFARegistrationController(private var data: String) {
      *
      * @return A [Result] containing either:
      *         - Success: An [MFARegistrationDescriptor] that can be used to perform enrollment operations
-     *         - Failure: An [MFARegistrationError] indicating why the registration failed
+     *         - Failure: An [MFARegistrationException] indicating why the registration failed
      *
-     * @throws MFARegistrationError.InvalidFormat if the JSON data cannot be parsed as either Cloud or
+     * @throws MFARegistrationException.InvalidFormat if the JSON data cannot be parsed as either Cloud or
      *                                            On-Premise registration format.
      *
      * @see MFARegistrationDescriptor
-     * @see MFARegistrationError
+     * @see MFARegistrationException
      */
     suspend fun initiate(
         accountName: String,
-        skipTotpEnrollment: Boolean = true,
         pushToken: String? = "",
         additionalHeaders: HashMap<String, String>? = null
     ): Result<MFARegistrationDescriptor<MFAAuthenticatorDescriptor>> {
 
         try {
             CloudRegistrationProvider(data).let { cloudRegistrationProvider ->
-                cloudRegistrationProvider.initiate(accountName, skipTotpEnrollment, pushToken)
+                cloudRegistrationProvider.initiate(accountName, pushToken)
                     .let { resultInitiate ->
                         resultInitiate.onSuccess {
                             return Result.success(cloudRegistrationProvider)
@@ -173,7 +172,6 @@ class MFARegistrationController(private var data: String) {
             OnPremiseRegistrationProvider(data).let { onPremiseRegistrationProvider ->
                 onPremiseRegistrationProvider.initiate(
                     accountName,
-                    skipTotpEnrollment,
                     pushToken,
                     additionalHeaders
                 )
@@ -192,6 +190,6 @@ class MFARegistrationController(private var data: String) {
             }
         }
 
-        return Result.failure(MFARegistrationError.InvalidFormat)
+        return Result.failure(MFARegistrationException.InvalidFormat())
     }
 }

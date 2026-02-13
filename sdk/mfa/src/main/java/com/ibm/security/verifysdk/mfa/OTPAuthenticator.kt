@@ -14,15 +14,13 @@ data class OTPAuthenticator(
     override val id: String = UUID.randomUUID().toString(),
     override var serviceName: String,
     override var accountName: String,
-    override val allowedFactors: List<FactorType>
+    val totp: TOTPFactorInfo? = null,
+    val hotp: HOTPFactorInfo? = null
 ) : AuthenticatorDescriptor {
 
     init {
-        require(
-            allowedFactors.filterIsInstance<FactorType.Hotp>()
-                .isNotEmpty() || allowedFactors.filterIsInstance<FactorType.Totp>().isNotEmpty()
-        ) {
-            "Only TOTP and HOTP factors are allowed."
+        require(totp != null || hotp != null) {
+            "Either TOTP or HOTP factor must be provided."
         }
     }
 
@@ -58,37 +56,31 @@ data class OTPAuthenticator(
                 else -> null
             } ?: return null
 
-            val allowedFactors = when (type) {
-                EnrollableType.TOTP -> listOf(
-                    FactorType.Totp(
-                        TOTPFactorInfo(
-                            secret = secret,
-                            digits = digits,
-                            algorithm = algorithm,
-                            period = value
-                        )
+            return when (type) {
+                EnrollableType.TOTP -> OTPAuthenticator(
+                    serviceName = serviceName,
+                    accountName = accountName,
+                    totp = TOTPFactorInfo(
+                        secret = secret,
+                        digits = digits,
+                        algorithm = algorithm,
+                        period = value
                     )
                 )
 
-                EnrollableType.HOTP -> listOf(
-                    FactorType.Hotp(
-                        HOTPFactorInfo(
-                            secret = secret,
-                            digits = digits,
-                            algorithm = algorithm,
-                            _counter = value
-                        )
+                EnrollableType.HOTP -> OTPAuthenticator(
+                    serviceName = serviceName,
+                    accountName = accountName,
+                    hotp = HOTPFactorInfo(
+                        secret = secret,
+                        digits = digits,
+                        algorithm = algorithm,
+                        _counter = value
                     )
                 )
 
-                else -> emptyList()
+                else -> null
             }
-
-            return OTPAuthenticator(
-                serviceName = serviceName,
-                accountName = accountName,
-                allowedFactors = allowedFactors
-            )
         }
 
         private fun String.removePercentEncoding(): String {
