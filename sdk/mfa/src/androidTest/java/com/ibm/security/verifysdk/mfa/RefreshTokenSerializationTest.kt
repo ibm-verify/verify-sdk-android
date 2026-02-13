@@ -7,7 +7,6 @@ package com.ibm.security.verifysdk.mfa
 import android.annotation.SuppressLint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.mfa.api.CloudAuthenticatorService
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
