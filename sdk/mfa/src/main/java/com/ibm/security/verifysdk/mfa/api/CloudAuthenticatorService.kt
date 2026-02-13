@@ -11,7 +11,7 @@ import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.core.serializer.DefaultJson
 import com.ibm.security.verifysdk.mfa.MFAAttributeInfo
 import com.ibm.security.verifysdk.mfa.MFAServiceDescriptor
-import com.ibm.security.verifysdk.mfa.MFAServiceError
+import com.ibm.security.verifysdk.mfa.MFAServiceException
 import com.ibm.security.verifysdk.mfa.NextTransactionInfo
 import com.ibm.security.verifysdk.mfa.PendingTransactionInfo
 import com.ibm.security.verifysdk.mfa.TransactionAttribute
@@ -29,10 +29,9 @@ import io.ktor.client.request.url
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
-import io.ktor.client.request.setBody
-import io.ktor.http.content.TextContent
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.addJsonObject
@@ -267,7 +266,7 @@ class CloudAuthenticatorService(
                         Result.failure(it)
                     })
         } else {
-            Result.failure(MFAServiceError.General(response.bodyAsText()))
+            Result.failure(MFAServiceException.General(response.bodyAsText()))
         }
     }
 
@@ -279,7 +278,7 @@ class CloudAuthenticatorService(
 
         return try {
             val pendingTransaction =
-                currentPendingTransaction ?: throw MFAServiceError.InvalidPendingTransaction()
+                currentPendingTransaction ?: throw MFAServiceException.InvalidPendingTransaction()
 
             val jsonBody = buildJsonArray {
                 addJsonObject {
@@ -303,7 +302,7 @@ class CloudAuthenticatorService(
             if (response.status.isSuccess()) {
                 Result.success(Unit)
             } else {
-                Result.failure(MFAServiceError.General(response.bodyAsText()))
+                Result.failure(MFAServiceException.General(response.bodyAsText()))
             }
         } catch (e: Throwable) {
             return Result.failure(e)
@@ -317,7 +316,7 @@ class CloudAuthenticatorService(
             val result: TransactionResult = try {
                 DefaultJson.decodeFromString(responseBody)
             } catch (e: Exception) {
-                return Result.failure(MFAServiceError.DecodingFailed())
+                return Result.failure(MFAServiceException.DecodingFailed())
             }
 
             if (result.count == 0) {
@@ -326,12 +325,12 @@ class CloudAuthenticatorService(
                 createPendingTransaction(result)?.let {
                     Result.success(NextTransactionInfo(it, result.count))
                 } ?: kotlin.run {
-                    Result.failure(MFAServiceError.UnableToCreateTransaction())
+                    Result.failure(MFAServiceException.UnableToCreateTransaction())
                 }
             }
 
         } catch (e: Throwable) {
-            Result.failure(MFAServiceError.UnableToCreateTransaction())
+            Result.failure(MFAServiceException.UnableToCreateTransaction())
         }
     }
 

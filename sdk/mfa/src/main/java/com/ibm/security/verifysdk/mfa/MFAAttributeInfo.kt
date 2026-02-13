@@ -7,6 +7,7 @@ package com.ibm.security.verifysdk.mfa
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.content.edit
 import com.scottyab.rootbeer.RootBeer
 import java.util.Locale
 import java.util.UUID
@@ -48,7 +49,7 @@ object MFAAttributeInfo {
                 storedDeviceID
             } else {
                 val newDeviceID = UUID.randomUUID().toString()
-                sharedPrefs.edit().putString(deviceIDKey, newDeviceID).apply()
+                sharedPrefs.edit { putString(deviceIDKey, newDeviceID) }
                 newDeviceID
             }
         }
@@ -58,11 +59,7 @@ object MFAAttributeInfo {
 
     private val hasFaceID: Boolean
         get() {
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_FACE)
-            } else {
-                applicationContext.packageManager.hasSystemFeature("com.samsung.android.bio.face")
-            }
+            return applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_FACE)
         }
 
     private val hasTouchID: Boolean

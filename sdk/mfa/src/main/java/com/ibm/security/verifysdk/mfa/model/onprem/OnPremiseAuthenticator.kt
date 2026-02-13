@@ -6,8 +6,9 @@ package com.ibm.security.verifysdk.mfa.model.onprem
 
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.core.serializer.URLSerializer
-import com.ibm.security.verifysdk.mfa.FactorType
+import com.ibm.security.verifysdk.mfa.BiometricFactorInfo
 import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
+import com.ibm.security.verifysdk.mfa.UserPresenceFactorInfo
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
@@ -24,12 +25,9 @@ class OnPremiseAuthenticator (
     override val id: String,
     override val serviceName: String,
     override var accountName: String,
-    override val allowedFactors: List<FactorType>,
+    override val biometric: BiometricFactorInfo? = null,
+    override val userPresence: UserPresenceFactorInfo? = null,
     val qrLoginUri: URL?,
     val ignoreSSLCertificate: Boolean = false,
     val clientId: String
-) : MFAAuthenticatorDescriptor {
-
-//    val ignoreSSLCertificate: Boolean get() = _ignoreSSLCertificate
-//    val clientId: String get() = _clientId
-}
+) : MFAAuthenticatorDescriptor

@@ -3,6 +3,7 @@
  */
 
 @file:UseSerializers(URLSerializer::class)
+
 package com.ibm.security.verifysdk.mfa.model.cloud
 
 import com.ibm.security.verifysdk.core.serializer.URLSerializer
@@ -23,59 +24,66 @@ internal data class CloudRegistration @OptIn(ExperimentalSerializationApi::class
     val expiresIn: Int,
     val id: String,
     @SerialName("metadata")
-    val metadataContainer: MetadataContainer,
+    val metadataResponse: MetadataResponse,
     val refreshToken: String,
     val version: Version
 ) {
     val transactionUri: URL =
-        URL(metadataContainer.registrationUri.toString().replace("registration", "$id/verifications"))
+        URL(
+            metadataResponse.registrationUri.toString()
+                .replace("registration", "$id/verifications")
+        )
 
-    var availableFactors: ArrayList<EnrollableFactor> = java.util.ArrayList()
+    var availableFactors: ArrayList<EnrollableFactor> = ArrayList()
 
     init {
-        metadataContainer.authenticationMethods.userPresence?.let {
+        metadataResponse.authenticationMethods.userPresence?.let {
             availableFactors.add(
                 SignatureEnrollableFactor(
-                    it.enrollmentUri,
-                    EnrollableType.USER_PRESENCE,
-                    it.attributes.algorithm.toString()
+                    uri = it.enrollmentUri,
+                    type = EnrollableType.USER_PRESENCE,
+                    enabled = it.enabled,
+                    algorithm = it.attributes.algorithm.toString()
                 )
             )
         }
 
-        metadataContainer.authenticationMethods.face?.let {
+        metadataResponse.authenticationMethods.face?.let {
             availableFactors.add(
                 SignatureEnrollableFactor(
-                    it.enrollmentUri,
-                    EnrollableType.FACE,
-                    it.attributes.algorithm.toString()
-                )
-            )
-
-        }
-
-        metadataContainer.authenticationMethods.fingerprint?.let {
-            availableFactors.add(
-                SignatureEnrollableFactor(
-                    it.enrollmentUri,
-                    EnrollableType.FINGERPRINT,
-                    it.attributes.algorithm.toString()
+                    uri = it.enrollmentUri,
+                    type = EnrollableType.FACE,
+                    enabled = it.enabled,
+                    algorithm = it.attributes.algorithm.toString()
                 )
             )
 
         }
 
-        metadataContainer.authenticationMethods.totp?.let {totp ->
+        metadataResponse.authenticationMethods.fingerprint?.let {
+            availableFactors.add(
+                SignatureEnrollableFactor(
+                    uri = it.enrollmentUri,
+                    type =EnrollableType.FINGERPRINT,
+                    enabled = it.enabled,
+                    algorithm = it.attributes.algorithm.toString()
+                )
+            )
+
+        }
+
+        metadataResponse.authenticationMethods.totp?.let { totp ->
             totp.attributes?.let {
                 availableFactors.add(
                     CloudTOTPEnrollableFactor(
-                        totp.enrollmentUri,
-                        EnrollableType.TOTP,
-                        id,
-                        it.algorithm.toString(),
-                        it.secret,
-                        it.digits,
-                        it.period
+                        uri = totp.enrollmentUri,
+                        type = EnrollableType.TOTP,
+                        enabled = totp.enabled,
+                        id = id,
+                        algorithm = it.algorithm.toString(),
+                        secret = it.secret,
+                        digits = it.digits,
+                        period = it.period
                     )
                 )
             }
@@ -84,7 +92,7 @@ internal data class CloudRegistration @OptIn(ExperimentalSerializationApi::class
 }
 
 @Serializable
-internal data class MetadataContainer(
+internal data class MetadataResponse(
     val authenticationMethods: AuthenticationMethods,
     val registrationUri: URL,
     val serviceName: String,
@@ -95,7 +103,7 @@ internal data class MetadataContainer(
 
 @Serializable
 internal data class Metadata(
-    val id : String = "",
+    val id: String = "",
     val registrationUri: URL,
     val serviceName: String,
     val transactionUri: URL,
