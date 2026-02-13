@@ -14,16 +14,15 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
     var authenticationRequired: Boolean
     var invalidatedByBiometricEnrollment: Boolean
 
+    val canEnrollUserPresence: Boolean
+    val canEnrollBiomtric: Boolean
     val countOfAvailableEnrollments: Int
 
     @Throws
-    fun nextEnrollment(): EnrollableSignature?
+    suspend fun enrollBiometric(httpClient: HttpClient = NetworkHelper.getInstance)
 
     @Throws
-    suspend fun enroll(httpClient: HttpClient = NetworkHelper.getInstance)
-
-    @Throws
-    suspend fun enroll(keyName: String, publicKey: String, signedData: String, httpClient: HttpClient = NetworkHelper.getInstance)
+    suspend fun enrollUserPresence(httpClient: HttpClient = NetworkHelper.getInstance)
 
     @Throws
     suspend fun finalize(httpClient: HttpClient = NetworkHelper.getInstance): Result<MFAAuthenticatorDescriptor>
