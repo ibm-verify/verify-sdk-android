@@ -31,7 +31,8 @@ import kotlin.coroutines.cancellation.CancellationException
 @Suppress("MemberVisibilityCanBePrivate")
 object NetworkHelper {
 
-    private lateinit var client: HttpClient
+    @Volatile
+    private var client: HttpClient? = null
 
     var connectTimeoutMillis: Long = 15000L
     var requestTimeoutMillis: Long = 15000L
@@ -48,7 +49,7 @@ object NetworkHelper {
         set(value) {
             if (field != value) {
                 field = value
-                reinitializeClient()
+                invalidateClient()
             }
         }
 
@@ -56,7 +57,7 @@ object NetworkHelper {
         set(value) {
             if (field != value) {
                 field = value
-                reinitializeClient()
+                invalidateClient()
             }
         }
 
@@ -64,16 +65,14 @@ object NetworkHelper {
         set(value) {
             if (field != value) {
                 field = value
-                reinitializeClient()
+                invalidateClient()
             }
         }
 
-    init {
-        initialize()
-    }
-
     val getInstance: HttpClient
-        get() = client
+        get() = client ?: synchronized(this) {
+            client ?: buildClient(null).also { client = it }
+        }
 
     @Synchronized
     fun initialize(customClient: HttpClient? = null, httpClientEngine: HttpClientEngine? = null) {
@@ -81,8 +80,9 @@ object NetworkHelper {
     }
 
     @Synchronized
-    private fun reinitializeClient() {
-        client = buildClient(null)
+    private fun invalidateClient() {
+        client?.close()
+        client = null
     }
 
     private fun buildClient(httpClientEngine: HttpClientEngine?): HttpClient {
@@ -166,9 +166,8 @@ object NetworkHelper {
     }
 
     fun closeClient() {
-        if (this::client.isInitialized) {
-            client.close()
-        }
+        client?.close()
+        client = null
     }
 }
 
@@ -183,7 +182,7 @@ inline fun <R> safeRunCatching(block: () -> R): Result<R> {
     }
 }
 
-inline fun <R> safeRunCatchingSuspend(block: () -> R): Result<R> {
+inline suspend fun <R> safeRunCatchingSuspend(block: suspend () -> R): Result<R> {
     return try {
         Result.success(block())
     } catch (e: CancellationException) {
