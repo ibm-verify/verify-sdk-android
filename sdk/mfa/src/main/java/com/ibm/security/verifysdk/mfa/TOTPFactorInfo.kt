@@ -56,6 +56,6 @@ data class TOTPFactorInfo(
 
     @SuppressWarnings
     override fun generatePasscode(counter: Long): String {
-        return super.generatePasscode(counter = counter / period / 1000L)
+        return super.generatePasscode(counter = counter / period)
     }
 }
