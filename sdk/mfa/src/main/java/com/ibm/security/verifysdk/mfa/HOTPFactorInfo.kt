@@ -47,4 +47,19 @@ data class HOTPFactorInfo(
         _counter++
         return result
     }
+
+    /**
+     * Generates a passcode without incrementing the counter.
+     * Useful for previewing the current passcode without consuming it.
+     *
+     * @return The generated passcode as a string.
+     */
+    fun generatePasscode(incrementCounter: Boolean): String {
+        return if (incrementCounter) {
+            generatePasscode()
+        } else {
+            generatePasscode(counter.toLong())
+        }
+    }
+
 }
