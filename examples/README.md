@@ -20,22 +20,7 @@ Demonstrates the MFA (Multi-Factor Authentication) capabilities of the IBM Verif
 
 ---
 
-### 2. DC Demo (`dc_demo/`)
-
-Demonstrates digital credential management and verification using the IBM Verify SDK.
-
-**Features:**
-
-- Digital wallet management
-- Credential issuance and storage
-- Credential verification
-- Multiple credential types support (Driver's License, Employee ID, Banking, Medicare, etc.)
-- QR code-based credential exchange
-- Room database for persistent storage
-
----
-
-### 3. DPoP Demo (`dpop_demo/`)
+### 2. DPoP Demo (`dpop_demo/`)
 
 Demonstrates configuring DPoP (Demonstrating Proof-of-Possession) flows with IBM Verify.
 
@@ -52,7 +37,7 @@ Demonstrates configuring DPoP (Demonstrating Proof-of-Possession) flows with IBM
 
 ---
 
-### 4. FIDO2 Demo (`fido2_demo/`)
+### 3. FIDO2 Demo (`fido2_demo/`)
 
 Demonstrates FIDO2 (WebAuthn) authentication capabilities using the IBM Verify SDK.
 
@@ -66,7 +51,7 @@ Demonstrates FIDO2 (WebAuthn) authentication capabilities using the IBM Verify S
 
 ---
 
-### 5. AuthCodeFlow Demo (`authcodeflow_demo/`)
+### 4. AuthCodeFlow Demo (`authcodeflow_demo/`)
 
 Demonstrates OAuth 2.0 Authorization Code Flow with PKCE and OIDC using the IBM Verify SDK.
 

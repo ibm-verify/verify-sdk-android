@@ -94,24 +94,6 @@ The IBM Verify Adaptive SDK provides device risk assessment and adaptive authent
 
 ---
 
-### [DC (Digital Credentials)](dc/)
-The IBM Verify Digital Credentials SDK enables credential issuance and verification in mobile wallet applications.
-
-**Key Features**:
-- Wallet initialization and management
-- Credential issuance and acceptance
-- Proof request handling
-- Verification workflows
-- Support for multiple credential formats (Indy, JSON-LD, mDoc)
-- Connection management with issuers and verifiers
-
-**Dependencies**: `core`
-
-**Documentation**: [DC README](dc/README.md)
-
-**Example**: [DC Demo](../examples/dc_demo/)
-
----
 
 ## Module Dependency Graph
 
@@ -121,12 +103,12 @@ The IBM Verify Digital Credentials SDK enables credential issuance and verificat
 │  (Networking, Storage, Biometrics, Common Utilities)    │
 └─────────────────────────────────────────────────────────┘
                             │
-        ┌───────────────────┼───────────────────┬─────────┐
-        │                   │                   │         │
-        ▼                   ▼                   ▼         ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────┐  ┌────────┐
-│Authentication│    │    FIDO2     │    │ Adaptive │  │   DC   │
-└──────────────┘    └──────────────┘    └──────────┘  └────────┘
+        ┌───────────────────┼───────────────────┐
+        │                   │                   │ 
+        ▼                   ▼                   ▼
+┌──────────────┐    ┌──────────────┐    ┌──────────┐
+│Authentication│    │    FIDO2     │    │ Adaptive │
+└──────────────┘    └──────────────┘    └──────────┘
         │
         ▼
 ┌──────────────┐
@@ -148,7 +130,6 @@ dependencies {
     implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.0.9")
     implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.0.9")
     implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.0.9")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-dc:3.0.9")
 }
 ```
 
@@ -162,7 +143,6 @@ API documentation for each module is available at:
 - [MFA API Docs](https://ibm-verify.github.io/android/mfa/docs/)
 - [FIDO2 API Docs](https://ibm-verify.github.io/android/fido2/docs/)
 - [Adaptive API Docs](https://ibm-verify.github.io/android/adaptive/docs/)
-- [DC API Docs](https://ibm-verify.github.io/android/dc/docs/)
 
 ## Examples
 
@@ -171,7 +151,6 @@ Complete example applications demonstrating each SDK module are available in the
 - [Authorization Code Flow Demo](../examples/authcodeflow_demo/) - OAuth 2.0 with PKCE
 - [MFA Demo](../examples/mfa_demo/) - Multi-factor authentication
 - [FIDO2 Demo](../examples/fido2_demo/) - FIDO2 attestation and assertion
-- [DC Demo](../examples/dc_demo/) - Digital credentials wallet
 
 ## Requirements
 
