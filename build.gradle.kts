@@ -16,8 +16,8 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.0.15"
-extra["versionCode"] = "116"
+extra["versionName"] = "3.1.0"
+extra["versionCode"] = "117"
 
 dependencies {
     add("implementation", enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.15.3"))
@@ -73,6 +73,17 @@ rootCoverage {
 
     generateHtml = true
     generateXml = true
+}
+
+tasks.named<JacocoReport>("rootCoverageReport") {
+    executionData.setFrom(
+        fileTree(rootDir) {
+            include("**/build/outputs/unit_test_code_coverage/**/test*.exec")
+            include("**/build/outputs/code_coverage/**/connected/**/*.ec")
+            exclude("examples/**")
+            exclude("**/examples/**")
+        }
+    )
 }
 
 tasks.jacocoTestCoverageVerification {

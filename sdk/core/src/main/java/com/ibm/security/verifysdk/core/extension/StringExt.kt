@@ -29,38 +29,48 @@ fun String.sha256(): String {
 fun String.camelToSnakeCase(): String {
     return camelRegex.replace(this) {
         "_${it.value}"
-    }.lowercase(Locale.getDefault())
+    }.lowercase(Locale.ROOT)
 }
 
 fun String.snakeToCamelCase(): String {
-    return snakeRegex.replace(this) { match ->
-        match.value.replace("_", "").uppercase()
-            .replaceFirstChar { firstChar ->
-                if (firstChar.isLowerCase()) firstChar.titlecase(Locale.getDefault()) else firstChar.toString()
-            }
+    return snakeRegex.replace(this) {
+        it.value.substring(1).uppercase(Locale.ROOT)
     }
 }
 
+/**
+ * Decodes a Base32 encoded string into a [ByteArray].
+ *
+ * This implementation is case-insensitive and supports optional padding.
+ * It's based on the RFC 4648 standard.
+ *
+ * @receiver The Base32 encoded string.
+ * @return The decoded byte array.
+ * @throws IllegalArgumentException if the input string is not a valid Base32 string.
+ */
 fun String.decodeBase32(): ByteArray {
-    val map = ('A'..'Z') + ('2'..'7')
-    val reverseMap = map.withIndex().associate { it.value to it.index }
+    val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+    val lookup = alphabet.withIndex().associate { it.value to it.index.toLong() }
 
-    val paddingLength = when (val padding = this.count { it == '=' }) {
-        0, 6 -> 0
-        1, 3 -> 8 - padding
-        2, 4 -> 16 - padding
-        5 -> throw IllegalArgumentException("Invalid padding in base32 string")
-        else -> throw IllegalArgumentException("Invalid base32 string")
+    val cleanInput = this.uppercase(Locale.ROOT).replace("=", "")
+    val bytes = ByteArray(cleanInput.length * 5 / 8)
+    var bitIndex = 0
+    var byteIndex = 0
+    var buffer = 0L
+
+    for (char in cleanInput) {
+        val value = lookup[char] ?: throw IllegalArgumentException("Invalid character in Base32 string: '$char'")
+        buffer = (buffer shl 5) or value
+        bitIndex += 5
+
+        if (bitIndex >= 8) {
+            bytes[byteIndex++] = (buffer shr (bitIndex - 8)).toByte()
+            bitIndex -= 8
+        }
     }
-
-    val binaryString = this
-        .replace("=", "")
-        .map { reverseMap[it]!! }
-        .joinToString("") { it.toString(2).padStart(5, '0') }
-        .dropLast(paddingLength)
-
-    return binaryString.chunked(8).map { it.toInt(2).toByte() }.toByteArray()
+    return bytes
 }
+
 
 fun String.urlFormEncodedString(): String =
     URLEncoder.encode(this, StandardCharsets.UTF_8.toString())

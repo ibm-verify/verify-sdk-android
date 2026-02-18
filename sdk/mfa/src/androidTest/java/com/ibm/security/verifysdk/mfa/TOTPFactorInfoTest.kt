@@ -18,9 +18,9 @@ class TOTPFactorInfoTest {
     @Test
     fun generatePasscode_withPeriod24_shouldGeneratePasscode() {
 
-        val T19980303_013448_UTC = 888888888888L
-        val T20000101_000000_UTC = 946684800000L
-        val T20200202_020202_UTC = 1580608922000L
+        val T19980303_013448_UTC = 888888888L
+        val T20000101_000000_UTC = 946684800L
+        val T20200202_020202_UTC = 1580608922L
         val factor = TOTPFactorInfo(secret = secret, period = 24)
 
         assertEquals("358462", factor.generatePasscode(T19980303_013448_UTC))
@@ -37,7 +37,7 @@ class TOTPFactorInfoTest {
             TOTPFactorInfo(secret = secret, digits = 2, algorithm = HashAlgorithmType.SHA512)
 
         for (i in 0 until 10) {
-            val result = factor.generatePasscode(i.toLong() * period * 1000L)
+            val result = factor.generatePasscode(i.toLong() * period)
             assertEquals(2, result.length)
             assertEquals(values[i], result)
         }
@@ -51,7 +51,7 @@ class TOTPFactorInfoTest {
         val factor = TOTPFactorInfo(secret = secret, digits = 3)
 
         for (i in 0 until 10) {
-            val result = factor.generatePasscode(i.toLong() * period * 1000L)
+            val result = factor.generatePasscode(i.toLong() * period)
             assertEquals(3, result.length)
             assertEquals(values[i], result)
         }
@@ -77,7 +77,7 @@ class TOTPFactorInfoTest {
             TOTPFactorInfo(secret = secret, digits = 5, algorithm = HashAlgorithmType.SHA512)
 
         for (i in 0 until 10) {
-            val result = factor.generatePasscode(i.toLong() * period * 1000L)
+            val result = factor.generatePasscode(i.toLong() * period)
             assertEquals(5, result.length)
             assertEquals(values[i], result)
         }

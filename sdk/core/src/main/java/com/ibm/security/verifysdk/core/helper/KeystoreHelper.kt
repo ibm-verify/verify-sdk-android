@@ -97,7 +97,10 @@ object KeystoreHelper {
             val keyStore = KeyStore.getInstance(keystoreType)
             keyStore.load(null)
 
-            if (keyStore.containsAlias(keyName)) keyStore.deleteEntry(keyName)
+            if (keyStore.containsAlias(keyName)) {
+                keyStore.deleteEntry(keyName)
+                log.warn("Existing key `$keyName` deleted")
+            }
 
             if (algorithm == "SHA1withRSA") {
                 digest = KeyProperties.DIGEST_SHA1

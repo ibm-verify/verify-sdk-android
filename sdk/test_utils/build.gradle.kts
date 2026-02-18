@@ -17,5 +17,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.test)
     implementation(libs.ktor.client.mock)
     implementation(libs.logging.interceptor)
-    implementation(libs.mockito.kotlin)
+    androidTestImplementation(libs.mockito.kotlin) {
+        // Fix issue with byte-buddy and instrumentation tests
+        exclude(group = "org.mockito", module = "mockito-core")
+    }
 }

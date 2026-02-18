@@ -28,13 +28,6 @@ interface AuthenticatorDescriptor {
      * The name of the account associated with the service.
      */
     var accountName: String
-
-    /**
-     * A list of allowed factors the user can attempt to perform 2nd factor (2FA) and multi-factor
-     * authentication (MFA).
-     */
-    @kotlinx.serialization.InternalSerializationApi
-    val allowedFactors: List<FactorType>
 }
 
 /**
@@ -50,15 +43,17 @@ internal fun generateKeys(
     keyName: String,
     algorithm: String,
     authenticationRequired: Boolean = false,
+    invalidatedByBiometricEnrollment: Boolean = false,
     base64EncodingOptions: Int = Base64.NO_WRAP
 ): String {
 
     return Base64.encodeToString(
         KeystoreHelper.createKeyPair(
-            keyName,
-            algorithm,
-            KeyProperties.PURPOSE_SIGN,
-            authenticationRequired
+            keyName = keyName,
+            algorithm = algorithm,
+            purpose = KeyProperties.PURPOSE_SIGN,
+            authenticationRequired = authenticationRequired,
+            invalidatedByBiometricEnrollment = invalidatedByBiometricEnrollment
         ).encoded,
         base64EncodingOptions
     )

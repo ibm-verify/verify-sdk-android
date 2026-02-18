@@ -10,17 +10,16 @@ import com.ibm.security.verifysdk.core.extension.entering
 import com.ibm.security.verifysdk.core.extension.exiting
 import com.ibm.security.verifysdk.core.helper.ContextHelper
 import com.ibm.security.verifysdk.core.helper.NetworkHelper
+import com.ibm.security.verifysdk.mfa.BiometricFactorInfo
 import com.ibm.security.verifysdk.mfa.EnrollableSignature
 import com.ibm.security.verifysdk.mfa.EnrollableType
-import com.ibm.security.verifysdk.mfa.FactorType
-import com.ibm.security.verifysdk.mfa.FingerprintFactorInfo
+import com.ibm.security.verifysdk.mfa.HashAlgorithmException
 import com.ibm.security.verifysdk.mfa.HashAlgorithmType
 import com.ibm.security.verifysdk.mfa.MFAAttributeInfo
 import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
 import com.ibm.security.verifysdk.mfa.MFARegistrationDescriptor
-import com.ibm.security.verifysdk.mfa.MFARegistrationError
+import com.ibm.security.verifysdk.mfa.MFARegistrationException
 import com.ibm.security.verifysdk.mfa.SignatureEnrollableFactor
-import com.ibm.security.verifysdk.mfa.TOTPFactorInfo
 import com.ibm.security.verifysdk.mfa.UserPresenceFactorInfo
 import com.ibm.security.verifysdk.mfa.generateKeys
 import com.ibm.security.verifysdk.mfa.model.onprem.DetailsData
@@ -29,8 +28,6 @@ import com.ibm.security.verifysdk.mfa.model.onprem.InitializationInfo
 import com.ibm.security.verifysdk.mfa.model.onprem.Metadata
 import com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseAuthenticator
 import com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseRegistrationProviderResultData
-import com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseTOTPEnrollableFactor
-import com.ibm.security.verifysdk.mfa.model.onprem.TotpConfiguration
 import com.ibm.security.verifysdk.mfa.sign
 import io.ktor.client.HttpClient
 import io.ktor.client.request.accept
@@ -42,7 +39,6 @@ import io.ktor.client.request.url
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
-import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
@@ -60,21 +56,34 @@ class OnPremiseRegistrationProvider(data: String) :
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private val decoder =  Json {
+    private val decoder = Json {
         encodeDefaults = true
         explicitNulls = false
         ignoreUnknownKeys = true
     }
 
+    override val canEnrollBiomtric: Boolean
+        get() = canEnrollFingerprint || canEnrollFace
+
+    private val canEnrollFingerprint: Boolean
+        get() = metaData.availableFactors.any {
+            it.type == EnrollableType.FINGERPRINT
+        }
+
+    private val canEnrollFace: Boolean
+        get() = metaData.availableFactors.any {
+            it.type == EnrollableType.FACE
+        }
+
+    override val canEnrollUserPresence: Boolean
+        get() = metaData.availableFactors.any { it.type == EnrollableType.USER_PRESENCE }
+
     private val initializationInfo: InitializationInfo
+    private var biometricFactor: BiometricFactorInfo? = null
+    private var userPresenceFactor: UserPresenceFactorInfo? = null
     private lateinit var tokenInfo: TokenInfo
     private lateinit var metaData: Metadata
     private lateinit var authenticatorId: String
-
-    private var currentFactor: SignatureEnrollableFactor? = null
-    @OptIn(InternalSerializationApi::class)
-    private var factors: MutableList<FactorType> = mutableListOf()
-
 
     override var pushToken: String = ""
     override var accountName: String = ""
@@ -90,14 +99,13 @@ class OnPremiseRegistrationProvider(data: String) :
         try {
             initializationInfo = decoder.decodeFromString(data)
         } catch (e: Exception) {
-            throw MFARegistrationError.FailedToParse
+            throw MFARegistrationException.FailedToParse(e)
         }
     }
 
     @OptIn(InternalSerializationApi::class)
     internal suspend fun initiate(
         accountName: String,
-        skipTotpEnrollment: Boolean = true,
         pushToken: String?,
         additionalHeaders: HashMap<String, String>?,
         httpClient: HttpClient = NetworkHelper.getInstance
@@ -130,11 +138,7 @@ class OnPremiseRegistrationProvider(data: String) :
                 }
             } else {
                 return Result.failure(
-                    MFARegistrationError.UnderlyingError(
-                        Error(
-                            responseDetail.bodyAsText()
-                        )
-                    )
+                    MFARegistrationException.General(responseDetail.bodyAsText())
                 )
             }
 
@@ -167,50 +171,10 @@ class OnPremiseRegistrationProvider(data: String) :
                 onSuccess = { tokenInfo ->
                     this.tokenInfo = tokenInfo
                     authenticatorId = tokenInfo.additionalData["authenticator_id"] as? String
-                        ?: return Result.failure(MFARegistrationError.MissingAuthenticatorIdentifier)
+                        ?: return Result.failure(MFARegistrationException.MissingAuthenticatorIdentifier())
 
                     if (countOfAvailableEnrollments == 0) {
-                        return Result.failure(MFARegistrationError.NoEnrollableFactors)
-                    }
-
-                    val totpFactor =
-                        metaData.availableFactors.find { factor -> factor.type == EnrollableType.TOTP }
-
-                    totpFactor?.let { factor ->
-                        (factor as? OnPremiseTOTPEnrollableFactor)?.let { onPremiseTotpEnrollableFactor ->
-                            if (skipTotpEnrollment.not()) {
-
-                                val responseTotp = httpClient.get {
-                                    url(onPremiseTotpEnrollableFactor.uri)
-                                    accept(ContentType.Application.Json)
-                                    bearerAuth(tokenInfo.accessToken)
-                                }
-
-                                if (responseTotp.status.isSuccess()) {
-                                    responseTotp.bodyAsText().let { responseTotpData ->
-                                        val totp: TotpConfiguration =
-                                            decoder.decodeFromString(responseTotpData)
-                                        totp.let { totpRegistration ->
-                                            factors.add(
-                                                FactorType.Totp(
-                                                    TOTPFactorInfo(
-                                                        secret = totpRegistration.secretKey,
-                                                        algorithm = HashAlgorithmType.fromString(
-                                                            totpRegistration.algorithm
-                                                        ),
-                                                        digits = totpRegistration.digits.toInt(),
-                                                        period = totpRegistration.period.toInt()
-                                                    )
-                                                )
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    return Result.failure(MFARegistrationError.EnrollmentFailed)
-                                }
-                            }
-                            metaData.availableFactors.removeAll { factor -> factor.type == EnrollableType.TOTP }
-                        }
+                        return Result.failure(MFARegistrationException.NoEnrollableFactors())
                     }
 
                     return Result.success(
@@ -220,8 +184,8 @@ class OnPremiseRegistrationProvider(data: String) :
                         )
                     )
                 },
-                onFailure = {
-                    return Result.failure(MFARegistrationError.FailedToParse)
+                onFailure = { e ->
+                    return Result.failure(MFARegistrationException.FailedToParse(e))
                 }
             )
         } catch (e: Throwable) {
@@ -231,98 +195,86 @@ class OnPremiseRegistrationProvider(data: String) :
         }
     }
 
-
-    override fun nextEnrollment(): EnrollableSignature? {
-
-        return try {
-            log.entering()
-
-            require(::tokenInfo.isInitialized) { "TokenInfo must be initialized" }
-            require(::metaData.isInitialized) { "MetaData must be initialized" }
-            require(::authenticatorId.isInitialized) { "Authenticator ID must be initialized" }
-
-            if (metaData.availableFactors.isEmpty()) {
-                null
-            } else {
-                metaData.availableFactors.first().let { enrollableFactor ->
-                    (enrollableFactor as SignatureEnrollableFactor).let { signatureEnrollableFactor ->
-                        currentFactor = signatureEnrollableFactor
-                        metaData.availableFactors.removeAll { enrollableFactor.type == it.type }
-
-                        val algorithm =
-                            currentFactor?.algorithm?.let { HashAlgorithmType.fromString(it) }
-                        val biometricAuthentication =
-                            (currentFactor?.type == EnrollableType.USER_PRESENCE).not()
-
-                        algorithm?.let {
-                            EnrollableSignature(
-                                biometricAuthentication,
-                                it,
-                                authenticatorId,
-                                signatureEnrollableFactor.type
-                            )
-                        }
-                    }
-                }
-            }
-        } finally {
-            require(currentFactor != null) { "currentFactor must not be null" }
-            log.exiting()
+    override suspend fun enrollBiometric(httpClient: HttpClient) {
+        if (canEnrollFingerprint) {
+            performSignatureEnrollment(type = EnrollableType.FINGERPRINT, httpClient = httpClient)
+        } else if (canEnrollFace) {
+            performSignatureEnrollment(type = EnrollableType.FACE, httpClient = httpClient)
+        } else {
+            throw MFARegistrationException.NoEnrollableFactors(EnrollableType.FINGERPRINT)
         }
     }
 
-    override suspend fun enroll(httpClient: HttpClient) {
+    override suspend fun enrollUserPresence(httpClient: HttpClient) {
+        if (!canEnrollUserPresence)
+            throw MFARegistrationException.NoEnrollableFactors(EnrollableType.USER_PRESENCE)
+
+        performSignatureEnrollment(
+            type = EnrollableType.USER_PRESENCE,
+            httpClient = httpClient
+        )
+    }
+
+    private suspend fun performSignatureEnrollment(
+        type: EnrollableType,
+        httpClient: HttpClient
+    ) {
+
+        require(::tokenInfo.isInitialized) { "TokenInfo must be initialized" }
+        require(::metaData.isInitialized) { "MetaData must be initialized" }
+        require(::authenticatorId.isInitialized) { "Authenticator ID must be initialized" }
+
+        val factor =
+            metaData.availableFactors.first { it.type == type } as SignatureEnrollableFactor
+
+        if (!factor.enabled)
+            throw MFARegistrationException.SignatureMethodNotEnabled(factor.type)
 
         try {
-            log.entering()
+            HashAlgorithmType.forSigning(factor.algorithm)
+        } catch (_: HashAlgorithmException.InvalidHash) {
+            throw MFARegistrationException.InvalidAlgorithm(factor.algorithm)
+        }
 
-            require(::tokenInfo.isInitialized) { "TokenInfo must be initialized" }
-            require(::metaData.isInitialized) { "MetaData must be initialized" }
-            require(::authenticatorId.isInitialized) { "Authenticator ID must be initialized" }
-            require(currentFactor != null) { "currentFactor must not be null" }
-
-            currentFactor?.let { signatureEnrollableFactor ->
-                val keyName = "${authenticatorId}.${signatureEnrollableFactor.type.name}"
-                log.debug("Key generated: $keyName")
-                generateKeys(
-                    keyName,
-                    HashAlgorithmType.forSigning(signatureEnrollableFactor.algorithm)
-                ).let { publicKey ->
-                    sign(
-                        keyName,
-                        HashAlgorithmType.forSigning(signatureEnrollableFactor.algorithm),
-                        authenticatorId,
-                        android.util.Base64.NO_WRAP
-                    ).let { signedData ->
-                        enroll(keyName, publicKey, signedData, httpClient = httpClient)
-                    }
-                }
-            }
-        } finally {
-            log.exiting()
+        val keyName = "${authenticatorId}.${type.name}"
+        val algorithm =
+            HashAlgorithmType.forSigning((metaData.availableFactors.first { it.type == type } as SignatureEnrollableFactor).algorithm)
+        generateKeys(
+            keyName = keyName,
+            algorithm = algorithm,
+            authenticationRequired = (type == EnrollableType.FACE || type == EnrollableType.FINGERPRINT) && authenticationRequired,
+            invalidatedByBiometricEnrollment = (type == EnrollableType.FACE || type == EnrollableType.FINGERPRINT) && authenticationRequired,
+        ).let { publicKey ->
+            enroll(
+                type,
+                factor,
+                keyName,
+                HashAlgorithmType.fromString(algorithm),
+                publicKey,
+                httpClient
+            )
         }
     }
 
 
     @OptIn(InternalSerializationApi::class)
-    override suspend fun enroll(keyName: String, publicKey: String, signedData: String, httpClient: HttpClient) {
+    private suspend fun enroll(
+        type: EnrollableType,
+        signatureEnrollableFactor: SignatureEnrollableFactor,
+        keyName: String,
+        algorithm: HashAlgorithmType,
+        publicKey: String,
+        httpClient: HttpClient
+    ) {
 
         try {
             log.entering()
 
-            require(::tokenInfo.isInitialized) { "TokenInfo must be initialized" }
-            require(::metaData.isInitialized) { "MetaData must be initialized" }
-            require(::authenticatorId.isInitialized) { "Authenticator ID must be initialized" }
-            require(currentFactor != null) { "currentFactor must not be null" }
-
-            val algorithm = HashAlgorithmType.fromString(currentFactor?.algorithm ?: "")
             val path =
                 "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator:${
-                    EnrollableType.forIsvaEnrollment(
-                        currentFactor?.type
-                    )
+                    EnrollableType.forIsvaEnrollment(type)
                 }Methods"
-            val enrollmentUrl = URL("${currentFactor?.uri}?attributes=${path}")
+            val enrollmentUrl = URL("${signatureEnrollableFactor.uri}?attributes=${path}")
 
             val requestBody = buildJsonObject {
                 put(
@@ -338,7 +290,7 @@ class OnPremiseRegistrationProvider(data: String) :
                                 put("keyHandle", keyName)
                                 put(
                                     "algorithm",
-                                    HashAlgorithmType.forSigning(currentFactor?.algorithm ?: "")
+                                    HashAlgorithmType.forSigning(algorithm.toString())
                                 )
                                 put("publicKey", publicKey)
                             }
@@ -356,47 +308,47 @@ class OnPremiseRegistrationProvider(data: String) :
 
             if (response.status.isSuccess()) {
                 response.bodyAsText().let { responseBodyData ->
-                    val enrrollmentResult =
+                    val enrollmentResult =
                         decoder.decodeFromString<EnrollmentResult>(responseBodyData)
 
-                    when (currentFactor?.type) {
-                        EnrollableType.FINGERPRINT -> factors.add(
-                            FactorType.Fingerprint(
-                                FingerprintFactorInfo(
-                                    id = UUID.fromString(
-                                        enrrollmentResult.resources[0].authenticator.fingerprintMethods?.get(
-                                            0
-                                        )?.id?.replace(
-                                            "uuid",
-                                            ""
-                                        ) // ISVA adds a "uuid" prefix to the value
-                                    ),
-                                    keyName = keyName,
-                                    algorithm = algorithm
-                                )
+                    when (signatureEnrollableFactor.type) {
+                        EnrollableType.FINGERPRINT, EnrollableType.FACE -> {
+                            biometricFactor = BiometricFactorInfo(
+                                id = UUID.fromString(
+                                    enrollmentResult.resources[0].authenticator.fingerprintMethods?.get(
+                                        0
+                                    )?.id?.replace(
+                                        "uuid",
+                                        ""
+                                    ) // IBM Verify Access adds an "uuid" prefix to the value
+                                ),
+                                keyName = keyName,
+                                algorithm = algorithm
                             )
-                        )
+                        }
 
-                        else -> factors.add(
-                            FactorType.UserPresence(
-                                UserPresenceFactorInfo(
-                                    id = UUID.fromString(
-                                        enrrollmentResult.resources[0].authenticator.userPresenceMethods?.get(
-                                            0
-                                        )?.id?.replace(
-                                            "uuid",
-                                            ""
-                                        ) // ISVA adds a "uuid" prefix to the value
-                                    ),
-                                    keyName = keyName,
-                                    algorithm = algorithm
-                                )
+                        EnrollableType.USER_PRESENCE -> {
+                            userPresenceFactor = UserPresenceFactorInfo(
+                                id = UUID.fromString(
+                                    enrollmentResult.resources[0].authenticator.userPresenceMethods?.get(
+                                        0
+                                    )?.id?.replace(
+                                        "uuid",
+                                        ""
+                                    ) // IBM Verify Access adds an "uuid" prefix to the value
+                                ),
+                                keyName = keyName,
+                                algorithm = algorithm
                             )
-                        )
+                        }
+
+                        EnrollableType.TOTP , EnrollableType.HOTP -> {
+
+                        }
                     }
                 }
             } else {
-                throw MFARegistrationError.DataInitializationFailed
+                throw MFARegistrationException.DataInitializationFailed()
             }
         } finally {
             log.exiting()
@@ -417,7 +369,8 @@ class OnPremiseRegistrationProvider(data: String) :
                     id = authenticatorId,
                     serviceName = metaData.serviceName,
                     accountName = accountName,
-                    allowedFactors = factors,
+                    userPresence = userPresenceFactor,
+                    biometric = biometricFactor,
                     qrLoginUri = URL(metaData.qrloginUri.toString()),
                     ignoreSSLCertificate = initializationInfo.ignoreSSLCertificate,
                     clientId = initializationInfo.clientId

@@ -9,7 +9,6 @@ import kotlinx.serialization.Serializable
 import java.util.UUID
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 
 /**
  * Represents information about a Time-based One-Time Password (TOTP) factor.
@@ -57,6 +56,6 @@ data class TOTPFactorInfo(
 
     @SuppressWarnings
     override fun generatePasscode(counter: Long): String {
-        return super.generatePasscode(counter = counter / period / 1000L)
+        return super.generatePasscode(counter = counter / period)
     }
 }

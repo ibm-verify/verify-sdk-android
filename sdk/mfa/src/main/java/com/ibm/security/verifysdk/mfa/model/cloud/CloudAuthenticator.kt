@@ -7,8 +7,9 @@ package com.ibm.security.verifysdk.mfa.model.cloud
 
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.core.serializer.URLSerializer
-import com.ibm.security.verifysdk.mfa.FactorType
+import com.ibm.security.verifysdk.mfa.BiometricFactorInfo
 import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
+import com.ibm.security.verifysdk.mfa.UserPresenceFactorInfo
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
@@ -25,7 +26,6 @@ import java.net.URL
  * @property id The unique identifier of the authenticator.
  * @property serviceName The name of the service using the authenticator.
  * @property accountName The name of the account associated with the authenticator.
- * @property allowedFactors A list of allowed factor types for multi-factor authentication.
  * @property customAttributes A key value pair for configuring custom attributes of the authenticator.
  *
  * @since 3.0.2
@@ -40,6 +40,7 @@ data class CloudAuthenticator(
     override val id: String,
     override val serviceName: String,
     override var accountName: String,
-    override val allowedFactors: List<FactorType>,
+    override val biometric: BiometricFactorInfo? = null,
+    override val userPresence: UserPresenceFactorInfo? = null,
     val customAttributes: Map<String, String>
 ) : MFAAuthenticatorDescriptor

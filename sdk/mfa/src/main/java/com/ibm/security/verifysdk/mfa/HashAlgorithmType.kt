@@ -52,7 +52,7 @@ enum class HashAlgorithmType(private val rawValue: String) {
                 "SHA256", "HMACSHA256", "RSASHA256", "SHA256WITHRSA" -> SHA256
                 "SHA384", "HMACSHA384", "RSASHA384", "SHA384WITHRSA" -> SHA384
                 "SHA512", "HMACSHA512", "RSASHA512", "SHA512WITHRSA" -> SHA512
-                else -> throw HashAlgorithmError.InvalidHash
+                else -> throw HashAlgorithmException.InvalidHash()
             }
         }
 
@@ -61,7 +61,7 @@ enum class HashAlgorithmType(private val rawValue: String) {
          *
          *  @param rawValue The raw hash algorithm name as a string.
          *  @return The signing algorithm format corresponding to the provided raw hash algorithm name.
-         *  @throws HashAlgorithmError.InvalidHash if the provided hash algorithm name is invalid.
+         *  @throws HashAlgorithmException.InvalidHash if the provided hash algorithm name is invalid.
          *
          * Normalize algorithm to value defined in
          * https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#Signature
@@ -72,7 +72,7 @@ enum class HashAlgorithmType(private val rawValue: String) {
                 "SHA256", "HMACSHA256", "RSASHA256", "SHA256WITHRSA" -> "SHA256withRSA"
                 "SHA384", "HMACSHA384", "RSASHA384", "SHA384WITHRSA" -> "SHA384withRSA"
                 "SHA512", "HMACSHA512", "RSASHA512", "SHA512WITHRSA" -> "SHA512withRSA"
-                else -> throw HashAlgorithmError.InvalidHash
+                else -> throw HashAlgorithmException.InvalidHash()
             }
         }
 
@@ -80,7 +80,7 @@ enum class HashAlgorithmType(private val rawValue: String) {
          * Converts a given `HashAlgorithmType` to its corresponding IBM Verify format string.
          *
          * @param value The `HashAlgorithmType` to be converted.
-         * @return The ISV format string corresponding to the provided `HashAlgorithmType`.
+         * @return The IBM Verify SaaS format string corresponding to the provided `HashAlgorithmType`.
          */
         internal fun toIsvFormat(value: HashAlgorithmType): String {
             return when (value) {

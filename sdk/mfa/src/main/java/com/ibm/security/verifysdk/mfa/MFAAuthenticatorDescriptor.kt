@@ -13,4 +13,14 @@ interface MFAAuthenticatorDescriptor : AuthenticatorDescriptor {
     val transactionUri : URL
     var theme : Map<String, String>
     var token : TokenInfo
+    
+    /**
+     * The biometric factor information for this authenticator, if available.
+     */
+    val biometric: BiometricFactorInfo?
+    
+    /**
+     * The user presence factor information for this authenticator, if available.
+     */
+    val userPresence: UserPresenceFactorInfo?
 }

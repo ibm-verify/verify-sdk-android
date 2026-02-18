@@ -30,6 +30,6 @@ data class PendingTransactionInfo (
     val shortId: String
         get() {
             val index = id.indexOf("-")
-            return id.substring(0, index)
+            return id.take(index)
         }
 }

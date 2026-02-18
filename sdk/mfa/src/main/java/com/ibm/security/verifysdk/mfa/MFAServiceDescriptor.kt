@@ -16,7 +16,6 @@ import io.ktor.client.request.url
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
-import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
@@ -43,11 +42,10 @@ import java.net.URL
  *         println("Message: ${it.message}")
  *         println("Factor ID: ${it.factorID}")
  *
- *         // Complete the transaction
- *         val factorType = authenticator.allowedFactors.first { factor ->
- *             factor.id == it.factorID
+ *         // Complete the transaction using biometric or user presence
+ *         authenticator.biometric?.let { biometric ->
+ *             service.completeTransaction(UserAction.VERIFY, FactorType.Biometric(biometric))
  *         }
- *         service.completeTransaction(UserAction.VERIFY, factorType)
  *     }
  * }
  * ```
@@ -226,7 +224,7 @@ suspend fun MFAServiceDescriptor.login(
         if (response.status.isSuccess()) {
             Result.success(decoder.decodeFromString<Unit>(response.bodyAsText()))
         } else {
-            Result.failure(MFAServiceError.General(response.bodyAsText()))
+            Result.failure(MFAServiceException.General(response.bodyAsText()))
         }
     } catch (e: Throwable) {
         Result.failure(e)
@@ -249,15 +247,11 @@ suspend fun MFAServiceDescriptor.login(
  * // Get the next transaction
  * service.nextTransaction().onSuccess { (transaction, count) ->
  *     transaction?.let {
- *         // Find the matching factor type
- *         val factorType = authenticator.allowedFactors.first { factor ->
- *             factor.id == it.factorID
- *         }
- *
- *         // Complete the transaction with automatic signing
- *         service.completeTransaction(
- *             userAction = UserAction.VERIFY,
- *             factorType = factorType
+ *         // Complete the transaction with automatic signing using biometric
+ *         authenticator.biometric?.let { biometric ->
+ *             service.completeTransaction(
+ *                 userAction = UserAction.VERIFY,
+ *                 factorType = FactorType.Biometric(biometric)
  *         ).onSuccess {
  *             println("Transaction completed successfully")
  *         }.onFailure { error ->
@@ -284,8 +278,8 @@ suspend fun MFAServiceDescriptor.login(
  *         - Success: Unit indicating the transaction was completed successfully
  *         - Failure: An exception indicating why the operation failed
  *
- * @throws MFAServiceError.InvalidPendingTransaction if no pending transaction exists.
- * @throws MFAServiceError.General if the factor type is invalid for signing.
+ * @throws MFAServiceException.InvalidPendingTransaction if no pending transaction exists.
+ * @throws MFAServiceException.General if the factor type is invalid for signing.
  *
  * @see MFAServiceDescriptor.completeTransaction
  * @see UserAction
@@ -299,7 +293,7 @@ suspend fun MFAServiceDescriptor.completeTransaction(
 ): Result<Unit> {
     var signedData = ""
     val pendingTransaction =
-        currentPendingTransaction ?: throw MFAServiceError.InvalidPendingTransaction()
+        currentPendingTransaction ?: throw MFAServiceException.InvalidPendingTransaction()
 
     if (userAction == UserAction.VERIFY) {
         val (keyName, algorithm) = factorKeyNameAndAlgorithm(factorType)
@@ -330,7 +324,7 @@ suspend fun MFAServiceDescriptor.completeTransaction(
  *         - First: The key name used to identify the private key in the Android Keystore
  *         - Second: The [HashAlgorithmType] used for signing operations
  *
- * @throws MFAServiceError.General if the factor type is not supported for signing operations.
+ * @throws MFAServiceException.General if the factor type is not supported for signing operations.
  *
  * @see FactorType
  * @see HashAlgorithmType
@@ -339,9 +333,8 @@ suspend fun MFAServiceDescriptor.completeTransaction(
 internal fun factorKeyNameAndAlgorithm(factorType: FactorType): Pair<String, HashAlgorithmType> {
 
     return when (factorType) {
-        is FactorType.Face -> Pair(factorType.value.keyName, factorType.value.algorithm)
-        is FactorType.Fingerprint -> Pair(factorType.value.keyName, factorType.value.algorithm)
+        is FactorType.Biometric -> Pair(factorType.value.keyName, factorType.value.algorithm)
         is FactorType.UserPresence -> Pair(factorType.value.keyName, factorType.value.algorithm)
-        else -> throw MFAServiceError.General("Invalid factor to perform signing.")
+        else -> throw MFAServiceException.General("Invalid factor to perform signing.")
     }
 }

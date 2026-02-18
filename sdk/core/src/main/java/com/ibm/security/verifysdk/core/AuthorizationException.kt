@@ -4,13 +4,20 @@
 package com.ibm.security.verifysdk.core
 
 import io.ktor.http.HttpStatusCode
-import kotlinx.serialization.ExperimentalSerializationApi
 
 /**
  * This exception occurs when authorization has failed.
  *
+ * @param code The HTTP status code of the authorization failure.
+ * @param id The error identifier.
+ * @param description A human-readable description of the error.
+ * @param cause The underlying cause of the exception, if any.
+ *
  * @since 3.0.0
  */
-@OptIn(ExperimentalSerializationApi::class)
-class AuthorizationException(val code: HttpStatusCode, id: String, description: String) :
-    VerifySdkException("{\"error\":\"$id\",\"errorDescription\":\"$description\"}")
+class AuthorizationException(
+    val code: HttpStatusCode,
+    id: String,
+    description: String,
+    cause: Throwable? = null
+) : VerifySdkException(Error(id, description), cause)

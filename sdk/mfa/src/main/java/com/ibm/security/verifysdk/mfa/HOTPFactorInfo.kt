@@ -39,8 +39,6 @@ data class HOTPFactorInfo(
     init {
         require(_counter >= 0) { "Counter must be >= 0" }
         require(digits > 0) { "Digits must be > 0" }
-
-        // The request to support digits < 6 was submitted by a customer (see CI-145331).
         require(digits <= 6 || digits == 8) { " Digits must be 1, 2, 3, 4, 5, 6 or 8"}
     }
 
@@ -49,4 +47,19 @@ data class HOTPFactorInfo(
         _counter++
         return result
     }
+
+    /**
+     * Generates a passcode without incrementing the counter.
+     * Useful for previewing the current passcode without consuming it.
+     *
+     * @return The generated passcode as a string.
+     */
+    fun generatePasscode(incrementCounter: Boolean): String {
+        return if (incrementCounter) {
+            generatePasscode()
+        } else {
+            generatePasscode(counter.toLong())
+        }
+    }
+
 }

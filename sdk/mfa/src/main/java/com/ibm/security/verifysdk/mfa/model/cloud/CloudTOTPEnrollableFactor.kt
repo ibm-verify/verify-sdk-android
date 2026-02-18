@@ -11,6 +11,7 @@ import java.net.URL
 internal data class CloudTOTPEnrollableFactor(
     override val uri: URL,
     override val type: EnrollableType = EnrollableType.TOTP,
+    override val enabled: Boolean,
     val id: String,
     val algorithm: String,
     val secret: String,

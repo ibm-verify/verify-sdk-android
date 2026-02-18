@@ -54,15 +54,16 @@ internal data class DetailsData @OptIn(ExperimentalSerializationApi::class) cons
 ) {
 
     val serviceName: String = metadataService.serviceName ?: enrollmentEndpoint.host
-    var availableFactors: ArrayList<EnrollableFactor> = java.util.ArrayList()
+    var availableFactors: ArrayList<EnrollableFactor> = ArrayList()
 
     init {
         if (discoveryMechanisms.contains(DiscoveredMechanisms.USERPRESENCE)) {
             availableFactors.add(
                 SignatureEnrollableFactor(
-                    enrollmentEndpoint,
-                    EnrollableType.USER_PRESENCE,
-                    HashAlgorithmType.SHA512.toString()
+                    uri = enrollmentEndpoint,
+                    type = EnrollableType.USER_PRESENCE,
+                    enabled = true,
+                    algorithm = HashAlgorithmType.SHA512.toString()
                 )
             )
         }
@@ -70,9 +71,10 @@ internal data class DetailsData @OptIn(ExperimentalSerializationApi::class) cons
         if (discoveryMechanisms.contains(DiscoveredMechanisms.FINGERPRINT)) {
             availableFactors.add(
                 SignatureEnrollableFactor(
-                    enrollmentEndpoint,
-                    EnrollableType.FINGERPRINT,
-                    HashAlgorithmType.SHA512.toString()
+                    uri = enrollmentEndpoint,
+                    type = EnrollableType.FINGERPRINT,
+                    enabled = true,
+                    algorithm = HashAlgorithmType.SHA512.toString()
                 )
             )
         }
@@ -80,7 +82,8 @@ internal data class DetailsData @OptIn(ExperimentalSerializationApi::class) cons
         if (discoveryMechanisms.contains(DiscoveredMechanisms.TOTP)) {
             availableFactors.add(
                 OnPremiseTOTPEnrollableFactor(
-                    totpSharedSecretEndpoint
+                    uri = totpSharedSecretEndpoint,
+                    enabled = true
                 )
             )
         }

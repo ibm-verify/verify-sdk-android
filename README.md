@@ -22,7 +22,6 @@ The following SDKs are currently offered in the package:
 | [Core](sdk/core) | The IBM Verify Core SDK provides common Keychain and networking functionality across the other components in the IBM Verify SDK offering.|
 | [Authentication](sdk/authentication) | The IBM Verify Authentication SDK is an implementation of OAuth 2.0 and OIDC targeting mobile use cases.|
 | [MFA](sdk/mfa) | The IBM Verify MFA SDK provides multi-factor authentication support for creating authenticators and processing transactions.|
-| [DC](sdk/dc) | The IBM Verify DC SDK supporting digital credentials in a mobile device Wallet.|
 
 ## Integrating with your project
 
@@ -48,7 +47,7 @@ To include an IBM Verify SDK modules in your Android project, follow these steps
 
     ```kotlin
     dependencies {
-        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.0.9")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.1.0")
         implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-<module>:<version>)
         ...
     }

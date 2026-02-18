@@ -34,16 +34,14 @@ import com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseAuthenticator
  *         println("Transaction message: ${it.message}")
  *         println("Pending transactions: $count")
  *
- *         // Complete the transaction
- *         val factorType = authenticator.allowedFactors.first { factor ->
- *             factor.id == it.factorID
- *         }
- *
- *         service.completeTransaction(
- *             userAction = UserAction.VERIFY,
- *             factorType = factorType
- *         ).onSuccess {
- *             println("Transaction completed successfully")
+ *         // Complete the transaction using biometric or user presence
+ *         authenticator.biometric?.let { biometric ->
+ *             service.completeTransaction(
+ *                 userAction = UserAction.VERIFY,
+ *                 factorType = FactorType.Biometric(biometric)
+ *             ).onSuccess {
+ *                 println("Transaction completed successfully")
+ *             }
  *         }
  *     }
  * }
@@ -118,7 +116,7 @@ class MFAServiceController(private val authenticator: MFAAuthenticatorDescriptor
      * @return An [MFAServiceDescriptor] instance configured for the authenticator type.
      *         This will be either a [CloudAuthenticatorService] or [OnPremiseAuthenticatorService].
      *
-     * @throws MFARegistrationError.InvalidFormat if the authenticator type is neither
+     * @throws MFARegistrationException.InvalidFormat if the authenticator type is neither
      *                                           [CloudAuthenticator] nor [OnPremiseAuthenticator].
      *                                           This should never occur due to the init block validation.
      *
@@ -145,7 +143,7 @@ class MFAServiceController(private val authenticator: MFAAuthenticatorDescriptor
                 _authenticatorId = authenticator.id
             )
 
-            else -> throw MFARegistrationError.InvalidFormat
+            else -> throw MFARegistrationException.InvalidFormat()
         }
     }
 }
