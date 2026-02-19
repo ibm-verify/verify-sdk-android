@@ -381,7 +381,10 @@ jobs:
           files: |
             ./sdk/**/build/outputs/aar/*.aar
             ./sdk/**/build/reports/*.html
-            ./sdk/maven/*.*
+            ~/.m2/repository/com/github/ibm-verify/**/*.aar
+            ~/.m2/repository/com/github/ibm-verify/**/*.pom
+            ~/.m2/repository/com/github/ibm-verify/**/*.module
+            ~/.m2/repository/com/github/ibm-verify/**/*.jar
             ./sdk/IBM-Verify-SDK_code-coverage-report.zip
 
   job_summary:
