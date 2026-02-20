@@ -3,70 +3,29 @@
 name: IBM Verify SDK release
 
 on:
-  # 1) Fast feedback on branch pushes (build only, no tests/scans)
-  push:
-    branches:
-      - "main"
-      - "develop"
-      - "feature/**"
-      - "refactor/**"
-      - "fix/**"
-      - "pr/**"
-      - "release/**"
-
-  # 2) Confidence gate before merge (build + tests/scans)
+  # PR validation: build + tests + connectedTests + documentation
   pull_request:
     branches:
       - "main"
       - "release/**"
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
 
-  # 3) After merge (merged PR into main) automation (create GitHub Release)
+  # After merge to main: build + coverage + documentation + publish release
   pull_request_target:
     branches:
       - "main"
     types: [closed]
 
+# Default permissions are read-only; jobs elevate as needed.
+permissions:
+  contents: read
+
 jobs:
   # ----------------------------------------------------------
-  # Push-only: build (no tests)
+  # PR: build + unit tests + connected tests + docs
   # ----------------------------------------------------------
-  build_on_push:
-    name: Build (no tests) on push
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Code checkout
-        uses: actions/checkout@v4.1.1
-
-      - name: Install Java
-        uses: actions/setup-java@v4.1.0
-        with:
-          java-version: '17'
-          distribution: 'adopt'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3.2.0
-
-      - name: Load cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
-
-      # Keep this intentionally lightweight for fast iteration
-      - name: Assemble release artifacts (no tests)
-        run: ./gradlew --parallel --build-cache assembleRelease
-
-  # ----------------------------------------------------------
-  # PR: common setup (version info)
-  # (runs only for pull_request events; NOT for pull_request_target)
-  # ----------------------------------------------------------
-  setup_environment:
-    name: Setup environment
+  pr_ci:
+    name: PR - build, tests, connectedTests, docs
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
@@ -74,99 +33,28 @@ jobs:
       - name: Code checkout
         uses: actions/checkout@v4.1.1
 
-      - name: Extract version
-        id: set-vars
-        run: |
-          name="$(grep -o 'versionName.*' ./build.gradle.kts  | awk -F'"' '{print $3}')"
-          echo "VersionName=$name" >> $GITHUB_OUTPUT
-          code="$(grep -o 'versionCode.*' ./build.gradle.kts  | awk -F'"' '{print $3}')"
-          echo "VersionCode=$code" >> $GITHUB_OUTPUT
-          date="$(date +'%Y%m%d-%H%M%S')"
-          echo "Date=$date" >> $GITHUB_OUTPUT
-
-      - name: Set release title
-        id: set-title
-        run: |
-          echo "ReleaseTitle=${{ steps.set-vars.outputs.VersionName }}-${{ steps.set-vars.outputs.VersionCode }}" >> $GITHUB_OUTPUT
-
-    outputs:
-      VERIFY_SDK_DATE: ${{ steps.set-vars.outputs.Date }}
-      VERIFY_SDK_VERSION_CODE: ${{ steps.set-vars.outputs.VersionCode }}
-      VERIFY_SDK_VERSION_NAME: ${{ steps.set-vars.outputs.VersionName }}
-      VERIFY_SDK_RELEASE_TITLE: ${{ steps.set-title.outputs.ReleaseTitle }}
-
-  # ----------------------------------------------------------
-  # PR: scan (runs on PR open/update and also on merge/close)
-  # ----------------------------------------------------------
-  mend_scan:
-    name: Mend scan
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    needs: setup_environment
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      WS_APIKEY: ${{ secrets.WS_APIKEY }}
-      WS_USERKEY: ${{ secrets.WS_USERKEY }}
-      WS_PRODUCTNAME: ${{ secrets.WS_PRODUCTNAME }}
-      WS_PROJECTNAME: ${{ secrets.WS_PROJECTNAME }}
-      WS_WSS_URL: ${{ secrets.WS_WSS_URL }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4.1.1
-        with:
-          fetch-depth: 1
-
       - name: Install Java
         uses: actions/setup-java@v4.1.0
         with:
-          java-version: '17'
-          distribution: 'adopt'
-
-      - name: Download the mend scan jar
-        run: |
-          curl -LJO https://unified-agent.s3.amazonaws.com/wss-unified-agent.jar
-
-      - name: Run the mend scan jar
-        run: |
-          java -jar ./wss-unified-agent.jar -d ${{ github.workspace }}
-
-  # ----------------------------------------------------------
-  # PR: build + tests
-  # - Runs when PR is opened/updated/reopened
-  # - Does NOT run on "closed" unless merged==true
-  # ----------------------------------------------------------
-  build_and_test:
-    name: Build + unit tests (+ connected tests)
-    if: |
-      github.event_name == 'pull_request' &&
-      (github.event.action != 'closed' || github.event.pull_request.merged == true)
-    runs-on: ubuntu-latest
-    needs: mend_scan
-
-    steps:
-      - name: Code checkout
-        uses: actions/checkout@v4.1.1
-
-      - name: Install Java
-        uses: actions/setup-java@v4.1.0
-        with:
-          java-version: '17'
-          distribution: 'adopt'
+          java-version: "17"
+          distribution: "adopt"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3.2.0
 
-      - name: Load cache
+      - name: Load Gradle cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      - name: Build and test SDKs
-        run: ./gradlew --parallel --build-cache assembleRelease publishToMavenLocal dokkaJavadoc testDebugUnitTest
+      - name: Build + unit tests + documentation
+        run: |
+          ./gradlew --parallel --build-cache assembleRelease testDebugUnitTest dokkaJavadoc
 
       - name: Run connected tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -187,7 +75,7 @@ jobs:
       - name: Store build outputs + reports
         uses: actions/upload-artifact@v4.3.1
         with:
-          name: build-and-test
+          name: pr-build-and-test
           path: |
             ./sdk/**/build/outputs/
             ./sdk/**/build/reports/
@@ -195,92 +83,16 @@ jobs:
       - name: Store documentation
         uses: actions/upload-artifact@v4.3.1
         with:
-          name: documentation
+          name: pr-documentation
           path: |
             ./sdk/**/build/dokka/
 
-      - name: Store maven-local artifacts
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: maven-local
-          path: |
-            ~/.m2/repository/com/github/ibm-verify
-
-      - name: Publish to GitHub packages
-        run: ./gradlew publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  coverage_report:
-    name: Generate code coverage report
-    if: |
-      github.event_name == 'pull_request' &&
-      (github.event.action != 'closed' || github.event.pull_request.merged == true)
-    runs-on: ubuntu-latest
-    needs: [setup_environment, mend_scan]
-
-    steps:
-      - name: Code checkout
-        uses: actions/checkout@v4.1.1
-
-      - name: Install Java
-        uses: actions/setup-java@v4.1.0
-        with:
-          java-version: '17'
-          distribution: 'adopt'
-
-      - name: Load cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3.2.0
-
-      - name: Generate Jacoco report
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: Nexus 6
-          script: |
-            adb shell setprop log.tag.LoggerExtKtTest DEBUG
-            adb shell getprop log.tag.LoggerExtKtTest
-            ./gradlew --parallel --build-cache :rootCoverageReport
-
-      - name: Store code coverage report
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: jacoco-report
-          path: ./build/reports/
-
-      - name: Add coverage to PR
-        id: jacoco
-        uses: madrapps/jacoco-report@v1.6.1
-        with:
-          paths: |
-            ${{ github.workspace }}/**/build/reports/jacoco.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-          min-coverage-overall: 0
-          min-coverage-changed-files: 0
-          title: Code Coverage
-          update-comment: true
-          debug-mode: true
-
   # ----------------------------------------------------------
-  # Create GitHub Release AFTER merge to main
-  # - Triggered by pull_request_target (closed)
-  # - Only runs when merged == true
+  # Merge to main: build + coverage + docs + release publish
   # ----------------------------------------------------------
   publish:
-    name: Publish SDK, reports and documentation (on merge to main)
-    if: |
-      github.event_name == 'pull_request_target' &&
-      github.event.pull_request.merged == true
+    name: Merge - build, coverage, docs, publish release
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -296,40 +108,36 @@ jobs:
       - name: Install Java
         uses: actions/setup-java@v4.1.0
         with:
-          java-version: '17'
-          distribution: 'adopt'
+          java-version: "17"
+          distribution: "adopt"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3.2.0
 
-      - name: Load cache
+      - name: Load Gradle cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      # Rebuild from the merge commit to ensure release artifacts match what landed on main.
-      - name: Build and test SDKs (release gate)
-        run: ./gradlew --parallel --build-cache assembleRelease publishToMavenLocal dokkaJavadoc testDebugUnitTest
+      - name: Build + documentation (merge)
+        run: |
+          ./gradlew --parallel --build-cache assembleRelease dokkaJavadoc publishToMavenLocal
 
-      - name: Run connected tests (release gate)
+      # Keep emulator runner here since some setups generate coverage via instrumentation.
+      - name: Generate Jacoco coverage report (merge)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
           target: default
           arch: x86_64
           profile: Nexus 6
-          script: ./gradlew --parallel --build-cache connectedDebugAndroidTest
-
-      - name: Store build outputs + reports
-        uses: actions/upload-artifact@v4.3.1
-        with:
-          name: build-and-test
-          path: |
-            ./sdk/**/build/outputs/
-            ./sdk/**/build/reports/
+          script: |
+            ./gradlew --parallel --build-cache :rootCoverageReport
 
       - name: Store documentation
         uses: actions/upload-artifact@v4.3.1
@@ -345,15 +153,14 @@ jobs:
           path: |
             ~/.m2/repository/com/github/ibm-verify
 
-      - name: Generate coverage (merge)
-        uses: reactivecircus/android-emulator-runner@v2
+      - name: Store build outputs + reports
+        uses: actions/upload-artifact@v4.3.1
         with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: Nexus 6
-          script: |
-            ./gradlew --parallel --build-cache :rootCoverageReport
+          name: build-and-reports
+          path: |
+            ./sdk/**/build/outputs/
+            ./sdk/**/build/reports/
+            ./build/reports/
 
       - name: Zip code coverage report
         run: |
@@ -362,9 +169,6 @@ jobs:
             cp -r ./build/reports ./sdk/jacoco/
           fi
           cd ./sdk/jacoco && zip -r ../IBM-Verify-SDK_code-coverage-report.zip .
-
-      - name: Create SDK directory
-        run: mkdir -p ./sdk
 
       - name: Rename release files
         run: |
@@ -378,6 +182,14 @@ jobs:
           done
           set -e
 
+      - name: Publish to GitHub Packages (merge)
+        run: ./gradlew publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Debug Maven Local
+        run: ls -R ~/.m2/repository/com/github/ibm-verify/
+
       - name: Create GitHub release (draft)
         uses: softprops/action-gh-release@4634c16e79c963813287e889244c50009e7f0981
         with:
@@ -387,7 +199,6 @@ jobs:
           generate_release_notes: true
           files: |
             ./sdk/**/build/outputs/aar/*.aar
-            ./sdk/**/build/reports/*.html
             ~/.m2/repository/com/github/ibm-verify/**/*.aar
             ~/.m2/repository/com/github/ibm-verify/**/*.pom
             ~/.m2/repository/com/github/ibm-verify/**/*.module
@@ -396,9 +207,7 @@ jobs:
 
   job_summary:
     name: Update job summary (on merge to main)
-    if: |
-      github.event_name == 'pull_request_target' &&
-      github.event.pull_request.merged == true
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     needs: publish
     steps:
