@@ -172,10 +172,17 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
-          target: default
           arch: x86_64
-          profile: Nexus 6
-          script: ./gradlew --parallel --build-cache connectedDebugAndroidTest
+          target: google_apis
+          profile: pixel_3a
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
+          emulator-boot-timeout: 900
+          script: |
+            adb wait-for-device
+            adb shell getprop sys.boot_completed || true
+            adb shell getprop ro.build.version.sdk || true
+            ./gradlew --build-cache connectedDebugAndroidTest
 
       - name: Store build outputs + reports
         uses: actions/upload-artifact@v4.3.1
@@ -381,7 +388,10 @@ jobs:
           files: |
             ./sdk/**/build/outputs/aar/*.aar
             ./sdk/**/build/reports/*.html
-            ./sdk/maven/*.*
+            ~/.m2/repository/com/github/ibm-verify/**/*.aar
+            ~/.m2/repository/com/github/ibm-verify/**/*.pom
+            ~/.m2/repository/com/github/ibm-verify/**/*.module
+            ~/.m2/repository/com/github/ibm-verify/**/*.jar
             ./sdk/IBM-Verify-SDK_code-coverage-report.zip
 
   job_summary:
