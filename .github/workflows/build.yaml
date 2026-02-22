@@ -3,7 +3,7 @@
 name: IBM Verify SDK release
 
 on:
-  # PR validation: build + tests + connectedTests + documentation
+  # PR validation: build + unit tests + connected tests + documentation
   pull_request:
     branches:
       - "main"
@@ -27,7 +27,7 @@ jobs:
   pr_ci:
     name: PR - build, tests, connectedTests, docs
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Code checkout
@@ -56,6 +56,17 @@ jobs:
         run: |
           ./gradlew --parallel --build-cache assembleRelease testDebugUnitTest dokkaJavadoc
 
+      # Optional but useful diagnostics for KVM availability
+      - name: Ensure /dev/kvm is accessible
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo "Before:"; ls -l /dev/kvm
+            sudo chmod 666 /dev/kvm
+            echo "After:"; ls -l /dev/kvm
+          else
+            echo "/dev/kvm not present (HW acceleration may be unavailable)."
+          fi
+
       - name: Run connected tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -64,13 +75,39 @@ jobs:
           target: google_apis
           profile: pixel_3a
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
-          emulator-boot-timeout: 900
+          emulator-options: >-
+            -no-window -no-audio -no-snapshot -no-boot-anim
+            -gpu swiftshader_indirect -memory 4096 -cores 2
+          emulator-boot-timeout: 1200
           script: |
+            set -euo pipefail
+
+            adb kill-server || true
+            adb start-server
             adb wait-for-device
-            adb shell getprop sys.boot_completed || true
-            adb shell getprop ro.build.version.sdk || true
-            ./gradlew --build-cache connectedDebugAndroidTest
+
+            echo "Waiting for sys.boot_completed=1..."
+            for i in $(seq 1 300); do
+              BOOT="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [ "$BOOT" = "1" ]; then
+                break
+              fi
+              sleep 2
+            done
+
+            echo "Device info:"
+            adb devices -l || true
+            adb shell getprop ro.build.version.sdk | tr -d '\r' || true
+            adb shell getprop sys.boot_completed | tr -d '\r' || true
+
+            echo "Unlocking screen..."
+            adb shell input keyevent 82 || true
+            sleep 2
+
+            echo "Running connected tests..."
+            # NOTE: pass -Pci=true if you added the Gradle snippet to disable :examples connected tests in CI.
+            # Also avoid --parallel here; it increases emulator flakiness on hosted runners.
+            GRADLE_OPTS="-Dorg.gradle.workers.max=2" ./gradlew --build-cache connectedDebugAndroidTest -Pci=true --stacktrace
 
       - name: Store build outputs + reports
         uses: actions/upload-artifact@v4.3.1
@@ -88,12 +125,12 @@ jobs:
             ./sdk/**/build/dokka/
 
   # ----------------------------------------------------------
-  # Merge to main: build + coverage + docs + release publish
+  # Merge to main: build + coverage + docs + publish release
   # ----------------------------------------------------------
   publish:
     name: Merge - build, coverage, docs, publish release
     if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
       packages: write
@@ -128,16 +165,50 @@ jobs:
         run: |
           ./gradlew --parallel --build-cache assembleRelease dokkaJavadoc publishToMavenLocal
 
+      - name: Ensure /dev/kvm is accessible
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo "Before:"; ls -l /dev/kvm
+            sudo chmod 666 /dev/kvm
+            echo "After:"; ls -l /dev/kvm
+          else
+            echo "/dev/kvm not present (HW acceleration may be unavailable)."
+          fi
+
       # Keep emulator runner here since some setups generate coverage via instrumentation.
       - name: Generate Jacoco coverage report (merge)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
-          target: default
+          target: google_apis
           arch: x86_64
-          profile: Nexus 6
+          profile: pixel_3a
+          disable-animations: true
+          emulator-options: >-
+            -no-window -no-audio -no-snapshot -no-boot-anim
+            -gpu swiftshader_indirect -memory 4096 -cores 2
+          emulator-boot-timeout: 1200
           script: |
-            ./gradlew --parallel --build-cache :rootCoverageReport
+            set -euo pipefail
+
+            adb kill-server || true
+            adb start-server
+            adb wait-for-device
+
+            echo "Waiting for sys.boot_completed=1..."
+            for i in $(seq 1 300); do
+              BOOT="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [ "$BOOT" = "1" ]; then
+                break
+              fi
+              sleep 2
+            done
+
+            adb shell input keyevent 82 || true
+            sleep 2
+
+            # Avoid --parallel for emulator-driven coverage; reduce contention.
+            GRADLE_OPTS="-Dorg.gradle.workers.max=2" ./gradlew --build-cache :rootCoverageReport
 
       - name: Store documentation
         uses: actions/upload-artifact@v4.3.1
@@ -172,7 +243,6 @@ jobs:
 
       - name: Rename release files
         run: |
-          # Best-effort rename; won't fail the job if a module doesn't exist
           set +e
           for m in core fido2 adaptive authentication mfa dc; do
             f="./sdk/${m}/build/outputs/aar/${m}-release.aar"
@@ -208,7 +278,7 @@ jobs:
   job_summary:
     name: Update job summary (on merge to main)
     if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: publish
     steps:
       - name: Add markdown
