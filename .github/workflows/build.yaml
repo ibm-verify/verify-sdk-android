@@ -54,7 +54,7 @@ jobs:
 
       - name: Build + unit tests + documentation
         run: |
-          ./gradlew --parallel --build-cache assembleRelease testDebugUnitTest dokkaJavadoc
+          ./gradlew --build-cache assembleRelease testDebugUnitTest dokkaJavadoc
 
       # Optional but useful diagnostics for KVM availability
       - name: Ensure /dev/kvm is accessible
@@ -76,7 +76,7 @@ jobs:
           profile: pixel_3a
           disable-animations: true
           emulator-options: >-
-            -no-window -no-audio -no-snapshot -no-boot-anim
+            -no-window -no-audio -no-snapshot -no-boot-anim -wipe-data
             -gpu swiftshader_indirect -memory 4096 -cores 2
           emulator-boot-timeout: 1200
           script: |
@@ -99,6 +99,8 @@ jobs:
             adb devices -l || true
             adb shell getprop ro.build.version.sdk | tr -d '\r' || true
             adb shell getprop sys.boot_completed | tr -d '\r' || true
+            adb shell setprop log.tag.LoggerExtKtTest DEBUG
+            adb shell getprop log.tag.LoggerExtKtTest
 
             echo "Unlocking screen..."
             adb shell input keyevent 82 || true
@@ -107,7 +109,7 @@ jobs:
             echo "Running connected tests..."
             # NOTE: pass -Pci=true if you added the Gradle snippet to disable :examples connected tests in CI.
             # Also avoid --parallel here; it increases emulator flakiness on hosted runners.
-            GRADLE_OPTS="-Dorg.gradle.workers.max=2" ./gradlew --build-cache connectedDebugAndroidTest -Pci=true --stacktrace
+            ./gradlew connectedDebugAndroidTest -Pci=true --stacktrace
 
       - name: Store build outputs + reports
         uses: actions/upload-artifact@v4.3.1
@@ -163,7 +165,7 @@ jobs:
 
       - name: Build + documentation (merge)
         run: |
-          ./gradlew --parallel --build-cache assembleRelease dokkaJavadoc publishToMavenLocal
+          ./gradlew --build-cache assembleRelease dokkaJavadoc publishToMavenLocal
 
       - name: Ensure /dev/kvm is accessible
         run: |
@@ -180,12 +182,12 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
-          target: google_apis
           arch: x86_64
+          target: google_apis
           profile: pixel_3a
           disable-animations: true
           emulator-options: >-
-            -no-window -no-audio -no-snapshot -no-boot-anim
+            -no-window -no-audio -no-snapshot -no-boot-anim -wipe-data
             -gpu swiftshader_indirect -memory 4096 -cores 2
           emulator-boot-timeout: 1200
           script: |
@@ -204,11 +206,19 @@ jobs:
               sleep 2
             done
 
+            echo "Device info:"
+            adb devices -l || true
+            adb shell getprop ro.build.version.sdk | tr -d '\r' || true
+            adb shell getprop sys.boot_completed | tr -d '\r' || true
+            adb shell setprop log.tag.LoggerExtKtTest DEBUG
+            adb shell getprop log.tag.LoggerExtKtTest
+
+            echo "Unlocking screen..."
             adb shell input keyevent 82 || true
             sleep 2
 
             # Avoid --parallel for emulator-driven coverage; reduce contention.
-            GRADLE_OPTS="-Dorg.gradle.workers.max=2" ./gradlew --build-cache :rootCoverageReport
+            ./gradlew --no-daemon :rootCoverageReport
 
       - name: Store documentation
         uses: actions/upload-artifact@v4.3.1
