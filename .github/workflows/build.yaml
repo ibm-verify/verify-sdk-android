@@ -80,7 +80,7 @@ jobs:
             -gpu swiftshader_indirect -memory 4096 -cores 2
           emulator-boot-timeout: 1200
           script: |
-            set -euo pipefail
+            set -eu
 
             adb kill-server || true
             adb start-server
@@ -189,7 +189,7 @@ jobs:
             -gpu swiftshader_indirect -memory 4096 -cores 2
           emulator-boot-timeout: 1200
           script: |
-            set -euo pipefail
+            set -eu
 
             adb kill-server || true
             adb start-server
