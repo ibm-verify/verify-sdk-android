@@ -109,7 +109,7 @@ jobs:
             echo "Running connected tests..."
             # NOTE: pass -Pci=true if you added the Gradle snippet to disable :examples connected tests in CI.
             # Also avoid --parallel here; it increases emulator flakiness on hosted runners.
-            ./gradlew connectedDebugAndroidTest -Pci=true --stacktrace
+            ./gradlew --no-daemon connectedDebugAndroidTest -Pci=true --stacktrace
 
       - name: Store build outputs + reports
         uses: actions/upload-artifact@v4.3.1
