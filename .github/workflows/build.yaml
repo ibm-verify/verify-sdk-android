@@ -285,4 +285,3 @@ jobs:
         run: |
           echo '## Build Summary :white_check_mark:' >> $GITHUB_STEP_SUMMARY
           echo 'A PR was merged into **main** and the release pipeline ran.' >> $GITHUB_STEP_SUMMARY
-
