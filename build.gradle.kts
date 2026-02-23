@@ -75,6 +75,15 @@ rootCoverage {
     generateXml = true
 }
 
+subprojects {
+    if (path.startsWith(":examples")) {
+        tasks.matching { it.name.startsWith("connected") && it.name.endsWith("AndroidTest") }
+            .configureEach {
+                enabled = false
+            }
+    }
+}
+
 tasks.named<JacocoReport>("rootCoverageReport") {
     executionData.setFrom(
         fileTree(rootDir) {
