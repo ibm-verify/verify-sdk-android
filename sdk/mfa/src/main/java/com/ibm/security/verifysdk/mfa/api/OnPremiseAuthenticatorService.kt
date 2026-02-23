@@ -97,8 +97,7 @@ class OnPremiseAuthenticatorService(
         return try {
             log.entering()
             val attributes =
-                MFAAttributeInfo.init(ContextHelper.context).dictionary(snakeCaseKey = true)
-                    .toMutableMap()
+                MFAAttributeInfo.dictionary(snakeCaseKey = true).toMutableMap()
             accountName?.let {
                 attributes["accountName"] = it
             }
