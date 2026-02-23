@@ -4,9 +4,9 @@
 
 package com.ibm.security.verifysdk.mfa
 
-import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.ibm.security.verifysdk.core.helper.ContextHelper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -18,22 +18,10 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class MFAAttributeInfoTest {
 
-    private lateinit var context: Context
-
     @Before
     fun setup() {
-        context = InstrumentationRegistry.getInstrumentation().targetContext
-        MFAAttributeInfo.init(context)
-    }
-
-    @Test
-    fun init_shouldReturnMFAAttributeInfo() {
-        // When
-        val result = MFAAttributeInfo.init(context)
-
-        // Then
-        assertNotNull(result)
-        assertEquals(MFAAttributeInfo, result)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        ContextHelper.init(context)
     }
 
     @Test
@@ -293,7 +281,7 @@ class MFAAttributeInfoTest {
         val applicationId = attributes["applicationId"] as String
 
         // Then
-        assertEquals(context.packageName, applicationId)
+        assertEquals(ContextHelper.context.packageName, applicationId)
     }
 
     @Test
@@ -384,14 +372,14 @@ class MFAAttributeInfoTest {
     }
 
     @Test
-    fun init_multipleCallsWithSameContext_shouldReturnSameInstance() {
+    fun dictionary_multipleCallsReturnConsistentDeviceId() {
         // When
-        val result1 = MFAAttributeInfo.init(context)
-        val result2 = MFAAttributeInfo.init(context)
+        val attributes1 = MFAAttributeInfo.dictionary()
+        val attributes2 = MFAAttributeInfo.dictionary()
 
         // Then
-        assertEquals(result1, result2)
-        assertEquals(MFAAttributeInfo, result1)
-        assertEquals(MFAAttributeInfo, result2)
+        val deviceId1 = attributes1["deviceId"] as String
+        val deviceId2 = attributes2["deviceId"] as String
+        assertEquals(deviceId1, deviceId2)
     }
 }

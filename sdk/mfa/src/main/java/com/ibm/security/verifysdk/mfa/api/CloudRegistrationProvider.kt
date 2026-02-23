@@ -57,6 +57,77 @@ import java.util.UUID
 
 /**
  * Provider for cloud-based MFA registration with IBM Verify instances or custom mobile authenticators.
+ *
+ * This class handles the registration flow for cloud-based multi-factor authentication, supporting
+ * both QR code-based registration and in-app registration flows. It manages the enrollment of
+ * various authentication factors including TOTP, user presence, and biometric verification.
+ *
+ * ## Prerequisites
+ *
+ * Before using this class, ensure that [com.ibm.security.verifysdk.core.helper.ContextHelper]
+ * has been initialized in your application's `onCreate()` method:
+ *
+ * ```kotlin
+ * class MyApplication : Application() {
+ *     override fun onCreate() {
+ *         super.onCreate()
+ *         ContextHelper.init(this)
+ *     }
+ * }
+ * ```
+ *
+ * ## QR Code Registration Flow
+ *
+ * ```kotlin
+ * // 1. Scan QR code and get JSON data
+ * val qrData = """{"code":"ABC123","details_url":"https://..."}"""
+ *
+ * // 2. Create provider instance
+ * val provider = CloudRegistrationProvider(qrData)
+ *
+ * // 3. Initiate registration
+ * val result = provider.initiate(
+ *     accountName = "John Doe",
+ *     pushToken = "fcm-token-123"
+ * )
+ *
+ * result.onSuccess {
+ *     // 4. Enroll factors
+ *     while (provider.nextEnrollment() != null) {
+ *         provider.enroll().onSuccess {
+ *             println("Factor enrolled successfully")
+ *         }
+ *     }
+ *
+ *     // 5. Finalize registration
+ *     val authenticator = provider.finalize().getOrNull()
+ * }
+ * ```
+ *
+ * ## In-App Registration Flow
+ *
+ * ```kotlin
+ * // 1. Initiate registration with access token
+ * val initData = CloudRegistrationProvider.inAppInitiate(
+ *     initiateUri = URL("https://tenant.verify.ibm.com/v1.0/authenticators/initiation"),
+ *     accessToken = "bearer-token",
+ *     clientId = "client-id-uuid",
+ *     accountName = "John Doe"
+ * )
+ *
+ * // 2. Create provider and continue with enrollment
+ * val provider = CloudRegistrationProvider(initData)
+ * provider.initiate("John Doe", "fcm-token")
+ * // ... continue with enrollment as above
+ * ```
+ *
+ * @param data The JSON string containing registration initialization data, obtained either from
+ *             a QR code scan or from [inAppInitiate].
+ *
+ * @see MFARegistrationDescriptor
+ * @see MFAAuthenticatorDescriptor
+ * @see com.ibm.security.verifysdk.core.helper.ContextHelper
+ * @see inAppInitiate
  */
 class CloudRegistrationProvider(data: String) :
     MFARegistrationDescriptor<MFAAuthenticatorDescriptor> {
@@ -458,7 +529,7 @@ class CloudRegistrationProvider(data: String) :
     private fun constructRequestBody(additionalData: String): JsonObject {
 
         val attributes =
-            MFAAttributeInfo.init(ContextHelper.context).dictionary().toMutableMap()
+            MFAAttributeInfo.dictionary().toMutableMap()
         attributes["accountName"] = this.accountName
         attributes["pushToken"] = this.pushToken
         attributes.remove("applicationName")
