@@ -7,6 +7,7 @@ package com.ibm.security.verifysdk.mfa
 import android.annotation.SuppressLint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.ibm.security.verifysdk.core.helper.ContextHelper
 import com.ibm.security.verifysdk.mfa.api.CloudAuthenticatorService
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -36,7 +37,7 @@ class RefreshTokenSerializationTest {
     @Before
     fun setup() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        MFAAttributeInfo.init(appContext)
+        ContextHelper.init(appContext)
     }
 
     @SuppressLint("DenyListedBlockingApi")

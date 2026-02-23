@@ -143,8 +143,7 @@ class OnPremiseRegistrationProvider(data: String) :
             }
 
             val attributes =
-                MFAAttributeInfo.init(ContextHelper.context).dictionary(snakeCaseKey = true)
-                    .toMutableMap()
+                MFAAttributeInfo.dictionary(snakeCaseKey = true).toMutableMap()
             attributes["accountName"] = this.accountName
             attributes["pushToken"] = this.pushToken
             attributes["tenant_id"] = UUID.randomUUID().toString()

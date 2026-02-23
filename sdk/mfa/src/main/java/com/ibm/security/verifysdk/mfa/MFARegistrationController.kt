@@ -18,6 +18,20 @@ import org.slf4j.LoggerFactory
  * It parses QR code data and initiates the registration process with either Cloud or On-Premise
  * authentication providers.
  *
+ * ## Prerequisites
+ *
+ * Before using this class, you must initialize [com.ibm.security.verifysdk.core.helper.ContextHelper]
+ * in your application's `onCreate()` method:
+ *
+ * ```kotlin
+ * class MyApplication : Application() {
+ *     override fun onCreate() {
+ *         super.onCreate()
+ *         ContextHelper.init(this)
+ *     }
+ * }
+ * ```
+ *
  * ## Usage Example
  * ```kotlin
  * // Value from QR code scan
@@ -64,6 +78,7 @@ import org.slf4j.LoggerFactory
  * @see MFARegistrationDescriptor
  * @see CloudRegistrationProvider
  * @see OnPremiseRegistrationProvider
+ * @see com.ibm.security.verifysdk.core.helper.ContextHelper
  */
 class MFARegistrationController(private var data: String) {
 
@@ -126,8 +141,6 @@ class MFARegistrationController(private var data: String) {
      *
      * @param accountName The account name associated with the service. This is typically the user's
      *                    display name or identifier.
-     * @param skipTotpEnrollment A Boolean value that when set to `true`, the TOTP (Time-based One-Time Password)
-     *                          authentication method enrollment attempt will be skipped. Default is `true`.
      * @param pushToken A token that identifies the device for push notifications. This is typically obtained
      *                  from Firebase Cloud Messaging (FCM). Pass an empty string if push notifications are
      *                  not required. Default is an empty string.
