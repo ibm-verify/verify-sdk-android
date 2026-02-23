@@ -71,45 +71,64 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
-          arch: x86_64
-          target: google_apis
+          arch: x86
+          target: default
           profile: pixel_3a
           disable-animations: true
           emulator-options: >-
-            -no-window -no-audio -no-snapshot -no-boot-anim -wipe-data
+            -no-window -no-audio -no-boot-anim
             -gpu swiftshader_indirect -memory 4096 -cores 2
           emulator-boot-timeout: 1200
           script: |
-            set -eu
-
+            sh -eu <<'EOS'
             adb kill-server || true
             adb start-server
-            adb wait-for-device
+
+            # Wait until adb reports a usable emulator in "device" state
+            echo "Waiting for emulator device state..."
+            SERIAL=""
+            for i in $(seq 1 120); do
+              SERIAL="$(adb devices | awk '/emulator-[0-9]+\tdevice/{print $1; exit}')"
+              if [ -n "$SERIAL" ]; then
+                break
+              fi
+              sleep 2
+            done
+
+            if [ -z "$SERIAL" ]; then
+              echo "ERROR: no emulator in device state"
+              adb devices -l || true
+              exit 1
+            fi
+
+            echo "Using device: $SERIAL"
+            adb -s "$SERIAL" wait-for-device
 
             echo "Waiting for sys.boot_completed=1..."
+            BOOT=""
             for i in $(seq 1 300); do
-              BOOT="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              BOOT="$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
               if [ "$BOOT" = "1" ]; then
                 break
               fi
               sleep 2
             done
 
-            echo "Device info:"
-            adb devices -l || true
-            adb shell getprop ro.build.version.sdk | tr -d '\r' || true
-            adb shell getprop sys.boot_completed | tr -d '\r' || true
-            adb shell setprop log.tag.LoggerExtKtTest DEBUG
-            adb shell getprop log.tag.LoggerExtKtTest
+            if [ "$BOOT" != "1" ]; then
+              echo "ERROR: emulator did not boot"
+              adb devices -l || true
+              exit 1
+            fi
 
-            echo "Unlocking screen..."
-            adb shell input keyevent 82 || true
+            adb -s "$SERIAL" shell getprop ro.build.version.sdk | tr -d '\r' || true
+            adb -s "$SERIAL" shell input keyevent 82 || true
             sleep 2
 
             echo "Running connected tests..."
             # NOTE: pass -Pci=true if you added the Gradle snippet to disable :examples connected tests in CI.
             # Also avoid --parallel here; it increases emulator flakiness on hosted runners.
             ./gradlew --no-daemon connectedDebugAndroidTest -Pci=true --stacktrace
+            EOS
 
       - name: Store build outputs + reports
         uses: actions/upload-artifact@v4.3.1
@@ -182,43 +201,61 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
-          arch: x86_64
-          target: google_apis
+          arch: x86
+          target: default
           profile: pixel_3a
           disable-animations: true
           emulator-options: >-
-            -no-window -no-audio -no-snapshot -no-boot-anim -wipe-data
+            -no-window -no-audio -no-boot-anim
             -gpu swiftshader_indirect -memory 4096 -cores 2
           emulator-boot-timeout: 1200
           script: |
-            set -eu
-
+            sh -eu <<'EOS'
             adb kill-server || true
             adb start-server
-            adb wait-for-device
+
+            # Wait until adb reports a usable emulator in "device" state
+            echo "Waiting for emulator device state..."
+            SERIAL=""
+            for i in $(seq 1 120); do
+              SERIAL="$(adb devices | awk '/emulator-[0-9]+\tdevice/{print $1; exit}')"
+              if [ -n "$SERIAL" ]; then
+                break
+              fi
+              sleep 2
+            done
+
+            if [ -z "$SERIAL" ]; then
+              echo "ERROR: no emulator in device state"
+              adb devices -l || true
+              exit 1
+            fi
+
+            echo "Using device: $SERIAL"
+            adb -s "$SERIAL" wait-for-device
 
             echo "Waiting for sys.boot_completed=1..."
+            BOOT=""
             for i in $(seq 1 300); do
-              BOOT="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              BOOT="$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
               if [ "$BOOT" = "1" ]; then
                 break
               fi
               sleep 2
             done
 
-            echo "Device info:"
-            adb devices -l || true
-            adb shell getprop ro.build.version.sdk | tr -d '\r' || true
-            adb shell getprop sys.boot_completed | tr -d '\r' || true
-            adb shell setprop log.tag.LoggerExtKtTest DEBUG
-            adb shell getprop log.tag.LoggerExtKtTest
+            if [ "$BOOT" != "1" ]; then
+              echo "ERROR: emulator did not boot"
+              adb devices -l || true
+              exit 1
+            fi
 
-            echo "Unlocking screen..."
-            adb shell input keyevent 82 || true
+            adb -s "$SERIAL" shell getprop ro.build.version.sdk | tr -d '\r' || true
+            adb -s "$SERIAL" shell input keyevent 82 || true
             sleep 2
 
-            # Avoid --parallel for emulator-driven coverage; reduce contention.
             ./gradlew --no-daemon :rootCoverageReport
+            EOS
 
       - name: Store documentation
         uses: actions/upload-artifact@v4.3.1
