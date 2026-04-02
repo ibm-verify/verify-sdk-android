@@ -25,7 +25,7 @@ jobs:
   # PR: build + unit tests + connected tests + docs
   # ----------------------------------------------------------
   pr_ci:
-    name: PR - build, tests, connectedTests, docs
+    name: Build + unit tests (+ connected tests)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-22.04
 
