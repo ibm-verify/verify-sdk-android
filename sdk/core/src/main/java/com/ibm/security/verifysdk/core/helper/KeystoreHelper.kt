@@ -7,6 +7,7 @@ package com.ibm.security.verifysdk.core.helper
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.security.keystore.StrongBoxUnavailableException
 import android.util.Base64
 import androidx.biometric.BiometricPrompt
 import com.ibm.security.verifysdk.core.extension.entering
@@ -28,10 +29,64 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Helper class to perform key management and signing operations.
+ * Comprehensive helper class for Android KeyStore operations.
  *
- * https://developer.android.com/training/articles/keystore
+ * Provides unified key management for both symmetric (AES) and asymmetric (RSA, EC) keys,
+ * including generation, retrieval, deletion, and cryptographic operations.
  *
+ * ## Key Features:
+ * - **AES Key Management**: Generate AES-256-GCM keys with optional StrongBox backing
+ * - **Key Pair Management**: Generate RSA/EC key pairs for signing operations
+ * - **Biometric Integration**: Support for biometric-protected keys and signing
+ * - **Unified Deletion**: Single method to delete any key type
+ * - **Private Key Wrapping**: Encrypt/decrypt private keys using AES
+ *
+ * ## Supported Key Types:
+ * - **AES**: 256-bit symmetric keys for encryption (with StrongBox support)
+ * - **RSA**: 2048-bit asymmetric keys for signing (configurable size)
+ * - **EC**: secp256r1 elliptic curve keys for FIDO2
+ *
+ * ## Usage Examples:
+ *
+ * ### AES Key Management:
+ * ```kotlin
+ * // Generate or retrieve AES key with StrongBox support
+ * val key = KeystoreHelper.getOrCreateAESKey("myEncryptionKey")
+ *
+ * // Delete any key type
+ * KeystoreHelper.deleteKey("myKey")
+ * ```
+ *
+ * ### Key Pair Management:
+ * ```kotlin
+ * // Generate RSA key pair for signing
+ * val publicKey = KeystoreHelper.createKeyPair(
+ *     keyName = "mySigningKey",
+ *     algorithm = "SHA256withRSA",
+ *     purpose = KeyProperties.PURPOSE_SIGN
+ * )
+ *
+ * // Sign data
+ * val signature = KeystoreHelper.signData("mySigningKey", "SHA256withRSA", dataToSign)
+ * ```
+ *
+ * ### Biometric Authentication:
+ * ```kotlin
+ * // Create crypto object for biometric prompt
+ * val cryptoObject = KeystoreHelper.getCryptoObject("myKey", "SHA256withRSA")
+ *
+ * // Sign with biometric authentication
+ * val signature = KeystoreHelper.signData(cryptoObject, dataToSign)
+ * ```
+ *
+ * ## Security Features:
+ * - **StrongBox Support**: Automatic fallback when hardware-backed security unavailable
+ * - **Biometric Protection**: Keys can require biometric authentication
+ * - **Key Invalidation**: Keys can be invalidated on biometric enrollment changes
+ * - **Secure Key Storage**: All keys stored in Android KeyStore (hardware-backed when available)
+ *
+ * @see <a href="https://developer.android.com/training/articles/keystore">Android KeyStore System</a>
+ * @see <a href="https://developer.android.com/training/sign-in/biometric-auth">Biometric Authentication</a>
  */
 @Suppress("BooleanMethodIsAlwaysInverted")
 object KeystoreHelper {
@@ -133,13 +188,20 @@ object KeystoreHelper {
                 )
             }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-                keyGenParameterBuilder.setUserAuthenticationParameters(
-                    0,
-                    KeyProperties.AUTH_BIOMETRIC_STRONG
-                ) else {
-                @Suppress("deprecation")
-                keyGenParameterBuilder.setUserAuthenticationValidityDurationSeconds(-1)
+            // Configure authentication requirements when authenticationRequired is true
+            if (authenticationRequired) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    // Android 11+ (API 30+): Allow both biometric and device credential
+                    // This enables users to authenticate with fingerprint, face, or device PIN/pattern/password
+                    keyGenParameterBuilder.setUserAuthenticationParameters(
+                        0,  // Timeout of 0 means auth required for every use
+                        KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+                    )
+                } else {
+                    // Android 10 and below: Use deprecated API
+                    @Suppress("deprecation")
+                    keyGenParameterBuilder.setUserAuthenticationValidityDurationSeconds(-1)
+                }
             }
 
             KeyPairGenerator.getInstance(
@@ -156,27 +218,23 @@ object KeystoreHelper {
         }
     }
 
-    fun createAESKey(alias: String) {
-        val keyStore = KeyStore.getInstance(keystoreType).apply { load(null) }
-        if (!keyStore.containsAlias(alias)) {
-            val keyGenerator =
-                KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, keystoreType)
-            val keySpec = KeyGenParameterSpec.Builder(
-                alias,
-                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-            )
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setUserAuthenticationRequired(false)
-                .build()
-            keyGenerator.init(keySpec)
-            keyGenerator.generateKey()
-        }
-    }
-
+    /**
+     * Encrypts and stores a private key using AES-GCM encryption.
+     *
+     * @param alias The alias of the AES key to use for encryption
+     * @param privateKeyBytes The private key bytes to encrypt
+     * @return A pair of (encrypted data in Base64, IV in Base64)
+     * @throws IllegalStateException if the key with the given alias doesn't exist or is not a SecretKey
+     */
     fun encryptAndStorePrivateKey(alias: String, privateKeyBytes: ByteArray): Pair<String, String> {
         val keyStore = KeyStore.getInstance(keystoreType).apply { load(null) }
-        val secretKey = (keyStore.getEntry(alias, null) as KeyStore.SecretKeyEntry).secretKey
+        
+        val entry = keyStore.getEntry(alias, null)
+            ?: throw IllegalStateException("Key with alias '$alias' not found in KeyStore")
+        
+        val secretKey = (entry as? KeyStore.SecretKeyEntry)?.secretKey
+            ?: throw IllegalStateException("Key with alias '$alias' is not a SecretKey (found ${entry.javaClass.simpleName})")
+        
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey)
         val iv = cipher.iv
@@ -186,15 +244,149 @@ object KeystoreHelper {
         return Pair(encryptedBase64, ivBase64)
     }
 
+    /**
+     * Decrypts a private key that was encrypted with [encryptAndStorePrivateKey].
+     *
+     * @param alias The alias of the AES key to use for decryption
+     * @param encryptedBase64 The encrypted data in Base64 format
+     * @param ivBase64 The initialization vector in Base64 format
+     * @return The decrypted private key bytes
+     * @throws IllegalStateException if the key with the given alias doesn't exist or is not a SecretKey
+     */
     fun decryptPrivateKey(alias: String, encryptedBase64: String, ivBase64: String): ByteArray {
         val keyStore = KeyStore.getInstance(keystoreType).apply { load(null) }
-        val secretKey = (keyStore.getEntry(alias, null) as KeyStore.SecretKeyEntry).secretKey
+        
+        val entry = keyStore.getEntry(alias, null)
+            ?: throw IllegalStateException("Key with alias '$alias' not found in KeyStore")
+        
+        val secretKey = (entry as? KeyStore.SecretKeyEntry)?.secretKey
+            ?: throw IllegalStateException("Key with alias '$alias' is not a SecretKey (found ${entry.javaClass.simpleName})")
+        
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         val iv = Base64.decode(ivBase64, Base64.NO_WRAP)
         val spec = GCMParameterSpec(128, iv)
         cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
         val encryptedBytes = Base64.decode(encryptedBase64, Base64.NO_WRAP)
         return cipher.doFinal(encryptedBytes)
+    }
+
+    /**
+     * Generates an AES secret key with the specified alias.
+     *
+     * Attempts to generate a key with StrongBox backing for enhanced security.
+     * If StrongBox is not available, automatically falls back to standard KeyStore.
+     *
+     * Key specifications:
+     * - Algorithm: AES
+     * - Key Size: 256 bits
+     * - Block Mode: GCM (Galois/Counter Mode)
+     * - Padding: None (GCM doesn't require padding)
+     * - Purpose: Encryption and Decryption
+     * - StrongBox: Attempted first, falls back if unavailable
+     *
+     * @param keyAlias The alias to identify the key in the KeyStore
+     * @param useStrongBox Whether to attempt StrongBox backing (default: true)
+     * @return The generated SecretKey
+     * @throws Exception if key generation fails for reasons other than StrongBox unavailability
+     */
+    fun generateAESKey(keyAlias: String, useStrongBox: Boolean = true): SecretKey {
+        log.entering()
+
+        try {
+            return if (useStrongBox) {
+                try {
+                    log.debug("Attempting to generate AES key with StrongBox backing for alias: $keyAlias")
+                    generateAESKeyInternal(keyAlias, isStrongBoxBacked = true)
+                } catch (e: Exception) {
+                    // Check if the exception is related to StrongBox unavailability
+                    if (isStrongBoxException(e)) {
+                        log.warn("StrongBox not available, falling back to standard KeyStore", e)
+                        generateAESKeyInternal(keyAlias, isStrongBoxBacked = false)
+                    } else {
+                        log.error("Failed to generate AES key with StrongBox", e)
+                        throw e
+                    }
+                }
+            } else {
+                log.debug("Generating AES key without StrongBox backing for alias: $keyAlias")
+                generateAESKeyInternal(keyAlias, isStrongBoxBacked = false)
+            }
+        } finally {
+            log.exiting()
+        }
+    }
+
+    /**
+     * Internal method to generate an AES key with specified parameters.
+     *
+     * @param keyAlias The alias to identify the key in the KeyStore
+     * @param isStrongBoxBacked Whether to use StrongBox backing
+     * @return The generated SecretKey
+     */
+    private fun generateAESKeyInternal(keyAlias: String, isStrongBoxBacked: Boolean): SecretKey {
+        val keyGenerator = KeyGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_AES,
+            keystoreType
+        )
+
+        val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+            keyAlias,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(256)
+            .setRandomizedEncryptionRequired(false) // Allow caller-provided IV
+            .apply {
+                if (isStrongBoxBacked) {
+                    setIsStrongBoxBacked(true)
+                }
+            }
+            .build()
+
+        keyGenerator.init(keyGenParameterSpec)
+        val key = keyGenerator.generateKey()
+
+        log.debug("Successfully generated AES key with alias: $keyAlias, StrongBox: $isStrongBoxBacked")
+        return key
+    }
+
+    /**
+     * Checks if an exception is related to StrongBox unavailability.
+     *
+     * @param exception The exception to check
+     * @return true if the exception indicates StrongBox is unavailable
+     */
+    private fun isStrongBoxException(exception: Exception): Boolean {
+        return when (exception) {
+            is StrongBoxUnavailableException -> true
+            is java.security.ProviderException -> {
+                // Check if the cause or message indicates StrongBox unavailability
+                exception.cause is StrongBoxUnavailableException ||
+                        exception.message?.contains("StrongBox", ignoreCase = true) == true
+            }
+
+            else -> false
+        }
+    }
+
+    /**
+     * Gets or creates an AES key with the specified alias.
+     * If the key already exists, it returns the existing key.
+     * Otherwise, it generates a new key.
+     *
+     * @param keyAlias The alias to identify the key
+     * @param useStrongBox Whether to attempt StrongBox backing for new keys (default: true)
+     * @return The SecretKey (existing or newly generated)
+     */
+    fun getOrCreateAESKey(keyAlias: String, useStrongBox: Boolean = true): SecretKey {
+        log.entering()
+
+        try {
+            return getSecretKey(keyAlias) ?: generateAESKey(keyAlias, useStrongBox)
+        } finally {
+            log.exiting()
+        }
     }
 
     /**
@@ -205,11 +397,43 @@ object KeystoreHelper {
     @Throws(KeyStoreException::class)
     fun deleteKeyPair(keyName: String) {
         log.entering()
-
         try {
             val keyStore = KeyStore.getInstance(keystoreType)
             keyStore.load(null)
             keyStore.deleteEntry(keyName)
+        } finally {
+            log.exiting()
+        }
+    }
+
+    /**
+     * Deletes a key (symmetric or asymmetric) from the KeyStore.
+     *
+     * This unified method handles deletion of any key type (AES, RSA, EC).
+     * It checks if the key exists before attempting deletion and provides
+     * clear feedback about the operation result.
+     *
+     * @param keyAlias The alias of the key to delete
+     * @return true if the key was successfully deleted, false if key not found or deletion failed
+     */
+    fun deleteKey(keyAlias: String): Boolean {
+        log.entering()
+
+        try {
+            val keyStore = KeyStore.getInstance(keystoreType)
+            keyStore.load(null)
+
+            if (keyStore.containsAlias(keyAlias)) {
+                keyStore.deleteEntry(keyAlias)
+                log.debug("Successfully deleted key with alias: $keyAlias")
+                return true
+            } else {
+                log.warn("Key with alias $keyAlias not found, nothing to delete")
+                return false
+            }
+        } catch (e: Exception) {
+            log.error("Failed to delete key with alias: $keyAlias", e)
+            return false
         } finally {
             log.exiting()
         }
@@ -295,15 +519,21 @@ object KeystoreHelper {
 
     fun getSecretKey(keyName: String): SecretKey? {
 
-        var key: SecretKey? = null
-        KeyStore.getInstance(keystoreType).let { keyStore ->
-            keyStore.load(null)
-            keyStore.getKey(keyName, null)?.let {
-                key = it as SecretKey
-            }
-        }
+        log.entering()
 
-        return key
+        try {
+            var key: SecretKey? = null
+            KeyStore.getInstance(keystoreType).let { keyStore ->
+                keyStore.load(null)
+                keyStore.getKey(keyName, null)?.let {
+                    key = it as SecretKey
+                }
+            }
+
+            return key
+        } finally {
+            log.exiting()
+        }
     }
 
     fun getPublicKey(keyName: String): PublicKey? {
@@ -319,6 +549,39 @@ object KeystoreHelper {
         return key
     }
 
+    /**
+     * Internal helper to perform the actual signing operation.
+     * Handles both String and ByteArray data types.
+     *
+     * @param signature The initialized Signature object
+     * @param dataToSign The data to sign (String or ByteArray)
+     * @param base64EncodingOption The Base64 encoding option for String results
+     * @return The signed data in the same type as input, or null if unsupported type
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> performSigning(
+        signature: Signature,
+        dataToSign: T,
+        base64EncodingOption: Int
+    ): T? {
+        return when (dataToSign) {
+            is String -> {
+                signature.update(dataToSign.toByteArray())
+                Base64.encodeToString(signature.sign(), base64EncodingOption) as T
+            }
+
+            is ByteArray -> {
+                signature.update(dataToSign)
+                signature.sign() as T
+            }
+
+            else -> {
+                log.warn("Unsupported data type for signing: ${dataToSign?.javaClass?.simpleName}")
+                null
+            }
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     fun <T> signData(
         keyName: String,
@@ -330,31 +593,12 @@ object KeystoreHelper {
         log.entering()
 
         try {
-            var signedData: T? = null
-            Signature.getInstance(algorithm).let { signature ->
+            return Signature.getInstance(algorithm).let { signature ->
                 getPrivateKey(keyName)?.let { privateKey ->
                     signature.initSign(privateKey)
-
-                    when (dataToSign) {
-                        is String -> {
-                            signature.update(dataToSign.toByteArray())
-                            signedData =
-                                Base64.encodeToString(signature.sign(), base64EncodingOption) as T
-                        }
-
-                        is ByteArray -> {
-                            signature.update(dataToSign)
-                            signedData = signature.sign() as T
-                        }
-
-                        else -> {
-                            // Handle unsupported data type
-                        }
-                    }
+                    performSigning(signature, dataToSign, base64EncodingOption)
                 }
             }
-
-            return signedData
         } finally {
             log.exiting()
         }
@@ -370,27 +614,40 @@ object KeystoreHelper {
         log.entering()
 
         try {
-            var signedData: T? = null
-            cryptoObject.signature?.let { signature ->
-                when (dataToSign) {
-                    is String -> {
-                        signature.update(dataToSign.toByteArray())
-                        signedData =
-                            Base64.encodeToString(signature.sign(), base64EncodingOption) as T
-                    }
-
-                    is ByteArray -> {
-                        signature.update(dataToSign)
-                        signedData = signature.sign() as T
-                    }
-
-                    else -> {
-                        // Handle unsupported data type
-                    }
-                }
+            return cryptoObject.signature?.let { signature ->
+                performSigning(signature, dataToSign, base64EncodingOption)
             }
+        } finally {
+            log.exiting()
+        }
+    }
 
-            return signedData
+    /**
+     * Creates a [BiometricPrompt.CryptoObject] wrapping a [Signature] initialized with the
+     * private key identified by [keyName].  The returned object must be passed to
+     * [BiometricPrompt.authenticate] so that the biometric hardware unlocks the key and
+     * provides the authenticated [Signature] back in
+     * [BiometricPrompt.AuthenticationCallback.onAuthenticationSucceeded].
+     *
+     * This is required when the key was created with
+     * [KeyGenParameterSpec.Builder.setUserAuthenticationRequired] set to `true`.
+     *
+     * @param keyName   the unique identifier of the key pair
+     * @param algorithm the signing algorithm (e.g. "SHA256withRSA", "SHA1withRSA")
+     *
+     * @return a [BiometricPrompt.CryptoObject] ready to be passed to
+     *         [BiometricPrompt.authenticate], or `null` if the private key cannot be found
+     */
+    fun getCryptoObject(keyName: String, algorithm: String): BiometricPrompt.CryptoObject? {
+
+        log.entering()
+
+        try {
+            return getPrivateKey(keyName)?.let { privateKey ->
+                val signature = Signature.getInstance(algorithm)
+                signature.initSign(privateKey)
+                BiometricPrompt.CryptoObject(signature)
+            }
         } finally {
             log.exiting()
         }
