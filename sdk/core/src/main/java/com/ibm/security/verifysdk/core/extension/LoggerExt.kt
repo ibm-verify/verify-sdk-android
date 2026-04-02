@@ -4,90 +4,154 @@
 
 package com.ibm.security.verifysdk.core.extension
 
+import android.util.Log
 import org.slf4j.Logger
-import org.slf4j.event.Level
-import java.util.Locale
-
-private const val unsupportedLevelMessage =
-    "Log level {} is not supported. See https://developer.android.com/reference/android/util/Log#summary"
 
 /**
- * Creates a log message in the format
+ * Extension functions for efficient logging with lazy evaluation.
  *
- *      Entry class={} method={}
+ * These extensions prevent string concatenation when the log level is disabled,
+ * improving performance in production builds.
  *
- * @param level  The log level for the message. Default is `Level.INFO`.
+ * ## Usage Example
+ * ```kotlin
+ * // Instead of:
+ * Log.d(TAG, "Processing transaction ${transaction.id} for user ${user.name}")
  *
- * @since 3.0.0
+ * // Use:
+ * logDebug(TAG) { "Processing transaction ${transaction.id} for user ${user.name}" }
+ * ```
+ *
+ * The lambda is only evaluated if the log level is enabled, avoiding unnecessary
+ * string allocations and concatenations.
  */
-fun Logger.entering(level: Level = Level.INFO) {
 
-    val message = "Entry class={} method={}"
-    var ste: StackTraceElement = Thread.currentThread().stackTrace[4]
-
-    /*  Handles the case when a `level` parameter is provided and no additional internal function
-        call with the default value is required.
-     */
-    if (ste.methodName.equals("invoke")) {
-        ste = Thread.currentThread().stackTrace[3]
-    }
-
-    when (level) {
-        Level.TRACE -> trace(message, ste.className, ste.methodName)
-        Level.DEBUG -> debug(message, ste.className, ste.methodName)
-        Level.INFO -> info(message, ste.className, ste.methodName)
-        Level.WARN -> warn(message, ste.className, ste.methodName)
-        Level.ERROR -> error(message, ste.className, ste.methodName)
+/**
+ * Logs a debug message with lazy evaluation.
+ *
+ * @param tag The log tag
+ * @param message Lambda that produces the log message (only evaluated if debug logging is enabled)
+ */
+inline fun logDebug(tag: String, message: () -> String) {
+    if (Log.isLoggable(tag, Log.DEBUG)) {
+        Log.d(tag, message())
     }
 }
 
 /**
- * Creates a log message in the format
+ * Logs an info message with lazy evaluation.
  *
- *      Exit class={} method={}
- *
- * @param level  The log level for the message. Default is `Level.INFO`.
- *
- * @since 3.0.0
+ * @param tag The log tag
+ * @param message Lambda that produces the log message (only evaluated if info logging is enabled)
  */
-fun Logger.exiting(level: Level = Level.INFO) {
-
-    val message = "Exit class={} method={}"
-    var ste: StackTraceElement = Thread.currentThread().stackTrace[4]
-
-    /*  Handles the case when a `level` parameter is provided and no additional internal function
-        call with the default value is required.
-    */
-    if (ste.methodName.equals("invoke")) {
-        ste = Thread.currentThread().stackTrace[3]
-    }
-
-    when (level) {
-        Level.TRACE -> trace(message, ste.className, ste.methodName)
-        Level.DEBUG -> debug(message, ste.className, ste.methodName)
-        Level.INFO -> info(message, ste.className, ste.methodName)
-        Level.WARN -> warn(message, ste.className, ste.methodName)
-        Level.ERROR -> error(message, ste.className, ste.methodName)
+inline fun logInfo(tag: String, message: () -> String) {
+    if (Log.isLoggable(tag, Log.INFO)) {
+        Log.i(tag, message())
     }
 }
 
 /**
- * Creates a log message with the name and ID of the current thread.
+ * Logs a warning message with lazy evaluation.
  *
- * @param level  The log level for the message. Default is `Level.INFO`.
- *
- * @since 3.0.0
+ * @param tag The log tag
+ * @param message Lambda that produces the log message (only evaluated if warn logging is enabled)
  */
-fun Logger.threadInfo(level: Level = Level.INFO) {
+inline fun logWarn(tag: String, message: () -> String) {
+    if (Log.isLoggable(tag, Log.WARN)) {
+        Log.w(tag, message())
+    }
+}
 
-    val message =
-        String.format(Locale.getDefault(),"threadName=${Thread.currentThread().name}; threadId=${Thread.currentThread().id};")
+/**
+ * Logs an error message with lazy evaluation.
+ *
+ * @param tag The log tag
+ * @param message Lambda that produces the log message (only evaluated if error logging is enabled)
+ */
+inline fun logError(tag: String, message: () -> String) {
+    if (Log.isLoggable(tag, Log.ERROR)) {
+        Log.e(tag, message())
+    }
+}
 
-    when (level) {
-        Level.TRACE -> trace(message)
-        Level.DEBUG -> debug(message)
-        Level.INFO -> info(message)
-        Level.WARN -> warn(message)
-        Level.ERROR -> error(message)
+/**
+ * Logs an error message with exception and lazy evaluation.
+ *
+ * @param tag The log tag
+ * @param throwable The exception to log
+ * @param message Lambda that produces the log message (only evaluated if error logging is enabled)
+ */
+inline fun logError(tag: String, throwable: Throwable, message: () -> String) {
+    if (Log.isLoggable(tag, Log.ERROR)) {
+        Log.e(tag, message(), throwable)
+    }
+}
+
+/**
+ * SLF4J Logger extension for entering method logging.
+ *
+ * Logs method entry at TRACE level with lazy evaluation.
+ */
+inline fun Logger.entering(lazyMessage: () -> String = { "" }) {
+    if (isTraceEnabled) {
+        val message = lazyMessage()
+        trace(if (message.isEmpty()) "Entering" else "Entering: $message")
+    }
+}
+
+/**
+ * SLF4J Logger extension for exiting method logging.
+ *
+ * Logs method exit at TRACE level with lazy evaluation.
+ */
+inline fun Logger.exiting(lazyMessage: () -> String = { "" }) {
+    if (isTraceEnabled) {
+        val message = lazyMessage()
+        trace(if (message.isEmpty()) "Exiting" else "Exiting: $message")
+    }
+}
+
+/**
+ * SLF4J Logger extension for debug logging with lazy evaluation.
+ */
+inline fun Logger.debugLazy(lazyMessage: () -> String) {
+    if (isDebugEnabled) {
+        debug(lazyMessage())
+    }
+}
+
+/**
+ * SLF4J Logger extension for info logging with lazy evaluation.
+ */
+inline fun Logger.infoLazy(lazyMessage: () -> String) {
+    if (isInfoEnabled) {
+        info(lazyMessage())
+    }
+}
+
+/**
+ * SLF4J Logger extension for warn logging with lazy evaluation.
+ */
+inline fun Logger.warnLazy(lazyMessage: () -> String) {
+    if (isWarnEnabled) {
+        warn(lazyMessage())
+    }
+}
+
+/**
+ * SLF4J Logger extension for error logging with lazy evaluation.
+ */
+inline fun Logger.errorLazy(lazyMessage: () -> String) {
+    if (isErrorEnabled) {
+        error(lazyMessage())
+    }
+}
+
+/**
+ * SLF4J Logger extension for error logging with exception and lazy evaluation.
+ */
+inline fun Logger.errorLazy(throwable: Throwable, lazyMessage: () -> String) {
+    if (isErrorEnabled) {
+        error(lazyMessage(), throwable)
     }
 }
