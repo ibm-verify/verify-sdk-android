@@ -56,7 +56,6 @@ import androidx.lifecycle.lifecycleScope
 import com.google.zxing.integration.android.IntentIntegrator
 import com.google.zxing.integration.android.IntentResult
 import com.ibm.security.verifysdk.core.ErrorMessage
-import com.ibm.security.verifysdk.core.extension.threadInfo
 import com.ibm.security.verifysdk.core.helper.ContextHelper
 import com.google.firebase.messaging.FirebaseMessaging
 import com.ibm.security.verifysdk.mfa.EnrollableType
@@ -360,7 +359,6 @@ class MainActivity : FragmentActivity() {
 
                 try {
                     withContext(Dispatchers.IO) {
-                        log.threadInfo()
                         val result = MFARegistrationController(qrCode)
                             .initiate("IBM Verify SDK", pushToken = getFcmToken())
                             .onSuccess {
