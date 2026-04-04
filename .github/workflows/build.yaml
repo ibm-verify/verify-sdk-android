@@ -27,17 +27,23 @@ jobs:
   pr_ci:
     name: Build + unit tests (+ connected tests)
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Code checkout
         uses: actions/checkout@v4.1.1
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Install Java
         uses: actions/setup-java@v4.1.0
         with:
           java-version: "17"
-          distribution: "adopt"
+          distribution: "temurin"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3.2.0
@@ -56,28 +62,19 @@ jobs:
         run: |
           ./gradlew --build-cache assembleRelease testDebugUnitTest dokkaJavadoc
 
-      # Optional but useful diagnostics for KVM availability
-      - name: Ensure /dev/kvm is accessible
+      - name: Assemble tests before emulator
         run: |
-          if [ -e /dev/kvm ]; then
-            echo "Before:"; ls -l /dev/kvm
-            sudo chmod 666 /dev/kvm
-            echo "After:"; ls -l /dev/kvm
-          else
-            echo "/dev/kvm not present (HW acceleration may be unavailable)."
-          fi
+          ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
 
       - name: Run connected tests
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@v2.37.0
         with:
           api-level: 29
-          arch: x86
+          arch: x86_64
           target: default
-          profile: pixel_3a
+          profile: Nexus 6
           disable-animations: true
-          emulator-options: >-
-            -no-window -no-audio -no-boot-anim
-            -gpu swiftshader_indirect -memory 4096 -cores 2
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
           emulator-boot-timeout: 1200
           script: |
             adb shell setprop log.tag.LoggerExtKtTest DEBUG
@@ -106,7 +103,7 @@ jobs:
   publish:
     name: Merge - build, coverage, docs, publish release
     if: github.event_name == 'pull_request_target' && github.event.pull_request.merged == true
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
@@ -118,11 +115,17 @@ jobs:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
 
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - name: Install Java
         uses: actions/setup-java@v4.1.0
         with:
           java-version: "17"
-          distribution: "adopt"
+          distribution: "temurin"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3.2.0
@@ -141,28 +144,20 @@ jobs:
         run: |
           ./gradlew --build-cache assembleRelease dokkaJavadoc publishToMavenLocal
 
-      - name: Ensure /dev/kvm is accessible
+      - name: Assemble tests before emulator
         run: |
-          if [ -e /dev/kvm ]; then
-            echo "Before:"; ls -l /dev/kvm
-            sudo chmod 666 /dev/kvm
-            echo "After:"; ls -l /dev/kvm
-          else
-            echo "/dev/kvm not present (HW acceleration may be unavailable)."
-          fi
+          ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
 
       # Keep emulator runner here since some setups generate coverage via instrumentation.
       - name: Generate Jacoco coverage report (merge)
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@v2.37.0
         with:
           api-level: 29
-          arch: x86
+          arch: x86_64
           target: default
-          profile: pixel_3a
+          profile: Nexus 6
           disable-animations: true
-          emulator-options: >-
-            -no-window -no-audio -no-boot-anim
-            -gpu swiftshader_indirect -memory 4096 -cores 2
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
           emulator-boot-timeout: 1200
           script: |
             adb shell setprop log.tag.LoggerExtKtTest DEBUG
