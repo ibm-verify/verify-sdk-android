@@ -4,10 +4,12 @@
 
 package com.ibm.security.verifysdk.mfa
 
+import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.api.CloudAuthenticatorService
 import com.ibm.security.verifysdk.mfa.api.OnPremiseAuthenticatorService
 import com.ibm.security.verifysdk.mfa.model.cloud.CloudAuthenticator
 import com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseAuthenticator
+import io.ktor.client.HttpClient
 
 /**
  * An instance you use to instantiate an [MFAServiceDescriptor] to perform transaction,
@@ -124,7 +126,10 @@ class MFAServiceController(private val authenticator: MFAAuthenticatorDescriptor
      * @see CloudAuthenticatorService
      * @see OnPremiseAuthenticatorService
      */
-    fun initiate(): MFAServiceDescriptor {
+    fun initiate(
+        httpClient: HttpClient = NetworkHelper.getInstance,
+        persistenceCallback: TokenPersistenceCallback? = null
+    ): MFAServiceDescriptor {
 
         when (authenticator) {
             is OnPremiseAuthenticator -> return OnPremiseAuthenticatorService(
@@ -133,14 +138,18 @@ class MFAServiceController(private val authenticator: MFAAuthenticatorDescriptor
                 _transactionUri = authenticator.transactionUri,
                 _clientId = authenticator.clientId,
                 _authenticatorId = authenticator.id,
-                _ignoreSslCertificate = authenticator.ignoreSSLCertificate
+                httpClient = httpClient,
+                _ignoreSslCertificate = authenticator.ignoreSSLCertificate,
+                persistenceCallback = persistenceCallback
             )
 
             is CloudAuthenticator -> return CloudAuthenticatorService(
                 _accessToken = authenticator.token.accessToken,
                 _refreshUri = authenticator.refreshUri,
                 _transactionUri = authenticator.transactionUri,
-                _authenticatorId = authenticator.id
+                _authenticatorId = authenticator.id,
+                httpClient = httpClient,
+                persistenceCallback = persistenceCallback
             )
 
             else -> throw MFARegistrationException.InvalidFormat()

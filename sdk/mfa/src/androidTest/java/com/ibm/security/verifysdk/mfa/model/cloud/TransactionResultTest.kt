@@ -409,6 +409,146 @@ class TransactionResultTest {
         assert(result.contains("type"))
         assert(result.contains("subType"))
     }
+
+    // Tests for optional fields (correlationEnabled, correlationValue, expiryTime)
+    @OptIn(ExperimentalTime::class)
+    @Test
+    fun verificationInfo_withCorrelationFields_shouldSetValues() {
+        // Given
+        val expiryTime = Instant.fromEpochMilliseconds(1640005000000)
+        
+        // When
+        val verification = TransactionResult.VerificationInfo(
+            id = "43fd907a-5ca0-416b-80b6-ec1d42b0ebf8",
+            creationTime = testCreationTime,
+            expiryTime = expiryTime,
+            correlationEnabled = true,
+            correlationValue = "42",
+            transactionInfo = testTransactionInfo,
+            methodInfo = listOf(testMethodInfo)
+        )
+
+        // Then
+        assertEquals(true, verification.correlationEnabled)
+        assertEquals("42", verification.correlationValue)
+        assertEquals(expiryTime, verification.expiryTime)
+    }
+
+    @OptIn(ExperimentalTime::class)
+    @Test
+    fun verificationInfo_withoutOptionalFields_shouldUseDefaults() {
+        // When
+        val verification = TransactionResult.VerificationInfo(
+            id = "test-id",
+            creationTime = testCreationTime,
+            transactionInfo = testTransactionInfo,
+            methodInfo = listOf(testMethodInfo)
+        )
+
+        // Then
+        assertEquals(false, verification.correlationEnabled)
+        assertEquals(null, verification.correlationValue)
+        assertEquals(null, verification.expiryTime)
+    }
+
+    @OptIn(ExperimentalTime::class)
+    @Test
+    fun verificationInfo_deserialization_withCorrelationData_shouldParseCorrectly() {
+        // Given - Based on anonymized sample payload
+        val jsonString = """
+            {
+                "id": "43fd907a-5ca0-416b-80b6-ec1d42b0ebf8",
+                "creationTime": "2026-03-08T12:41:07.514Z",
+                "expiryTime": "2026-03-08T13:41:07.514Z",
+                "correlationEnabled": true,
+                "correlationValue": "42",
+                "transactionData": "{\"message\":\"Verify your configuration\"}",
+                "authenticationMethods": [
+                    {
+                        "methodType": "signature",
+                        "subType": "userPresence",
+                        "id": "730a5147-24fd-4dc0-8c08-7ebecdbff5fe"
+                    }
+                ]
+            }
+        """.trimIndent()
+        val json = Json { ignoreUnknownKeys = true }
+
+        // When
+        val verification = json.decodeFromString<TransactionResult.VerificationInfo>(jsonString)
+
+        // Then
+        assertEquals("43fd907a-5ca0-416b-80b6-ec1d42b0ebf8", verification.id)
+        assertEquals(true, verification.correlationEnabled)
+        assertEquals("42", verification.correlationValue)
+        assertNotNull(verification.expiryTime)
+    }
+
+    @OptIn(ExperimentalTime::class)
+    @Test
+    fun verificationInfo_deserialization_withoutCorrelationValue_shouldUseNull() {
+        // Given
+        val jsonString = """
+            {
+                "id": "test-id",
+                "creationTime": "2026-03-08T12:41:07.514Z",
+                "correlationEnabled": true,
+                "transactionData": "{}",
+                "authenticationMethods": []
+            }
+        """.trimIndent()
+        val json = Json { ignoreUnknownKeys = true }
+
+        // When
+        val verification = json.decodeFromString<TransactionResult.VerificationInfo>(jsonString)
+
+        // Then
+        assertEquals(true, verification.correlationEnabled)
+        assertEquals(null, verification.correlationValue)
+    }
+
+    @OptIn(ExperimentalTime::class)
+    @Test
+    fun verificationInfo_deserialization_withoutExpiryTime_shouldUseNull() {
+        // Given
+        val jsonString = """
+            {
+                "id": "test-id",
+                "creationTime": "2026-03-08T12:41:07.514Z",
+                "transactionData": "{}",
+                "authenticationMethods": []
+            }
+        """.trimIndent()
+        val json = Json { ignoreUnknownKeys = true }
+
+        // When
+        val verification = json.decodeFromString<TransactionResult.VerificationInfo>(jsonString)
+// Then
+assertEquals(null, verification.expiryTime)
 }
+
+@OptIn(ExperimentalTime::class)
+@Test
+fun verificationInfo_deserialization_withoutCorrelationEnabled_shouldUseDefaults() {
+// Given - Test case: without correlationEnabled, no correlationValue
+val jsonString = """
+    {
+        "id": "test-id-no-correlation",
+        "creationTime": "2026-03-08T12:41:07.514Z",
+        "transactionData": "{}",
+        "authenticationMethods": []
+    }
+""".trimIndent()
+val json = Json { ignoreUnknownKeys = true }
+
+// When
+val verification = json.decodeFromString<TransactionResult.VerificationInfo>(jsonString)
+
+// Then
+assertEquals(false, verification.correlationEnabled)
+assertEquals(null, verification.correlationValue)
+}
+}
+
 
 

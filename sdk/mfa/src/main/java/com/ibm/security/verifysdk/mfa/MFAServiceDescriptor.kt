@@ -5,7 +5,9 @@
 package com.ibm.security.verifysdk.mfa
 
 import android.util.Base64
+import androidx.biometric.BiometricPrompt
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
+import com.ibm.security.verifysdk.core.helper.KeystoreHelper
 import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import io.ktor.client.HttpClient
 import io.ktor.client.request.accept
@@ -64,7 +66,6 @@ interface MFAServiceDescriptor {
     val accessToken: String
     val refreshUri: URL
     val transactionUri: URL
-    val currentPendingTransaction: PendingTransactionInfo?
     val authenticatorId: String
 
     /**
@@ -79,7 +80,6 @@ interface MFAServiceDescriptor {
      *                  or null if push notifications are not used.
      * @param additionalData (Optional) A collection of options associated with the service.
      *                      This is primarily used for on-premise registrations.
-     * @param httpClient The HTTP client to use for the request. Defaults to [NetworkHelper.getInstance].
      *
      * @return A [Result] containing either:
      *         - Success: A new [TokenInfo] with updated access and refresh tokens
@@ -91,8 +91,7 @@ interface MFAServiceDescriptor {
         refreshToken: String,
         accountName: String?,
         pushToken: String?,
-        additionalData: Map<String, Any>?,
-        httpClient: HttpClient = NetworkHelper.getInstance
+        additionalData: Map<String, Any>?
     ): Result<TokenInfo>
 
     /**
@@ -102,7 +101,6 @@ interface MFAServiceDescriptor {
      * is returned while in a PENDING state. Otherwise, the next available transaction is returned.
      *
      * @param transactionID The transaction verification identifier, or null to get the next transaction.
-     * @param httpClient The HTTP client to use for the request. Defaults to [NetworkHelper.getInstance].
      *
      * @return A [Result] containing either:
      *         - Success: A [NextTransactionInfo] with the transaction details and count of pending transactions
@@ -112,8 +110,7 @@ interface MFAServiceDescriptor {
      * @see PendingTransactionInfo
      */
     suspend fun nextTransaction(
-        transactionID: String? = null,
-        httpClient: HttpClient = NetworkHelper.getInstance
+        transactionID: String? = null
     ): Result<NextTransactionInfo>
 
     /**
@@ -122,21 +119,22 @@ interface MFAServiceDescriptor {
      * This method submits the user's action (approve, deny, etc.) along with the signed data
      * to complete the transaction verification process.
      *
+     * @param transaction The pending transaction to complete. This must be obtained from a prior call to [nextTransaction].
      * @param userAction The enumerated type of user actions that can be performed to complete a transaction.
      * @param signedData The base64 encoded value using the private key associated with the factor enrollment.
      *                  This should be an empty string for actions other than [UserAction.VERIFY].
-     * @param httpClient The HTTP client to use for the request. Defaults to [NetworkHelper.getInstance].
      *
      * @return A [Result] containing either:
      *         - Success: Unit indicating the transaction was completed successfully
      *         - Failure: An exception indicating why the operation failed
      *
      * @see UserAction
+     * @see PendingTransactionInfo
      */
     suspend fun completeTransaction(
+        transaction: PendingTransactionInfo,
         userAction: UserAction,
-        signedData: String,
-        httpClient: HttpClient = NetworkHelper.getInstance
+        signedData: String
     ): Result<Unit>
 }
 
@@ -144,15 +142,15 @@ interface MFAServiceDescriptor {
  * A type alias representing the next transaction information.
  *
  * This is a pair containing:
- * - First: The [PendingTransactionInfo] for the current transaction, or null if no transaction is pending
+ * - First: A list of [PendingTransactionInfo] for all pending transactions (empty list if none)
  * - Second: The count of pending transactions associated with the authenticator
  *
  * ## Usage Example
  * ```kotlin
- * service.nextTransaction().onSuccess { (transaction, count) ->
- *     if (transaction != null) {
- *         println("Current transaction: ${transaction.message}")
- *         println("Remaining transactions: ${count - 1}")
+ * service.nextTransaction().onSuccess { (transactions, count) ->
+ *     if (transactions.isNotEmpty()) {
+ *         println("First transaction: ${transactions.first().message}")
+ *         println("Total transactions: $count")
  *     } else {
  *         println("No pending transactions")
  *     }
@@ -161,7 +159,7 @@ interface MFAServiceDescriptor {
  *
  * @see PendingTransactionInfo
  */
-typealias NextTransactionInfo = Pair<PendingTransactionInfo?, Int>
+typealias NextTransactionInfo = Pair<List<PendingTransactionInfo>, Int>
 
 /**
  * Performs a passwordless authentication operation.
@@ -190,7 +188,6 @@ typealias NextTransactionInfo = Pair<PendingTransactionInfo?, Int>
  * @param loginUri The endpoint that performs the passwordless login. The URL is provided as
  *                `qrlogin_endpoint` in the response data returned from a QR scan.
  * @param code The authorization code provided in the QR scan.
- * @param httpClient The HTTP client to use for the request. Defaults to [NetworkHelper.getInstance].
  *
  * @return A [Result] containing either:
  *         - Success: Unit indicating the login was successful
@@ -200,9 +197,14 @@ typealias NextTransactionInfo = Pair<PendingTransactionInfo?, Int>
  */
 suspend fun MFAServiceDescriptor.login(
     loginUri: URL,
-    code: String,
-    httpClient: HttpClient = NetworkHelper.getInstance
+    code: String
 ): Result<Unit> {
+    // Get httpClient from service implementation
+    val httpClient = when (this) {
+        is com.ibm.security.verifysdk.mfa.api.CloudAuthenticatorService -> this.httpClient
+        is com.ibm.security.verifysdk.mfa.api.OnPremiseAuthenticatorService -> this.httpClient
+        else -> NetworkHelper.getInstance
+    }
     val body = buildJsonObject {
         put("lsi", code)
     }
@@ -272,7 +274,6 @@ suspend fun MFAServiceDescriptor.login(
  *                  Defaults to [UserAction.VERIFY].
  * @param factorType The enrolled factor associated with the transaction. This is used to retrieve
  *                  the private key for signing the transaction data.
- * @param httpClient The HTTP client to use for the request. Defaults to [NetworkHelper.getInstance].
  *
  * @return A [Result] containing either:
  *         - Success: Unit indicating the transaction was completed successfully
@@ -287,29 +288,136 @@ suspend fun MFAServiceDescriptor.login(
  */
 @OptIn(InternalSerializationApi::class)
 suspend fun MFAServiceDescriptor.completeTransaction(
+    transaction: PendingTransactionInfo,
     userAction: UserAction = UserAction.VERIFY,
-    factorType: FactorType,
-    httpClient: HttpClient = NetworkHelper.getInstance
+    factorType: FactorType
 ): Result<Unit> {
     var signedData = ""
-    val pendingTransaction =
-        currentPendingTransaction ?: throw MFAServiceException.InvalidPendingTransaction()
 
     if (userAction == UserAction.VERIFY) {
         val (keyName, algorithm) = factorKeyNameAndAlgorithm(factorType)
         signedData = sign(
             keyName = keyName,
             algorithm = HashAlgorithmType.forSigning(algorithm.name),
-            dataToSign = pendingTransaction.dataToSign,
+            dataToSign = transaction.dataToSign,
             base64EncodingOptions = Base64.NO_WRAP
         )
     }
 
     return completeTransaction(
+        transaction = transaction,
         userAction = userAction,
-        signedData = signedData,
-        httpClient = httpClient
+        signedData = signedData
     )
+}
+
+/**
+ * Complete a second factor authentication challenge using a [BiometricPrompt.CryptoObject]
+ * obtained from [BiometricPrompt.AuthenticationResult.getCryptoObject] in
+ * [BiometricPrompt.AuthenticationCallback.onAuthenticationSucceeded].
+ *
+ * Use this overload when the enrolled key was created with
+ * `authenticationRequired = true` (i.e. the key is locked until the user authenticates
+ * with biometrics).  The [cryptoObject] carries the hardware-unlocked [java.security.Signature]
+ * that is used to sign the transaction data without ever exposing the raw private key.
+ *
+ * ## Typical usage
+ * ```kotlin
+ * // 1. Before showing the prompt, obtain a CryptoObject for the factor's key.
+ * val cryptoObject = service.getCryptoObjectForTransaction()
+ *
+ * // 2. Show the BiometricPrompt with the CryptoObject.
+ * biometricPrompt.authenticate(promptInfo, cryptoObject)
+ *
+ * // 3. In onAuthenticationSucceeded, complete the transaction.
+ * override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+ *     lifecycleScope.launch {
+ *         service.completeTransaction(
+ *             userAction = UserAction.VERIFY,
+ *             cryptoObject = result.cryptoObject!!
+ *         )
+ *     }
+ * }
+ * ```
+ *
+ * @receiver The [MFAServiceDescriptor] instance to perform the transaction completion.
+ * @param userAction The enumerated type of user actions. Defaults to [UserAction.VERIFY].
+ * @param cryptoObject The authenticated [BiometricPrompt.CryptoObject] whose embedded
+ *                     [java.security.Signature] has been unlocked by the biometric hardware.
+ *
+ * @return A [Result] containing either:
+ *         - Success: Unit indicating the transaction was completed successfully
+ *         - Failure: An exception indicating why the operation failed
+ *
+ * @throws MFAServiceException.InvalidPendingTransaction if no pending transaction exists.
+ *
+ * @see MFAServiceDescriptor.completeTransaction
+ * @see getCryptoObjectForTransaction
+ * @see UserAction
+ */
+suspend fun MFAServiceDescriptor.completeTransaction(
+    transaction: PendingTransactionInfo,
+    userAction: UserAction = UserAction.VERIFY,
+    cryptoObject: BiometricPrompt.CryptoObject
+): Result<Unit> {
+    var signedData = ""
+
+    if (userAction == UserAction.VERIFY) {
+        signedData = sign(
+            cryptoObject = cryptoObject,
+            dataToSign = transaction.dataToSign,
+            base64EncodingOptions = Base64.NO_WRAP
+        )
+    }
+
+    return completeTransaction(
+        transaction = transaction,
+        userAction = userAction,
+        signedData = signedData
+    )
+}
+
+/**
+ * Creates a [BiometricPrompt.CryptoObject] for the factor associated with the current pending
+ * transaction.
+ *
+ * Call this **before** invoking [BiometricPrompt.authenticate] so that the biometric hardware
+ * can unlock the key and return an authenticated [java.security.Signature] inside
+ * [BiometricPrompt.AuthenticationResult].  This is only required when the key was enrolled
+ * with `authenticationRequired = true`.
+ *
+ * If the current pending transaction has no matching factor, or the key does not exist in the
+ * Android Keystore, `null` is returned and you should fall back to the non-biometric
+ * [completeTransaction] overload.
+ *
+ * ## Usage
+ * ```kotlin
+ * val cryptoObject = service.getCryptoObjectForTransaction(factorType)
+ * if (cryptoObject != null) {
+ *     biometricPrompt.authenticate(promptInfo, cryptoObject)
+ * } else {
+ *     // Key does not require biometric unlock – complete directly.
+ *     service.completeTransaction(UserAction.VERIFY, factorType)
+ * }
+ * ```
+ *
+ * @receiver The [MFAServiceDescriptor] instance.
+ * @param factorType The enrolled factor whose private key should be wrapped.
+ *
+ * @return A [BiometricPrompt.CryptoObject] ready to be passed to
+ *         [BiometricPrompt.authenticate], or `null` if the key cannot be found or does not
+ *         require authentication.
+ *
+ * @see completeTransaction
+ * @see KeystoreHelper.getCryptoObject
+ */
+@OptIn(InternalSerializationApi::class)
+fun MFAServiceDescriptor.getCryptoObjectForTransaction(
+    factorType: FactorType
+): BiometricPrompt.CryptoObject? {
+    val (keyName, algorithm) = factorKeyNameAndAlgorithm(factorType)
+    val signingAlgorithm = HashAlgorithmType.forSigning(algorithm.name)
+    return KeystoreHelper.getCryptoObject(keyName, signingAlgorithm)
 }
 
 /**
