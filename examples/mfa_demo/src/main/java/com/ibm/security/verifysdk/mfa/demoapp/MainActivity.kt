@@ -64,8 +64,10 @@ import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
 import com.ibm.security.verifysdk.mfa.MFARegistrationController
 import com.ibm.security.verifysdk.mfa.MFAServiceController
 import com.ibm.security.verifysdk.mfa.MFAServiceDescriptor
+import com.ibm.security.verifysdk.mfa.PendingTransactionInfo
 import com.ibm.security.verifysdk.mfa.UserAction
 import com.ibm.security.verifysdk.mfa.completeTransaction
+import com.ibm.security.verifysdk.mfa.getCryptoObjectForTransaction
 import com.ibm.security.verifysdk.mfa.demoapp.Constants.KEY_AUTHENTICATOR
 import com.ibm.security.verifysdk.mfa.demoapp.Constants.KEY_AUTHENTICATOR_TYPE
 import com.ibm.security.verifysdk.mfa.demoapp.Constants.PREFS_NAME
@@ -109,6 +111,7 @@ class MainActivity : FragmentActivity() {
     private val log: Logger = LoggerFactory.getLogger(javaClass.name)
     private var mfaAuthenticatorDescriptor: MFAAuthenticatorDescriptor? = null
     private var mfaService: MFAServiceDescriptor? = null
+    private var currentPendingTransaction: PendingTransactionInfo? = null
     private lateinit var biometricPrompt: BiometricPrompt
     private lateinit var promptInfo: BiometricPrompt.PromptInfo
 
@@ -307,13 +310,13 @@ class MainActivity : FragmentActivity() {
 
         return when (authenticator) {
             is CloudAuthenticator -> {
-                service.currentPendingTransaction?.factorID?.let { factorId ->
+                currentPendingTransaction?.factorID?.let { factorId ->
                     authenticator.biometric?.id == factorId
                 } ?: false
             }
 
             is OnPremiseAuthenticator -> {
-                val factorTypeName = service.currentPendingTransaction?.factorType
+                val factorTypeName = currentPendingTransaction?.factorType
                 factorTypeName?.contains("face", ignoreCase = true) == true ||
                         factorTypeName?.contains("fingerprint", ignoreCase = true) == true
             }
@@ -431,14 +434,36 @@ class MainActivity : FragmentActivity() {
             try {
                 withContext(Dispatchers.IO) {
                     mfaService?.nextTransaction(transactionId)
-                        ?.onSuccess { nextTransactionInfo ->
-                            log.info("Success: $nextTransactionInfo")
-                            val message = mfaService?.currentPendingTransaction?.message
+                        ?.onSuccess { (transactions, count) ->
+                            log.info("Success: (transactions=$transactions, count=$count)")
+                            
+                            // Extract the first transaction from the list
+                            currentPendingTransaction = transactions.firstOrNull()
+                            
+                            if (currentPendingTransaction == null) {
+                                // No valid transactions (all expired or none available)
+                                val errorMsg = if (count > 0) {
+                                    "All transactions have expired ($count total)"
+                                } else {
+                                    getString(R.string.error_no_pending_transactions)
+                                }
+                                updateUiState {
+                                    copy(
+                                        transactionMessage = "",
+                                        transactionFactorType = "",
+                                        hasTransaction = false,
+                                        errorMessage = errorMsg
+                                    )
+                                }
+                                return@onSuccess
+                            }
+                            
+                            val message = currentPendingTransaction?.message
                                 ?: "No transaction message"
 
                             val factorType = when (authenticator) {
                                 is CloudAuthenticator -> {
-                                    mfaService?.currentPendingTransaction?.factorID?.let { factorId ->
+                                    currentPendingTransaction?.factorID?.let { factorId ->
                                         when {
                                             authenticator.biometric?.id == factorId -> authenticator.biometric?.displayName
                                             authenticator.userPresence?.id == factorId -> authenticator.userPresence?.displayName
@@ -448,7 +473,7 @@ class MainActivity : FragmentActivity() {
                                 }
 
                                 is OnPremiseAuthenticator -> {
-                                    mfaService?.currentPendingTransaction?.factorType ?: "Unknown"
+                                    currentPendingTransaction?.factorType ?: "Unknown"
                                 }
 
                                 else -> "Unknown"
@@ -514,7 +539,7 @@ class MainActivity : FragmentActivity() {
                 val result = withContext(Dispatchers.IO) {
                     when (authenticator) {
                         is CloudAuthenticator -> {
-                            val factorId = service.currentPendingTransaction?.factorID
+                            val factorId = currentPendingTransaction?.factorID
                             val factorType = when {
                                 authenticator.biometric?.id == factorId -> authenticator.biometric?.let {
                                     FactorType.Biometric(
@@ -531,10 +556,10 @@ class MainActivity : FragmentActivity() {
                                 else -> null
                             }
 
-                            if (factorType != null) {
-                                service.completeTransaction(userAction, factorType)
+                            if (factorType != null && currentPendingTransaction != null) {
+                                service.completeTransaction(currentPendingTransaction!!, userAction, factorType)
                                     .onSuccess {
-                                        log.info("Success: ${service.currentPendingTransaction?.message}")
+                                        log.info("Success: ${currentPendingTransaction?.message}")
                                     }
                                     .onFailure {
                                         log.error("Failure: $it")
@@ -545,7 +570,7 @@ class MainActivity : FragmentActivity() {
                         }
 
                         is OnPremiseAuthenticator -> {
-                            val currentFactorType = service.currentPendingTransaction?.factorType
+                            val currentFactorType = currentPendingTransaction?.factorType
                                 ?: return@withContext Result.failure<Unit>(
                                     IllegalStateException(getString(R.string.error_no_factor_type))
                                 )
@@ -570,10 +595,10 @@ class MainActivity : FragmentActivity() {
                                 else -> null
                             }
 
-                            if (matchingFactor != null) {
-                                service.completeTransaction(userAction, matchingFactor)
+                            if (matchingFactor != null && currentPendingTransaction != null) {
+                                service.completeTransaction(currentPendingTransaction!!, userAction, matchingFactor)
                                     .onSuccess {
-                                        log.info("Success: ${service.currentPendingTransaction?.message}")
+                                        log.info("Success: ${currentPendingTransaction?.message}")
                                     }
                                     .onFailure {
                                         log.error("Failure: $it")
