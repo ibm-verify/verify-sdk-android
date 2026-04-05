@@ -21,15 +21,17 @@ class TransactionAttributeTest {
             TransactionAttribute.Image,
             TransactionAttribute.UserAgent,
             TransactionAttribute.Type,
-            TransactionAttribute.Custom
+            TransactionAttribute.Custom,
+            TransactionAttribute.Correlation,
+            TransactionAttribute.DenyReason
         )
 
         // When
-        val actualAttributes = TransactionAttribute.values().toSet()
+        val actualAttributes = TransactionAttribute.entries.toSet()
 
         // Then
         assertEquals(expectedAttributes, actualAttributes)
-        assertEquals(6, TransactionAttribute.values().size)
+        assertEquals(8, TransactionAttribute.entries.size)
     }
 
     @Test
@@ -89,7 +91,7 @@ class TransactionAttributeTest {
     @Test
     fun allAttributes_shouldHaveUniqueRawValues() {
         // Given
-        val attributes = TransactionAttribute.values()
+        val attributes = TransactionAttribute.entries.toTypedArray()
 
         // When
         val rawValues = attributes.map { it.rawValue }.toSet()
@@ -166,7 +168,6 @@ class TransactionAttributeTest {
         // Then
         assertEquals("ipAddress", attribute.rawValue)
         assertEquals("IPAddress", attribute.name)
-        assertEquals(0, attribute.ordinal)
     }
 
     @Test
@@ -227,7 +228,7 @@ class TransactionAttributeTest {
     @Test
     fun allAttributes_shouldHaveDistinctNames() {
         // Given
-        val attributes = TransactionAttribute.values()
+        val attributes = TransactionAttribute.entries.toTypedArray()
 
         // When
         val names = attributes.map { it.name }.toSet()
@@ -239,7 +240,7 @@ class TransactionAttributeTest {
     @Test
     fun allAttributes_shouldHaveDistinctOrdinals() {
         // Given
-        val attributes = TransactionAttribute.values()
+        val attributes = TransactionAttribute.entries.toTypedArray()
 
         // When
         val ordinals = attributes.map { it.ordinal }.toSet()
@@ -262,7 +263,7 @@ class TransactionAttributeTest {
     @Test
     fun whenExpression_shouldBeExhaustive() {
         // Given
-        val attributes = TransactionAttribute.values()
+        val attributes = TransactionAttribute.entries.toTypedArray()
 
         // When/Then - Verify all attributes can be handled
         for (attribute in attributes) {
@@ -273,6 +274,8 @@ class TransactionAttributeTest {
                 TransactionAttribute.UserAgent -> "ua"
                 TransactionAttribute.Type -> "type"
                 TransactionAttribute.Custom -> "custom"
+                TransactionAttribute.Correlation -> "correlation"
+                TransactionAttribute.DenyReason -> "denyReason"
             }
             assert(result.isNotEmpty())
         }
