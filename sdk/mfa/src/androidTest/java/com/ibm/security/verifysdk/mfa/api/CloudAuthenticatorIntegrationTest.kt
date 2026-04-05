@@ -26,6 +26,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.net.URL
+import kotlin.time.ExperimentalTime
 
 /**
  * Integration test suite based on real network traces.
@@ -40,6 +41,7 @@ import java.net.URL
  * 
  * Note: Registration and factor enrollment tests are covered in CloudRegistrationProviderTest.
  */
+@OptIn(ExperimentalTime::class)
 @RunWith(AndroidJUnit4::class)
 class CloudAuthenticatorIntegrationTest {
 
@@ -241,7 +243,6 @@ class CloudAuthenticatorIntegrationTest {
 
         // Use future timestamps to avoid expiration
         val now = kotlin.time.Clock.System.now()
-        val creationTime = now
         val expiryTime = now.plus(kotlin.time.Duration.parse("2m"))
         
         // Create mock transaction using actual PendingTransactionInfo structure
@@ -252,7 +253,7 @@ class CloudAuthenticatorIntegrationTest {
             factorID = java.util.UUID.fromString("87dbc69e-3e4a-4b33-9b89-6ecdaf3c8510"),
             factorType = "signature",
             dataToSign = "test_data_to_sign",
-            creationTime = creationTime,
+            creationTime = now,
             expiryTime = expiryTime,
             additionalData = mapOf(
                 TransactionAttribute.IPAddress to "192.168.1.100",
