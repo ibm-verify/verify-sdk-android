@@ -13,7 +13,9 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.time.ExperimentalTime
 
+@OptIn(ExperimentalTime::class)
 @RunWith(AndroidJUnit4::class)
 class VerificationInfoTest {
 
@@ -459,5 +461,109 @@ class VerificationInfoTest {
         assertEquals("second", info.keyHandles[1])
         assertEquals("third", info.keyHandles[2])
         assertEquals("fourth", info.keyHandles[3])
+    }
+
+    // Tests for expiryTime field
+    @OptIn(kotlin.time.ExperimentalTime::class)
+    @Test
+    fun constructor_withExpiryTime_shouldSetExpiryTime() {
+        // Given
+        val expiryTime = kotlin.time.Instant.fromEpochMilliseconds(1640005000000)
+        
+        // When
+        val info = VerificationInfo(
+            mechanism = testMechanism,
+            location = testLocation,
+            type = testType,
+            serverChallenge = testServerChallenge,
+            keyHandles = testKeyHandles,
+            expiryTime = expiryTime
+        )
+
+        // Then
+        assertEquals(expiryTime, info.expiryTime)
+    }
+
+    @Test
+    fun constructor_withoutExpiryTime_shouldUseNull() {
+        // When
+        val info = VerificationInfo(
+            mechanism = testMechanism,
+            location = testLocation,
+            type = testType,
+            serverChallenge = testServerChallenge,
+            keyHandles = testKeyHandles
+        )
+
+        // Then
+        assertEquals(null, info.expiryTime)
+    }
+
+    @OptIn(kotlin.time.ExperimentalTime::class)
+    @Test
+    fun serialization_withExpiryTime_shouldSerializeAndDeserialize() {
+        // Given
+        val expiryTime = kotlin.time.Instant.fromEpochMilliseconds(1640005000000)
+        val info = VerificationInfo(
+            mechanism = testMechanism,
+            location = testLocation,
+            type = testType,
+            serverChallenge = testServerChallenge,
+            keyHandles = testKeyHandles,
+            expiryTime = expiryTime
+        )
+        val json = Json { prettyPrint = true }
+
+        // When
+        val serialized = json.encodeToString(info)
+        val deserialized = json.decodeFromString<VerificationInfo>(serialized)
+
+        // Then
+        assertEquals(info.expiryTime, deserialized.expiryTime)
+    }
+
+    @OptIn(kotlin.time.ExperimentalTime::class)
+    @Test
+    fun copy_withModifiedExpiryTime_shouldUpdateOnlyExpiryTime() {
+        // Given
+        val originalExpiryTime = kotlin.time.Instant.fromEpochMilliseconds(1640000000000)
+        val newExpiryTime = kotlin.time.Instant.fromEpochMilliseconds(1640005000000)
+        val original = VerificationInfo(
+            mechanism = testMechanism,
+            location = testLocation,
+            type = testType,
+            serverChallenge = testServerChallenge,
+            keyHandles = testKeyHandles,
+            expiryTime = originalExpiryTime
+        )
+
+        // When
+        val modified = original.copy(expiryTime = newExpiryTime)
+
+        // Then
+        assertEquals(newExpiryTime, modified.expiryTime)
+        assertEquals(original.mechanism, modified.mechanism)
+        assertEquals(original.location, modified.location)
+    }
+
+    @Test
+    fun deserialization_withoutExpiryTime_shouldUseNull() {
+        // Given
+        val jsonString = """
+            {
+                "mechanism": "$testMechanism",
+                "location": "$testLocation",
+                "type": "$testType",
+                "serverChallenge": "$testServerChallenge",
+                "keyHandles": ["keyHandle1"]
+            }
+        """.trimIndent()
+        val json = Json { ignoreUnknownKeys = true }
+
+        // When
+        val info = json.decodeFromString<VerificationInfo>(jsonString)
+
+        // Then
+        assertEquals(null, info.expiryTime)
     }
 }
