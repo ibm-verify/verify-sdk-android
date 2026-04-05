@@ -40,20 +40,75 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import org.slf4j.LoggerFactory
 import java.net.URL
 import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
+/**
+ * Immutable on-premise MFA authenticator service.
+ *
+ * ## Design Philosophy
+ * This service is an **immutable value object** that represents a snapshot of authenticator
+ * state at a specific point in time, consistent with CloudAuthenticatorService design.
+ *
+ * ## Lifecycle Pattern
+ * ```kotlin
+ * // 1. Create service with current token
+ * val service = OnPremiseAuthenticatorService(
+ *     _accessToken = authenticator.token.accessToken,
+ *     _refreshUri = authenticator.refreshUri,
+ *     _transactionUri = authenticator.transactionUri,
+ *     _clientId = authenticator.clientId,
+ *     _authenticatorId = authenticator.id,
+ *     httpClient = NetworkHelper.getInstance,
+ *     _ignoreSslCertificate = authenticator.ignoreSslCertificate,
+ *     persistenceCallback = repository
+ * )
+ *
+ * // 2. Use service for operations
+ * service.nextTransaction()
+ * service.completeTransaction(...)
+ *
+ * // 3. If token is refreshed, create NEW service
+ * service.refreshToken(...).onSuccess { newToken ->
+ *     // This service is now obsolete!
+ *     val newService = OnPremiseAuthenticatorService(
+ *         _accessToken = newToken.accessToken,  // New token
+ *         _refreshUri = authenticator.refreshUri,
+ *         _transactionUri = authenticator.transactionUri,
+ *         _clientId = authenticator.clientId,
+ *         _authenticatorId = authenticator.id,
+ *         httpClient = NetworkHelper.getInstance,
+ *         _ignoreSslCertificate = authenticator.ignoreSslCertificate,
+ *         persistenceCallback = repository
+ *     )
+ *     // Use newService for subsequent operations
+ * }
+ * ```
+ *
+ * @property _accessToken The OAuth access token (immutable snapshot)
+ * @property _refreshUri The endpoint URL for token refresh operations
+ * @property _transactionUri The endpoint URL for transaction operations
+ * @property _clientId The OAuth client ID
+ * @property _authenticatorId The unique identifier for this authenticator
+ * @property httpClient The HTTP client for making network requests
+ * @property _ignoreSslCertificate Whether to ignore SSL certificate validation
+ * @property persistenceCallback Optional callback for automatic token persistence
+ */
 @OptIn(ExperimentalTime::class)
 class OnPremiseAuthenticatorService(
-    private var _accessToken: String,
-    private var _refreshUri: URL,
-    private var _transactionUri: URL,
-    private var _clientId: String,
-    private var _authenticatorId: String,
-    private var _ignoreSslCertificate: Boolean = false
-
+    private val _accessToken: String,
+    private val _refreshUri: URL,
+    private val _transactionUri: URL,
+    private val _clientId: String,
+    private val _authenticatorId: String,
+    internal val httpClient: HttpClient,
+    private val _ignoreSslCertificate: Boolean = false,
+    private val persistenceCallback: com.ibm.security.verifysdk.mfa.TokenPersistenceCallback? = null
 ) : MFAServiceDescriptor {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -62,8 +117,6 @@ class OnPremiseAuthenticatorService(
         explicitNulls = false
         ignoreUnknownKeys = true
     }
-
-    private lateinit var _currentPendingTransaction: PendingTransactionInfo
 
     override val accessToken: String
         get() = _accessToken
@@ -74,9 +127,6 @@ class OnPremiseAuthenticatorService(
     override val transactionUri: URL
         get() = _transactionUri
 
-    override val currentPendingTransaction: PendingTransactionInfo?
-        get() = _currentPendingTransaction
-
     override val authenticatorId: String
         get() = _authenticatorId
 
@@ -86,12 +136,25 @@ class OnPremiseAuthenticatorService(
     val ignoreSslCertificate: Boolean
         get() = _ignoreSslCertificate
 
+    /**
+     * Refreshes the OAuth token with **CRITICAL** persistence guarantees.
+     *
+     * ## ⚠️ CRITICAL: Token Persistence
+     *
+     * This method implements **BLOCKING, ATOMIC** token persistence to prevent the
+     * "hosed authenticator" scenario.
+     *
+     * ## Service Lifecycle
+     * **IMPORTANT:** This service instance becomes obsolete after token refresh.
+     * You must create a new service instance with the new token.
+     *
+     * @see CloudAuthenticatorService.refreshToken for detailed documentation
+     */
     override suspend fun refreshToken(
         refreshToken: String,
         accountName: String?,
         pushToken: String?,
-        additionalData: Map<String, Any>?,
-        httpClient: HttpClient
+        additionalData: Map<String, Any>?
     ): Result<TokenInfo> {
 
         return try {
@@ -125,13 +188,28 @@ class OnPremiseAuthenticatorService(
                 httpClient = httpClient
             )
 
-            responseToken.fold(
-                onSuccess = { tokenInfo ->
-                    Result.success(tokenInfo)
-                },
-                onFailure = { throwable ->
-                    Result.failure(throwable)
-                })
+            responseToken.also { result ->
+                // Don't mutate state - service is immutable
+                // Repository layer creates new service instance with new token
+                result.onSuccess { tokenInfo ->
+                    // CRITICAL: Persist token BEFORE returning success
+                    // This ensures token is saved BEFORE any subsequent API call that would activate it on server
+                    persistenceCallback?.let { callback ->
+                        val persistResult = callback.onTokenRefreshed(authenticatorId, tokenInfo)
+                        persistResult.onFailure { error ->
+                            log.error("CRITICAL: Token persistence failed for authenticator $_authenticatorId: ${error.message}")
+                            // Return failure if persistence fails - token refresh is not complete without persistence
+                            return Result.failure(
+                                Exception(
+                                    "Token refresh succeeded but persistence failed: ${error.message}",
+                                    error
+                                )
+                            )
+                        }
+                        log.debug("Token persisted successfully for authenticator $_authenticatorId")
+                    }
+                }
+            }
         } catch (e: Throwable) {
             Result.failure(e)
         } finally {
@@ -140,8 +218,7 @@ class OnPremiseAuthenticatorService(
     }
 
     override suspend fun nextTransaction(
-        transactionID: String?,
-        httpClient: HttpClient
+        transactionID: String?
     ): Result<NextTransactionInfo> {
 
         return try {
@@ -158,21 +235,14 @@ class OnPremiseAuthenticatorService(
                     response.bodyAsText()
                 )
                 if (transactionResult.transactions.isEmpty()) {
-                    Result.success(NextTransactionInfo(null, 0))
+                    Result.success(NextTransactionInfo(emptyList(), 0))
                 } else {
-                    createPendingTransaction(transactionResult, transactionID, httpClient).fold(
-                        onSuccess = { pendingTransactionInfo ->
-                            _currentPendingTransaction = pendingTransactionInfo
-                            Result.success(
-                                NextTransactionInfo(
-                                    pendingTransactionInfo,
-                                    transactionResult.transactions.count()
-                                )
-                            )
-                        },
-                        onFailure = { throwable ->
-                            Result.failure(throwable)
-                        }
+                    val transactions = createPendingTransactions(transactionResult, transactionID)
+                    Result.success(
+                        NextTransactionInfo(
+                            transactions,
+                            transactionResult.transactions.count()
+                        )
                     )
                 }
             } else {
@@ -186,24 +256,38 @@ class OnPremiseAuthenticatorService(
     }
 
     override suspend fun completeTransaction(
+        transaction: PendingTransactionInfo,
         userAction: UserAction,
-        signedData: String,
-        httpClient: HttpClient
+        signedData: String
     ): Result<Unit> {
 
         return try {
-            val pendingTransaction =
-                currentPendingTransaction ?: throw MFAServiceException.InvalidPendingTransaction()
+            // Validate transaction hasn't expired
+            transaction.expiryTime?.let { expiry ->
+                if (kotlin.time.Clock.System.now() > expiry) {
+                    return Result.failure(
+                        MFAServiceException.General("Transaction ${transaction.id} has expired at $expiry")
+                    )
+                }
+            }
 
             val data = buildJsonObject {
                 put(
                     "signedChallenge",
-                    if (userAction == UserAction.VERIFY) JsonPrimitive(signedData) else JsonNull
+                    if (userAction == UserAction.VERIFY) JsonPrimitive(signedData) else JsonPrimitive(
+                        ""
+                    )
                 )
+
+                // Add denyReason if denyReasonEnabled flag is set to "true"
+                val denyReasonEnabled = transaction.additionalData[TransactionAttribute.DenyReason]
+                if (denyReasonEnabled == "true") {
+                    put("denyReason", JsonPrimitive(userAction.toString()))
+                }
             }
 
             val response = httpClient.put {
-                url(pendingTransaction.postbackUri.toString())
+                url(transaction.postbackUri.toString())
                 accept(ContentType.Application.Json)
                 bearerAuth(accessToken)
                 setBody(TextContent(data.toString(), ContentType.Application.Json))
@@ -212,10 +296,22 @@ class OnPremiseAuthenticatorService(
             if (response.status.isSuccess()) {
                 Result.success(Unit)
             } else {
-                Result.failure(MFAServiceException.General(response.bodyAsText()))
+                Result.failure(
+                    MFAServiceException.General(
+                        "Failed to complete transaction ${transaction.id}: ${response.bodyAsText()}"
+                    )
+                )
             }
-        } catch (e: Throwable) {
-            return Result.failure(e)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Don't wrap cancellation exceptions
+            throw e
+        } catch (e: Exception) {
+            Result.failure(
+                MFAServiceException.General(
+                    "Exception while completing transaction ${transaction.id}: ${e.message}",
+                    e
+                )
+            )
         }
     }
 
@@ -264,33 +360,55 @@ class OnPremiseAuthenticatorService(
         }
     }
 
+    private suspend fun createPendingTransactions(
+        transactionResult: TransactionResult,
+        transactionId: String? = null
+    ): List<PendingTransactionInfo> {
+        // Get identifiers for this authenticator
+        val identifiers = transactionResult.attributes.filter {
+            it.uri == "mmfa:request:authenticator:id" && it.values.contains(authenticatorId)
+        }
+
+        // Get all transaction IDs for this authenticator
+        val transactionIds = if (transactionId != null) {
+            // If specific transaction requested, only get that one
+            listOf(transactionId)
+        } else if (identifiers.isNotEmpty()) {
+            // Get all transactions for this authenticator
+            identifiers.map { it.transactionId }
+        } else {
+            // Fallback to all transactions
+            transactionResult.transactions.map { it.transactionId }
+        }
+
+        val now = Clock.System.now()
+
+        return transactionIds.mapNotNull { txnId ->
+            val result = createPendingTransaction(transactionResult, txnId)
+            result.getOrNull()?.let { transaction ->
+                // Filter out expired transactions
+                transaction.expiryTime?.let { expiry ->
+                    if (now > expiry) {
+                        return@mapNotNull null
+                    }
+                }
+                transaction
+            }
+        }
+    }
+
     private suspend fun createPendingTransaction(
         transactionResult: TransactionResult,
-        transactionId: String? = null,
-        httpClient: HttpClient = NetworkHelper.getInstance
+        transactionId: String
     ): Result<PendingTransactionInfo> {
 
         return try {
             log.entering()
-            /* Optional variable to hold the transaction. By default, we'll store the first transaction
-           encountered but reassign if we match the authenticatorId and/or transactionId. */
-            var transactionInfoResult =
-                transactionResult.transactions.firstOrNull { it.transactionId == transactionId }
-                    ?: transactionResult.transactions.first()
-            /* Get a list of attributesPending that contain mmfa:request:authenticator:id. */
-            val identifiers =
-                transactionResult.attributes.filter { it.uri == "mmfa:request:authenticator:id" }
-
-            if (identifiers.any { it.values.contains(authenticatorId) }) {
-                val identifier = identifiers.first { it.values.contains(authenticatorId) }
-                /* If a transactionId was passed in as a parameter, get that one, otherwise get the
-               first transaction for the authenticator. */
-                transactionInfoResult = if (transactionId != null) {
-                    transactionResult.transactions.first { it.transactionId == transactionId }
-                } else {
-                    transactionResult.transactions.first { it.transactionId == identifier.transactionId }
-                }
+            // Get the specific transaction
+            val transactionInfoResult = transactionResult.transactions.firstOrNull {
+                it.transactionId == transactionId
             }
+                ?: return Result.failure(MFAServiceException.General("Transaction not found: $transactionId"))
 
             val response = httpClient.post {
                 url(transactionInfoResult.requestUrl)
@@ -302,6 +420,19 @@ class OnPremiseAuthenticatorService(
             if (response.status.isSuccess()) {
                 val verificationInfo =
                     decoder.decodeFromString<VerificationInfo>(response.bodyAsText())
+
+                // Extract expiry time from attributesPending array
+                // Look for mmfa.transactionPending.minAgeBeforeAbort attribute
+                val expirySeconds = transactionResult.attributes
+                    .firstOrNull {
+                        it.transactionId == transactionInfoResult.transactionId &&
+                                it.uri == "mmfa.transactionPending.minAgeBeforeAbort"
+                    }
+                    ?.values?.firstOrNull()?.toLongOrNull() ?: 300L
+
+                val calculatedExpiryTime =
+                    transactionInfoResult.creationTime + expirySeconds.seconds
+
                 var dataToSign = verificationInfo.serverChallenge
                 if (transactionResult.attributes.any { it.uri == "mmfa:request:signing:attributes" }) {
                     val signingInfo =
@@ -333,7 +464,8 @@ class OnPremiseAuthenticatorService(
                         factorID = UUID(0, 0), // not used for OnPrem
                         factorType = verificationInfo.type,
                         dataToSign = dataToSign,
-                        timeStamp = transactionInfoResult.creationTime,
+                        creationTime = transactionInfoResult.creationTime,
+                        expiryTime = calculatedExpiryTime,
                         additionalData = createAdditionalData(attributeInfo)
                     )
                 )
@@ -401,13 +533,98 @@ class OnPremiseAuthenticatorService(
 //    Type("type"),
 //    Custom("custom")
 
+    /**
+     * Calculates a correlation value from a transaction ID.
+     *
+     * The correlation value is a 2-digit number (00-99) derived from the transaction ID
+     * by taking the first 8 characters, parsing them as hexadecimal, and calculating
+     * modulo 100. This value is used to help users verify they are approving the correct
+     * transaction by matching it with a value displayed in the requesting application.
+     *
+     * @param transactionId The transaction ID to calculate the correlation value from
+     * @return A 2-digit string representation of the correlation value (00-99),
+     *         or "00" if calculation fails
+     */
+    private fun calculateCorrelationValue(transactionId: String): String {
+        return try {
+            // Take first 8 characters of transaction ID
+            val shortTransactionId = transactionId.substring(0, minOf(transactionId.length, 8))
+            // Parse as hexadecimal and calculate modulo 100
+            val correlationValue = shortTransactionId.toBigInteger(16).mod(100.toBigInteger())
+
+            // Format with leading zero if less than 10
+            if (correlationValue > 9.toBigInteger()) {
+                correlationValue.toString()
+            } else {
+                "0${correlationValue}"
+            }
+        } catch (e: Exception) {
+            log.warn("Failed to calculate correlation value: ${e.message}")
+            "00"
+        }
+    }
+
     private fun createAdditionalData(attributeInfos: List<TransactionResult.AttributeInfo>): Map<TransactionAttribute, String> {
 
         return try {
             log.entering()
             val result = mutableMapOf<TransactionAttribute, String>()
+            var transactionId: String? = null
+
+            // Get transaction ID from attributes
+            attributeInfos.firstOrNull()?.let {
+                transactionId = it.transactionId
+            }
 
             attributeInfos.filter { it.uri == "mmfa:request:extras" }.forEach { attributeInfo ->
+                // Parse JSON string from values if dataType is "String"
+                if (attributeInfo.dataType.equals(
+                        "String",
+                        ignoreCase = true
+                    ) && attributeInfo.values.isNotEmpty()
+                ) {
+                    try {
+                        val jsonString = attributeInfo.values.first()
+                        val jsonElement = Json.parseToJsonElement(jsonString).jsonObject
+
+                        // Extract and handle correlationEnabled (can be Boolean or String)
+                        var isCorrelationEnabled = false
+                        jsonElement["correlationEnabled"]?.let { element ->
+                            if (element is JsonPrimitive) {
+                                isCorrelationEnabled = when {
+                                    element.isString -> element.content.toBoolean()
+                                    else -> element.content.toBoolean()
+                                }
+                            }
+                        }
+
+                        // If correlation is enabled, extract or calculate correlation value
+                        if (isCorrelationEnabled) {
+                            val correlation = jsonElement["correlationValue"]?.let { element ->
+                                if (element is JsonPrimitive) {
+                                    element.content
+                                } else null
+                            } ?: transactionId?.let { calculateCorrelationValue(it) } ?: "00"
+
+                            result[TransactionAttribute.Correlation] = correlation
+                        }
+
+                        // Extract and handle denyReasonEnabled (can be Boolean or String)
+                        jsonElement["denyReasonEnabled"]?.let { element ->
+                            if (element is JsonPrimitive) {
+                                val isDenyReasonEnabled = when {
+                                    element.isString -> element.content.toBoolean()
+                                    else -> element.content.toBoolean()
+                                }
+                                result[TransactionAttribute.DenyReason] =
+                                    isDenyReasonEnabled.toString()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        log.warn("Failed to parse mmfa:request:extras JSON: ${e.message}")
+                    }
+                }
+
                 if (attributeInfo.dataType.equals("type", ignoreCase = true)) {
                     result[TransactionAttribute.Type] = attributeInfo.values.first()
                 }
