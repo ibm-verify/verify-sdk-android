@@ -4,6 +4,7 @@
 
 package com.ibm.security.verifysdk.mfa
 
+import android.annotation.SuppressLint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import kotlinx.coroutines.CoroutineScope
@@ -15,7 +16,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.ExperimentalTime
 
 /**
  * Comprehensive test suite for TokenPersistenceCallback interface.
@@ -30,6 +33,8 @@ import kotlin.time.Duration.Companion.milliseconds
  * 7. Atomicity guarantees
  */
 @RunWith(AndroidJUnit4::class)
+@SuppressLint("DenyListedBlockingApi")
+@OptIn(ExperimentalTime::class)
 class TokenPersistenceCallbackTest {
 
     /**
@@ -231,9 +236,9 @@ class TokenPersistenceCallbackTest {
             additionalData = emptyMap()
         )
 
-        val startTime = System.currentTimeMillis()
+        val startTime = Clock.System.now().toEpochMilliseconds()
         callback.onTokenRefreshed("test_id", testToken)
-        val duration = System.currentTimeMillis() - startTime
+        val duration = Clock.System.now().toEpochMilliseconds() - startTime
 
         assertTrue(
             "Callback should complete in < 100ms (actual: ${duration}ms)",
@@ -265,9 +270,9 @@ class TokenPersistenceCallbackTest {
             additionalData = emptyMap()
         )
 
-        val startTime = System.currentTimeMillis()
+        val startTime = Clock.System.now().toEpochMilliseconds()
         val result = callback.onTokenRefreshed("test_id", testToken)
-        val duration = System.currentTimeMillis() - startTime
+        val duration = Clock.System.now().toEpochMilliseconds() - startTime
 
         assertTrue("Result should still succeed", result.isSuccess)
         assertTrue(
