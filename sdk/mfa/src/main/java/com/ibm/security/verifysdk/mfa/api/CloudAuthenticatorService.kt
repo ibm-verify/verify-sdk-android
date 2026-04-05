@@ -690,12 +690,12 @@ class CloudAuthenticatorService(
                 ?: calculateCorrelationValue(verificationInfo.id)
         }
 
-        // Parse transaction data using kotlinx.serialization with Result type
-        val transactionData = runCatching {
+        // Parse transaction data using kotlinx.serialization
+        val transactionData = try {
             DefaultJson.decodeFromString<com.ibm.security.verifysdk.mfa.model.cloud.TransactionData>(
                 verificationInfo.transactionInfo
             )
-        }.getOrElse { e ->
+        } catch (e: Exception) {
             Log.w(TAG, "Failed to parse transaction data from JSON", e)
             return result
         }
