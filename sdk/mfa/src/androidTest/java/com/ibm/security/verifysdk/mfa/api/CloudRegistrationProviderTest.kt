@@ -470,8 +470,7 @@ class CloudRegistrationProviderTest {
             httpClient = httpClient
         )
 
-        // Verify result is a String (RegistrationInitiation is a typealias for String)
-        assertTrue(result is String)
+        // Verify result is not null (RegistrationInitiation is a typealias for String)
         assertNotNull(result)
     }
 
