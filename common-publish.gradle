@@ -21,7 +21,7 @@ tasks.register('androidJavadoc', Javadoc) {
 }
 
 tasks.register('androidJavadocJar', Jar) {
-    dependsOn dokkaJavadoc
+    dependsOn dokkaGeneratePublicationJavadoc
     archiveClassifier.set('javadoc')
     from androidJavadoc.destinationDir
     preserveFileTimestamps = false
