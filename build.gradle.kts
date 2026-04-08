@@ -43,7 +43,7 @@ allprojects {
     val jacksonModules = listOf(
         "com.fasterxml.jackson.core:jackson-core:2.21.2",
         "com.fasterxml.jackson.core:jackson-databind:2.21.2",
-        "com.fasterxml.jackson.core:jackson-annotations:2.21.2",
+        "com.fasterxml.jackson.core:jackson-annotations:2.21",
         "com.fasterxml.jackson.module:jackson-module-kotlin:2.21.2",
         "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.21.2",
         "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.21.2"
@@ -181,6 +181,73 @@ tasks.register("inspectLibDependencies") {
                     println("    *** Could not resolve ${config.name}: ${e.message}")
                 }
             }
+        }
+    }
+}
+
+/**
+ * List a collective, deduplicated set of all resolved external dependencies across all leaf modules.
+ *
+ * Default output format:
+ *   group:name:version
+ *     used by:
+ *       - :modulePath:configurationName
+ *
+ * Library-only output:
+ *   ./gradlew listAllModuleDependencies -PlibrariesOnly=true
+ */
+tasks.register("listAllModuleDependencies") {
+    group = "help"
+    description = "Lists all resolved external dependencies across all leaf modules and the configurations that use them."
+
+    doLast {
+        val librariesOnly = providers.gradleProperty("librariesOnly")
+            .map { it.equals("true", ignoreCase = true) }
+            .orElse(false)
+            .get()
+
+        val leafProjects = rootProject.allprojects.filter {
+            it.subprojects.isEmpty() && it.path !in listOf(
+                ":examples",
+                ":sdk"
+            )
+        }
+
+        val dependencyUsage = sortedMapOf<String, MutableSet<String>>()
+
+        leafProjects.forEach { p ->
+            val configs = p.configurations.filter { it.isCanBeResolved }
+
+            configs.forEach { config ->
+                try {
+                    config.incoming.resolutionResult.allDependencies
+                        .filterIsInstance<ResolvedDependencyResult>()
+                        .mapNotNull { it.selected.moduleVersion }
+                        .forEach { moduleVersion ->
+                            val coordinate = "${moduleVersion.group}:${moduleVersion.name}:${moduleVersion.version}"
+                            dependencyUsage
+                                .getOrPut(coordinate) { sortedSetOf() }
+                                .add("${p.path}:${config.name}")
+                        }
+                } catch (e: Exception) {
+                    println("*** Could not resolve ${p.path}:${config.name}: ${e.message}")
+                }
+            }
+        }
+
+        dependencyUsage.forEach { (dependency, usages) ->
+            println(dependency)
+            if (!librariesOnly) {
+                println("  used by:")
+                usages.forEach { usage ->
+                    println("    - $usage")
+                }
+            }
+        }
+
+        if (!librariesOnly) {
+            println()
+            println("Total unique external dependencies: ${dependencyUsage.size}")
         }
     }
 }
