@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -14,7 +13,7 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.core.ktx)
     implementation(libs.logging.interceptor)
+    implementation(libs.appmattus.certificatetransparency)
 
-    androidTestImplementation(project(":sdk:test_utils"))
     androidTestImplementation(libs.androidx.espresso.core)
 }

@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     id("kotlin-parcelize")
 }
@@ -23,7 +22,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.logging.interceptor)
 
-    androidTestImplementation(project(":sdk:test_utils"))
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.mockito.kotlin) {
         // Fix issue with byte-buddy and instrumentation tests

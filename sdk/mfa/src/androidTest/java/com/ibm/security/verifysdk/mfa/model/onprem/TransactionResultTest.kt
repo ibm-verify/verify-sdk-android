@@ -7,6 +7,8 @@ package com.ibm.security.verifysdk.mfa.model.onprem
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -477,6 +479,154 @@ class TransactionResultTest {
         assertNotNull(attribute.values)
         assertNotNull(attribute.uri)
         assertNotNull(attribute.transactionId)
+    }
+
+    // Tests for mmfa:request:extras attribute with correlation and denyReason
+    @Test
+    fun attributeInfo_withCorrelationEnabledTrue_andCorrelationValue_shouldParseCorrectly() {
+        // Given - Based on anonymized sample payload with correlationEnabled as boolean
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{\"correlationValue\":\"84\",\"correlationEnabled\":true,\"denyReasonEnabled\":true}"),
+            uri = "mmfa:request:extras",
+            transactionId = "b400d358-2410-48c3-984b-02afa2110844"
+        )
+
+        // When
+        val jsonString = attribute.values.first()
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(jsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["correlationEnabled"])
+        assertNotNull(jsonElement["correlationValue"])
+        assertNotNull(jsonElement["denyReasonEnabled"])
+        assertEquals("84", jsonElement["correlationValue"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun attributeInfo_withCorrelationEnabledAsString_shouldParseCorrectly() {
+        // Given - Test correlationEnabled as string "true"
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{\"correlationValue\":\"42\",\"correlationEnabled\":\"true\",\"denyReasonEnabled\":\"false\"}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-transaction-id"
+        )
+
+        // When
+        val jsonString = attribute.values.first()
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(jsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["correlationEnabled"])
+        assertEquals("true", jsonElement["correlationEnabled"]?.jsonPrimitive?.content)
+        assertEquals("42", jsonElement["correlationValue"]?.jsonPrimitive?.content)
+        assertEquals("false", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun attributeInfo_withCorrelationEnabledTrue_noCorrelationValue_shouldParseCorrectly() {
+        // Given - correlationEnabled = true, no correlationValue
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{\"correlationEnabled\":true,\"denyReasonEnabled\":false}"),
+            uri = "mmfa:request:extras",
+            transactionId = "b400d358-2410-48c3-984b-02afa2110844"
+        )
+
+        // When
+        val jsonString = attribute.values.first()
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(jsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["correlationEnabled"])
+        assertEquals(null, jsonElement["correlationValue"])
+        assertNotNull(jsonElement["denyReasonEnabled"])
+    }
+
+    @Test
+    fun attributeInfo_withoutCorrelationEnabled_shouldParseCorrectly() {
+        // Given - without correlationEnabled, no correlationValue
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{\"denyReasonEnabled\":true}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-transaction-id"
+        )
+
+        // When
+        val jsonString = attribute.values.first()
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(jsonString).jsonObject
+
+        // Then
+        assertEquals(null, jsonElement["correlationEnabled"])
+        assertEquals(null, jsonElement["correlationValue"])
+        assertNotNull(jsonElement["denyReasonEnabled"])
+    }
+
+    @Test
+    fun attributeInfo_withDenyReasonEnabledAsBoolean_shouldParseCorrectly() {
+        // Given - denyReasonEnabled as boolean
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{\"denyReasonEnabled\":true}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-id"
+        )
+
+        // When
+        val jsonString = attribute.values.first()
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(jsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["denyReasonEnabled"])
+        assertEquals("true", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun attributeInfo_withDenyReasonEnabledAsString_shouldParseCorrectly() {
+        // Given - denyReasonEnabled as string "true"
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{\"denyReasonEnabled\":\"true\"}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-id"
+        )
+
+        // When
+        val jsonString = attribute.values.first()
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(jsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["denyReasonEnabled"])
+        assertEquals("true", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun attributeInfo_withAllFieldsAsStrings_shouldParseCorrectly() {
+        // Given - All fields as strings
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{\"correlationValue\":\"99\",\"correlationEnabled\":\"true\",\"denyReasonEnabled\":\"true\"}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-id"
+        )
+
+        // When
+        val jsonString = attribute.values.first()
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(jsonString).jsonObject
+
+        // Then
+        assertEquals("true", jsonElement["correlationEnabled"]?.jsonPrimitive?.content)
+        assertEquals("99", jsonElement["correlationValue"]?.jsonPrimitive?.content)
+        assertEquals("true", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
     }
 }
 

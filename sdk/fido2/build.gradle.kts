@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -20,7 +19,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.datetime)
 
-    androidTestImplementation(project(":sdk:test_utils"))
+    androidTestImplementation(project(":sdk:core"))
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.mockito.kotlin) {
         // Fix issue with byte-buddy and instrumentation tests

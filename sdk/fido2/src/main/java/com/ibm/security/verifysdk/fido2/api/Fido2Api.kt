@@ -434,7 +434,7 @@ class Fido2Api : BaseApi() {
                         result: BiometricPrompt.AuthenticationResult
                     ) {
                         super.onAuthenticationSucceeded(result)
-                        continuation.resume(BiometricPromptResult.Success(result), null)
+                        continuation.resume(BiometricPromptResult.Success(result))
                     }
 
                     override fun onAuthenticationError(

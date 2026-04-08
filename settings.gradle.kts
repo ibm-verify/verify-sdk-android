@@ -28,7 +28,6 @@ include(":sdk:authentication")
 include(":sdk:core")
 include(":sdk:fido2")
 include(":sdk:mfa")
-include(":sdk:test_utils")
 
 include(":examples:authcodeflow_demo")
 include(":examples:dpop_demo")

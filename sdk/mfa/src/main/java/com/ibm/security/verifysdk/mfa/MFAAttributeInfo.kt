@@ -12,6 +12,8 @@ import com.ibm.security.verifysdk.core.helper.ContextHelper
 import com.scottyab.rootbeer.RootBeer
 import java.util.Locale
 import java.util.UUID
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Provides device and application attribute information for MFA operations.
@@ -70,20 +72,53 @@ object MFAAttributeInfo {
     private val applicationContext: Context
         get() = ContextHelper.context
 
-    private val name: String
-        get() = Build.MODEL
+    // Cache duration for root check (1 minute = 60 seconds)
+    private val ROOT_CHECK_CACHE_DURATION = 60.seconds
+    
+    // Cached root check result with timestamp
+    @Volatile
+    private var lastRootCheck: Pair<Long, Boolean>? = null
 
-    private val model: String
-        get() = Build.MANUFACTURER
+    // Lazily computed static attributes (computed once and cached)
+    private val staticAttributes: Map<String, Any> by lazy {
+        mapOf(
+            "deviceName" to Build.MODEL,
+            "deviceType" to Build.MANUFACTURER,
+            "platformType" to "Android",
+            "osVersion" to Build.VERSION.RELEASE,
+            "applicationId" to applicationBundleIdentifier,
+            "applicationName" to applicationName,
+            "applicationVersion" to applicationVersion,
+            "deviceId" to deviceID,
+            "frontCameraSupport" to hasFrontCamera,
+            "fingerprintSupport" to hasTouchID,
+            "faceSupport" to hasFaceID,
+            "verifySdkVersion" to BuildConfig.VERSION_NAME
+        )
+    }
 
-    private val operatingSystem: String
-        get() = "Android"
-
-    private val operatingSystemVersion: String
-        get() = Build.VERSION.RELEASE
-
+    /**
+     * Checks if the device is rooted/insecure with caching.
+     *
+     * Root detection is expensive (checks multiple indicators), so we cache
+     * the result for 1 minute to improve performance while still detecting
+     * changes reasonably quickly.
+     */
     private val deviceInsecure: Boolean
-        get() = RootBeer(applicationContext).isRooted
+        get() {
+            val now = Clock.System.now()
+            val cached = lastRootCheck
+            
+            return if (cached != null && (now.epochSeconds - cached.first) < ROOT_CHECK_CACHE_DURATION.inWholeSeconds) {
+                // Return cached result if still valid
+                cached.second
+            } else {
+                // Perform fresh root check
+                val isRooted = RootBeer(applicationContext).isRooted
+                lastRootCheck = Pair(now.epochSeconds, isRooted)
+                isRooted
+            }
+        }
 
     private val deviceID: String
         get() {
@@ -107,9 +142,7 @@ object MFAAttributeInfo {
         get() = applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)
 
     private val hasFaceID: Boolean
-        get() {
-            return applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_FACE)
-        }
+        get() = applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_FACE)
 
     private val hasTouchID: Boolean
         get() = applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT)
@@ -131,10 +164,6 @@ object MFAAttributeInfo {
             applicationContext.packageName,
             0
         ).versionName ?: "Unknown"
-
-
-    private val frameworkVersion: String
-        get() = BuildConfig.VERSION_NAME
 
     /**
      * Returns a dictionary of device and application attributes.
@@ -175,21 +204,29 @@ object MFAAttributeInfo {
      * ```
      */
     fun dictionary(snakeCaseKey: Boolean = false): Map<String, Any> {
-        return mapOf(
-            (if (snakeCaseKey) "applicationId".toSnakeCase() else "applicationId") to applicationBundleIdentifier,
-            (if (snakeCaseKey) "applicationName".toSnakeCase() else "applicationName") to applicationName,
-            (if (snakeCaseKey) "applicationVersion".toSnakeCase() else "applicationVersion") to applicationVersion,
-            (if (snakeCaseKey) "deviceName".toSnakeCase() else "deviceName") to name,
-            (if (snakeCaseKey) "platformType".toSnakeCase() else "platformType") to operatingSystem,
-            (if (snakeCaseKey) "deviceType".toSnakeCase() else "deviceType") to model,
-            (if (snakeCaseKey) "deviceId".toSnakeCase() else "deviceId") to deviceID,
-            (if (snakeCaseKey) "osVersion".toSnakeCase() else "osVersion") to operatingSystemVersion,
-            (if (snakeCaseKey) "faceSupport".toSnakeCase() else "faceSupport") to hasFaceID,
-            (if (snakeCaseKey) "deviceInsecure".toSnakeCase() else "deviceInsecure") to deviceInsecure,
-            (if (snakeCaseKey) "fingerprintSupport".toSnakeCase() else "fingerprintSupport") to hasTouchID,
-            (if (snakeCaseKey) "frontCameraSupport".toSnakeCase() else "frontCameraSupport") to hasFrontCamera,
-            (if (snakeCaseKey) "verifySdkVersion".toSnakeCase() else "verifySdkVersion") to frameworkVersion
-        )
+        // Get cached static attributes
+        val attributes = if (snakeCaseKey) {
+            // Convert keys to snake_case if requested
+            staticAttributes.mapKeys { (key, _) -> key.toSnakeCase() }
+        } else {
+            staticAttributes
+        }.toMutableMap()
+        
+        // Add fresh deviceInsecure check (cached for 1 minute)
+        val insecureKey = if (snakeCaseKey) "device_insecure" else "deviceInsecure"
+        attributes[insecureKey] = deviceInsecure
+        
+        return attributes
+    }
+    
+    /**
+     * Invalidates the root check cache, forcing a fresh check on next access.
+     *
+     * This can be useful in testing scenarios or when you want to force
+     * an immediate re-check of root status.
+     */
+    fun invalidateRootCheckCache() {
+        lastRootCheck = null
     }
 
     private fun String.toSnakeCase(): String {

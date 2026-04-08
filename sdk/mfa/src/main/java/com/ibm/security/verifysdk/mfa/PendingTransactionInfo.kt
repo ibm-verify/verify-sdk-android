@@ -24,7 +24,8 @@ data class PendingTransactionInfo (
     val factorID: UUID,
     val factorType: String,
     val dataToSign: String,
-    val timeStamp: Instant,
+    val creationTime: Instant,
+    val expiryTime: Instant? = null,
     val additionalData: Map<TransactionAttribute, String>
 ) {
     val shortId: String

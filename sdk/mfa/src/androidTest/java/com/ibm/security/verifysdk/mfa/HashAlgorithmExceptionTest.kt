@@ -23,8 +23,6 @@ class HashAlgorithmExceptionTest {
 
         // Then
         assertNotNull(exception)
-        assertTrue(exception is HashAlgorithmException)
-        assertTrue(exception is VerifySdkException)
         assertNull(exception.cause)
     }
 
@@ -38,8 +36,6 @@ class HashAlgorithmExceptionTest {
 
         // Then
         assertNotNull(exception)
-        assertTrue(exception is HashAlgorithmException)
-        assertTrue(exception is VerifySdkException)
         assertEquals(cause, exception.cause)
     }
 
@@ -90,8 +86,8 @@ class HashAlgorithmExceptionTest {
         // When
         val exception = HashAlgorithmException.InvalidHash()
 
-        // Then
-        assertTrue(exception is Throwable)
+        // Then - Type is known at compile time, just verify it's not null
+        assertNotNull(exception)
     }
 
     @Test
@@ -108,7 +104,6 @@ class HashAlgorithmExceptionTest {
 
         // Then
         assertNotNull(caughtException)
-        assertTrue(caughtException is HashAlgorithmException.InvalidHash)
     }
 
     @Test

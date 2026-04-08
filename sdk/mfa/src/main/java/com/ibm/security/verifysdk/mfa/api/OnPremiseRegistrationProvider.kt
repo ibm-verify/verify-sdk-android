@@ -4,11 +4,13 @@
 
 package com.ibm.security.verifysdk.mfa.api
 
+import androidx.biometric.BiometricPrompt
 import com.ibm.security.verifysdk.authentication.api.OAuthProvider
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.core.extension.entering
 import com.ibm.security.verifysdk.core.extension.exiting
 import com.ibm.security.verifysdk.core.helper.ContextHelper
+import com.ibm.security.verifysdk.core.helper.KeystoreHelper
 import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.BiometricFactorInfo
 import com.ibm.security.verifysdk.mfa.EnrollableSignature
@@ -28,17 +30,21 @@ import com.ibm.security.verifysdk.mfa.model.onprem.InitializationInfo
 import com.ibm.security.verifysdk.mfa.model.onprem.Metadata
 import com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseAuthenticator
 import com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseRegistrationProviderResultData
-import com.ibm.security.verifysdk.mfa.sign
 import io.ktor.client.HttpClient
 import io.ktor.client.request.accept
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
+import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.content.TextContent
+import io.ktor.http.contentType
+import io.ktor.http.formUrlEncode
+import io.ktor.http.headers
 import io.ktor.http.isSuccess
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
@@ -62,7 +68,7 @@ class OnPremiseRegistrationProvider(data: String) :
         ignoreUnknownKeys = true
     }
 
-    override val canEnrollBiomtric: Boolean
+    override val canEnrollBiometric: Boolean
         get() = canEnrollFingerprint || canEnrollFace
 
     private val canEnrollFingerprint: Boolean
@@ -85,7 +91,27 @@ class OnPremiseRegistrationProvider(data: String) :
     private lateinit var metaData: Metadata
     private lateinit var authenticatorId: String
 
+    /**
+     * Holds the pending biometric enrollment state when [authenticationRequired] is `true`.
+     * Set by [getCryptoObjectForEnrollment] and consumed by [enrollBiometric(BiometricPrompt.CryptoObject)].
+     *
+     * Marked [@Volatile] so that writes from one thread are immediately visible to reads on another.
+     */
+    @Volatile
+    private var pendingBiometricEnrollment: PendingBiometricEnrollment? = null
+
+    /** Captures the key name, algorithm and factor needed to complete enrollment after biometric auth. */
+    private data class PendingBiometricEnrollment(
+        val type: EnrollableType,
+        val factor: SignatureEnrollableFactor,
+        val keyName: String,
+        val algorithm: String,
+        val publicKey: String
+    )
+
     override var pushToken: String = ""
+    override val serviceName: String
+        get() = if (::metaData.isInitialized) metaData.serviceName else ""
     override var accountName: String = ""
     override val countOfAvailableEnrollments: Int
         get() {
@@ -155,9 +181,6 @@ class OnPremiseRegistrationProvider(data: String) :
                     .mapValues { entry -> entry.value.toString() }
                     .toMutableMap()
             )
-            if (initializationInfo.ignoreSSLCertificate) {
-                // disable SSL validations for network client
-            }
 
             val responseToken = oAuthProvider.authorize(
                 url = metaData.registrationUri,
@@ -171,10 +194,6 @@ class OnPremiseRegistrationProvider(data: String) :
                     this.tokenInfo = tokenInfo
                     authenticatorId = tokenInfo.additionalData["authenticator_id"] as? String
                         ?: return Result.failure(MFARegistrationException.MissingAuthenticatorIdentifier())
-
-                    if (countOfAvailableEnrollments == 0) {
-                        return Result.failure(MFARegistrationException.NoEnrollableFactors())
-                    }
 
                     return Result.success(
                         OnPremiseRegistrationProviderResultData(
@@ -204,6 +223,95 @@ class OnPremiseRegistrationProvider(data: String) :
         }
     }
 
+    /**
+     * Generates the biometric key pair and returns a [BiometricPrompt.CryptoObject] that must
+     * be passed to [BiometricPrompt.authenticate] when [authenticationRequired] is `true`.
+     *
+     * This method is SDK-internal.  Callers should call [enrollBiometric] and catch
+     * [MFARegistrationException.BiometricAuthenticationRequired] to obtain the
+     * [BiometricPrompt.CryptoObject].
+     *
+     * Returns `null` when [authenticationRequired] is `false` or no biometric factor is available.
+     */
+    internal fun getCryptoObjectForEnrollment(): BiometricPrompt.CryptoObject? {
+
+        require(::metaData.isInitialized) { "MetaData must be initialized. Call initiate() first." }
+        require(::authenticatorId.isInitialized) { "Authenticator ID must be initialized. Call initiate() first." }
+
+        val type = when {
+            canEnrollFingerprint -> EnrollableType.FINGERPRINT
+            canEnrollFace -> EnrollableType.FACE
+            else -> return null
+        }
+
+        if (!authenticationRequired) return null
+
+        val factor = metaData.availableFactors.first { it.type == type } as SignatureEnrollableFactor
+
+        if (!factor.enabled) throw MFARegistrationException.SignatureMethodNotEnabled(factor.type)
+
+        val algorithm = try {
+            HashAlgorithmType.forSigning(factor.algorithm)
+        } catch (_: HashAlgorithmException.InvalidHash) {
+            throw MFARegistrationException.InvalidAlgorithm(factor.algorithm)
+        }
+
+        val keyName = "${authenticatorId}.${type.name}"
+
+        // Generate the key pair with authenticationRequired = true.
+        val publicKey = generateKeys(
+            keyName = keyName,
+            algorithm = algorithm,
+            authenticationRequired = true,
+            invalidatedByBiometricEnrollment = invalidatedByBiometricEnrollment,
+        )
+
+        // Store the pending enrollment state so enrollBiometric(cryptoObject) can complete it.
+        pendingBiometricEnrollment = PendingBiometricEnrollment(
+            type = type,
+            factor = factor,
+            keyName = keyName,
+            algorithm = algorithm,
+            publicKey = publicKey
+        )
+
+        // Return a CryptoObject wrapping the Signature pre-initialised with the locked key.
+        return KeystoreHelper.getCryptoObject(keyName, algorithm)
+    }
+
+    /**
+     * Completes biometric enrollment using a hardware-unlocked [BiometricPrompt.CryptoObject]
+     * returned from [BiometricPrompt.AuthenticationCallback.onAuthenticationSucceeded].
+     *
+     * Must be called after [getCryptoObjectForEnrollment] and a successful biometric
+     * authentication.  The [cryptoObject] carries the authenticated [java.security.Signature]
+     * that signs the enrollment challenge without exposing the raw private key.
+     *
+     * @throws MFARegistrationException.InvalidPendingEnrollment if [getCryptoObjectForEnrollment]
+     *         was not called first.
+     */
+    override suspend fun enrollBiometric(
+        cryptoObject: BiometricPrompt.CryptoObject,
+        httpClient: HttpClient
+    ) {
+        val pending = pendingBiometricEnrollment
+            ?: throw MFARegistrationException.InvalidPendingEnrollment()
+
+        pendingBiometricEnrollment = null
+
+        // On-premise enrollment uses a SCIM PATCH with publicKey + keyHandle only.
+        // The CryptoObject has already unlocked the key via biometric authentication;
+        // no separate signedData field is required in the request body.
+        enroll(
+            pending.type,
+            pending.factor,
+            pending.keyName,
+            HashAlgorithmType.fromString(pending.algorithm),
+            pending.publicKey,
+            httpClient
+        )
+    }
+
     override suspend fun enrollUserPresence(httpClient: HttpClient) {
         if (!canEnrollUserPresence)
             throw MFARegistrationException.NoEnrollableFactors(EnrollableType.USER_PRESENCE)
@@ -229,30 +337,43 @@ class OnPremiseRegistrationProvider(data: String) :
         if (!factor.enabled)
             throw MFARegistrationException.SignatureMethodNotEnabled(factor.type)
 
-        try {
+        // OPT-3: resolve algorithm once and reuse — avoids a redundant list scan.
+        val algorithm = try {
             HashAlgorithmType.forSigning(factor.algorithm)
         } catch (_: HashAlgorithmException.InvalidHash) {
             throw MFARegistrationException.InvalidAlgorithm(factor.algorithm)
         }
 
         val keyName = "${authenticatorId}.${type.name}"
-        val algorithm =
-            HashAlgorithmType.forSigning((metaData.availableFactors.first { it.type == type } as SignatureEnrollableFactor).algorithm)
-        generateKeys(
+        val isBiometric = type == EnrollableType.FACE || type == EnrollableType.FINGERPRINT
+
+        // OPT-1: When authenticationRequired is true for a biometric key, the key is locked after
+        // generation and cannot be signed without a BiometricPrompt.CryptoObject.
+        // getCryptoObjectForEnrollment() generates the key, stores the pending state, and
+        // returns a CryptoObject.  We throw BiometricAuthenticationRequired so the caller
+        // can show the BiometricPrompt and then call enrollBiometric(cryptoObject).
+        if (isBiometric && authenticationRequired) {
+            val cryptoObject = getCryptoObjectForEnrollment()
+                ?: throw MFARegistrationException.NoEnrollableFactors(type)
+            throw MFARegistrationException.BiometricAuthenticationRequired(cryptoObject)
+        }
+
+        // OPT-2: use the interface property invalidatedByBiometricEnrollment (not authenticationRequired).
+        val publicKey = generateKeys(
             keyName = keyName,
             algorithm = algorithm,
-            authenticationRequired = (type == EnrollableType.FACE || type == EnrollableType.FINGERPRINT) && authenticationRequired,
-            invalidatedByBiometricEnrollment = (type == EnrollableType.FACE || type == EnrollableType.FINGERPRINT) && authenticationRequired,
-        ).let { publicKey ->
-            enroll(
-                type,
-                factor,
-                keyName,
-                HashAlgorithmType.fromString(algorithm),
-                publicKey,
-                httpClient
-            )
-        }
+            authenticationRequired = false,
+            invalidatedByBiometricEnrollment = isBiometric && invalidatedByBiometricEnrollment,
+        )
+
+        enroll(
+            type,
+            factor,
+            keyName,
+            HashAlgorithmType.fromString(algorithm),
+            publicKey,
+            httpClient
+        )
     }
 
 
@@ -359,24 +480,62 @@ class OnPremiseRegistrationProvider(data: String) :
         return try {
             log.entering()
 
-            Result.success(
-                OnPremiseAuthenticator(
-                    refreshUri = URL(metaData.registrationUri.toString()),
-                    transactionUri = URL(metaData.transactionUri.toString()),
-                    theme = metaData.theme,
-                    token = tokenInfo,
-                    id = authenticatorId,
-                    serviceName = metaData.serviceName,
-                    accountName = accountName,
-                    userPresence = userPresenceFactor,
-                    biometric = biometricFactor,
-                    qrLoginUri = URL(metaData.qrloginUri.toString()),
-                    ignoreSSLCertificate = initializationInfo.ignoreSSLCertificate,
-                    clientId = initializationInfo.clientId
+            // Generate requestBody for token refresh based on OnPremiseAuthenticatorService.refreshToken
+            val attributes = MFAAttributeInfo.dictionary(snakeCaseKey = true).toMutableMap()
+            attributes["accountName"] = accountName
+            attributes["pushToken"] = pushToken
+            attributes["tenant_id"] = authenticatorId
+
+            val requestBody = mutableMapOf(
+                "grant_type" to "refresh_token",
+                "client_id" to initializationInfo.clientId,
+                "refresh_token" to tokenInfo.refreshToken
+            )
+            
+            attributes.forEach { (key, value) ->
+                requestBody[key] = value.toString()
+            }
+
+            val response = httpClient.post {
+                url(metaData.registrationUri.toString())
+                accept(ContentType.Application.Json)
+                contentType(ContentType.Application.FormUrlEncoded)
+                setBody(requestBody.toList().formUrlEncode())
+            }
+
+            if (response.status.isSuccess()) {
+                response.bodyAsText().let { responseBodyData ->
+                    tokenInfo = decoder.decodeFromString(responseBodyData)
+                }
+                Result.success(
+                    OnPremiseAuthenticator(
+                        refreshUri = URL(metaData.registrationUri.toString()),
+                        transactionUri = URL(metaData.transactionUri.toString()),
+                        theme = metaData.theme,
+                        token = tokenInfo,
+                        id = authenticatorId,
+                        serviceName = metaData.serviceName,
+                        accountName = accountName,
+                        userPresence = userPresenceFactor,
+                        biometric = biometricFactor,
+                        qrLoginUri = URL(metaData.qrloginUri.toString()),
+                        ignoreSSLCertificate = initializationInfo.ignoreSSLCertificate,
+                        clientId = initializationInfo.clientId
+                    )
+                )
+            } else {
+                Result.failure(
+                    MFARegistrationException.General(
+                        "Finalization failed with status: ${response.status}"
+                    )
+                )
+            }
+        } catch (e: Throwable) {
+            Result.failure(
+                MFARegistrationException.General(
+                    e.localizedMessage ?: "Finalization failed", e
                 )
             )
-        } catch (e: Throwable) {
-            Result.failure(e)
         } finally {
             log.exiting()
         }

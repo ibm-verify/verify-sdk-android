@@ -30,7 +30,7 @@ class PendingTransactionInfoTest {
         val factorID = UUID.randomUUID()
         val factorType = "signature"
         val dataToSign = "data123"
-        val timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis())
+        val creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis())
         val additionalData = mapOf(
             TransactionAttribute.IPAddress to "192.168.1.1",
             TransactionAttribute.Location to "New York"
@@ -44,7 +44,7 @@ class PendingTransactionInfoTest {
             factorID = factorID,
             factorType = factorType,
             dataToSign = dataToSign,
-            timeStamp = timeStamp,
+            creationTime = creationTime,
             additionalData = additionalData
         )
 
@@ -55,7 +55,7 @@ class PendingTransactionInfoTest {
         assertEquals(factorID, transaction.factorID)
         assertEquals(factorType, transaction.factorType)
         assertEquals(dataToSign, transaction.dataToSign)
-        assertEquals(timeStamp, transaction.timeStamp)
+        assertEquals(creationTime, transaction.creationTime)
         assertEquals(additionalData, transaction.additionalData)
     }
 
@@ -70,7 +70,7 @@ class PendingTransactionInfoTest {
             factorID = UUID.randomUUID(),
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
             additionalData = emptyMap()
         )
 
@@ -92,7 +92,7 @@ class PendingTransactionInfoTest {
             factorID = UUID.randomUUID(),
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
             additionalData = emptyMap()
         )
 
@@ -120,7 +120,7 @@ class PendingTransactionInfoTest {
             factorID = UUID.randomUUID(),
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
             additionalData = additionalData
         )
 
@@ -146,7 +146,7 @@ class PendingTransactionInfoTest {
             factorID = UUID.randomUUID(),
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
             additionalData = additionalData
         )
 
@@ -158,7 +158,7 @@ class PendingTransactionInfoTest {
     fun serialization_shouldSerializeAndDeserialize() {
         // Given
         val factorID = UUID.randomUUID()
-        val timeStamp = Instant.fromEpochMilliseconds(1609459200000) // 2021-01-01 00:00:00 UTC
+        val creationTime = Instant.fromEpochMilliseconds(1609459200000) // 2021-01-01 00:00:00 UTC
         val transaction = PendingTransactionInfo(
             id = "test-id-1234",
             message = "Login request",
@@ -166,7 +166,7 @@ class PendingTransactionInfoTest {
             factorID = factorID,
             factorType = "signature",
             dataToSign = "signme",
-            timeStamp = timeStamp,
+            creationTime = creationTime,
             additionalData = mapOf(TransactionAttribute.IPAddress to "192.168.1.1")
         )
         val json = Json { prettyPrint = true }
@@ -182,7 +182,7 @@ class PendingTransactionInfoTest {
         assertEquals(transaction.factorID, deserialized.factorID)
         assertEquals(transaction.factorType, deserialized.factorType)
         assertEquals(transaction.dataToSign, deserialized.dataToSign)
-        assertEquals(transaction.timeStamp, deserialized.timeStamp)
+        assertEquals(transaction.creationTime, deserialized.creationTime)
         assertEquals(transaction.additionalData.size, deserialized.additionalData.size)
     }
 
@@ -196,7 +196,7 @@ class PendingTransactionInfoTest {
             factorID = UUID.randomUUID(),
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
             additionalData = mapOf(TransactionAttribute.IPAddress to "192.168.1.1")
         )
 
@@ -210,7 +210,7 @@ class PendingTransactionInfoTest {
         assertEquals(original.factorID, copy.factorID)
         assertEquals(original.factorType, copy.factorType)
         assertEquals(original.dataToSign, copy.dataToSign)
-        assertEquals(original.timeStamp, copy.timeStamp)
+        assertEquals(original.creationTime, copy.creationTime)
         assertEquals(original.additionalData, copy.additionalData)
     }
 
@@ -219,7 +219,7 @@ class PendingTransactionInfoTest {
         // Given
         val id = "test-id"
         val factorID = UUID.randomUUID()
-        val timeStamp = Instant.fromEpochMilliseconds(1609459200000)
+        val creationTime = Instant.fromEpochMilliseconds(1609459200000)
         val transaction1 = PendingTransactionInfo(
             id = id,
             message = "Test",
@@ -227,7 +227,7 @@ class PendingTransactionInfoTest {
             factorID = factorID,
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = timeStamp,
+            creationTime = creationTime,
             additionalData = emptyMap()
         )
         val transaction2 = PendingTransactionInfo(
@@ -237,7 +237,7 @@ class PendingTransactionInfoTest {
             factorID = factorID,
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = timeStamp,
+            creationTime = creationTime,
             additionalData = emptyMap()
         )
 
@@ -250,7 +250,7 @@ class PendingTransactionInfoTest {
         // Given
         val id = "test-id"
         val factorID = UUID.randomUUID()
-        val timeStamp = Instant.fromEpochMilliseconds(1609459200000)
+        val creationTime = Instant.fromEpochMilliseconds(1609459200000)
         val transaction1 = PendingTransactionInfo(
             id = id,
             message = "Test",
@@ -258,7 +258,7 @@ class PendingTransactionInfoTest {
             factorID = factorID,
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = timeStamp,
+            creationTime = creationTime,
             additionalData = emptyMap()
         )
         val transaction2 = PendingTransactionInfo(
@@ -268,7 +268,7 @@ class PendingTransactionInfoTest {
             factorID = factorID,
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = timeStamp,
+            creationTime = creationTime,
             additionalData = emptyMap()
         )
 
@@ -286,7 +286,7 @@ class PendingTransactionInfoTest {
             factorID = UUID.randomUUID(),
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
             additionalData = emptyMap()
         )
 
@@ -312,7 +312,7 @@ class PendingTransactionInfoTest {
             factorID = UUID.randomUUID(),
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
             additionalData = emptyMap()
         )
         val transaction2 = PendingTransactionInfo(
@@ -322,7 +322,7 @@ class PendingTransactionInfoTest {
             factorID = UUID.randomUUID(),
             factorType = "signature",
             dataToSign = "data",
-            timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+            creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
             additionalData = emptyMap()
         )
 
@@ -345,7 +345,7 @@ class PendingTransactionInfoTest {
                 factorID = UUID.randomUUID(),
                 factorType = type,
                 dataToSign = "data",
-                timeStamp = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+                creationTime = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
                 additionalData = emptyMap()
             )
             assertEquals(type, transaction.factorType)

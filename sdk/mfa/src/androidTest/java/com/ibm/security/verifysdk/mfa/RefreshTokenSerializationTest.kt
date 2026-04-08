@@ -68,7 +68,8 @@ class RefreshTokenSerializationTest {
             _accessToken = "test_access_token",
             _refreshUri = URL("https://example.com/v1.0/authenticators/refresh"),
             _transactionUri = URL("https://example.com/v1.0/authenticators/transactions"),
-            _authenticatorId = "test_authenticator_id"
+            _authenticatorId = "test_authenticator_id",
+            httpClient = httpClient
         )
 
         // Call refreshToken with mixed-type attributes
@@ -77,8 +78,7 @@ class RefreshTokenSerializationTest {
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
                 pushToken = "test_push_token",
-                additionalData = null,
-                httpClient = httpClient
+                additionalData = null
             )
 
             // Verify the result is successful

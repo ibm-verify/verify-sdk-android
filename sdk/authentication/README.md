@@ -1,8 +1,8 @@
 # IBM Verify Authentication SDK for Android
 
-![SDK Version](https://img.shields.io/badge/IBM%20Security%20Verify%20Authentication%20SDK-3.0.0-blue.svg)
-![Android Version](https://img.shields.io/badge/Android-12-green.svg)
-![Android Version](https://img.shields.io/badge/Android%20API-31-green.svg)
+![SDK Version](https://img.shields.io/badge/IBM%20Security%20Verify%20Authentication%20SDK-3.2.0-blue.svg)
+![Android Version](https://img.shields.io/badge/Android-10+-green.svg)
+![Android Version](https://img.shields.io/badge/Android%20API-29+-green.svg)
 
 The IBM Verify Authentication SDK for Android is a comprehensive implementation of OAuth 2.0 and OpenID Connect (OIDC) protocols, specifically designed for native mobile applications. It provides secure authentication flows with support for modern security standards including PKCE and DPoP.
 
@@ -17,6 +17,13 @@ The IBM Verify Authentication SDK for Android is a comprehensive implementation 
 - **OIDC Discovery** - Automatic endpoint discovery via `.well-known/openid-configuration`
 - **Browser-based Authentication** - Secure authentication via system browser using Android App Links
 - **Custom Tab Support** - Enhanced user experience with Chrome Custom Tabs
+
+## Recent Improvements (v3.2.0)
+
+- **Performance Optimizations**: Lazy logging reduces memory allocations in production builds
+- **Platform Independence**: Explicit UTF-8 charset usage in PKCE for reliable cross-platform behavior
+- **Improved DPoP**: Enhanced logging and error handling in DPoP proof generation
+- **Modern APIs**: Updated to use current coroutine continuation APIs
 
 ## Getting started
 

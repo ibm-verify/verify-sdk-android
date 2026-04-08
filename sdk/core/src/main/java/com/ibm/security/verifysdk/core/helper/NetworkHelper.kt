@@ -33,6 +33,9 @@ object NetworkHelper {
 
     @Volatile
     private var client: HttpClient? = null
+    
+    @Volatile
+    private var defaultClient: HttpClient? = null
 
     var connectTimeoutMillis: Long = 15000L
     var requestTimeoutMillis: Long = 15000L
@@ -44,6 +47,61 @@ object NetworkHelper {
     var customInterceptor: Interceptor? = null
     var customLoggingInterceptor: HttpLoggingInterceptor? = null
     var certificatePinner: CertificatePinner? = null
+
+    /**
+     * Optional Certificate Transparency (CT) interceptor for this SDK's HTTP client.
+     *
+     * When set, the provided interceptor enforces Certificate Transparency checks for
+     * applicable HTTPS connections made by this SDK. These checks are performed in
+     * addition to normal TLS certificate validation.
+     *
+     * Certificate Transparency helps detect mis-issued publicly trusted certificates
+     * by requiring certificates to include valid Signed Certificate Timestamps (SCTs)
+     * from accepted public CT logs.
+     *
+     * Security note:
+     * CT enforcement is typically fail-closed. If a certificate does not provide
+     * valid CT proof when required, the connection may be rejected even if the TLS
+     * certificate chain is otherwise valid.
+     *
+     * SDK best practice:
+     * This SDK uses the interceptor approach because it is scoped to this SDK's HTTP
+     * client. The Java Security Provider approach
+     * ({@code installCertificateTransparencyProvider(...)}) is generally not
+     * recommended for SDKs because it applies process-wide and may conflict with the
+     * host application's networking or CT configuration.
+     *
+     * Example:
+     * {@code
+     * import com.appmattus.certificatetransparency.certificateTransparencyInterceptor
+     *
+     * NetworkHelper.certificateTransparencyInterceptor = certificateTransparencyInterceptor {
+     *     // Exclude any subdomain, but not the apex domain itself
+     *     -"*.appmattus.com"
+     *
+     *     // Exclude a specific domain
+     *     -"example.com"
+     *
+     *     // Re-include a specific subdomain
+     *     +"allowed.appmattus.com"
+     * }
+     * }
+     *
+     * Future:
+     * If Android provides suitable built-in Certificate Transparency enforcement for
+     * this use case, this property can be set to {@code null} to disable SDK-level
+     * CT interception.
+     *
+     * Default: {@code null} (disabled)
+     */
+    var certificateTransparencyInterceptor: Interceptor? = null
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidateClient()
+            }
+        }
+    
     var sslContext: SSLContext? = null
     var hostnameVerifier: HostnameVerifier? = null
         set(value) {
@@ -69,11 +127,32 @@ object NetworkHelper {
             }
         }
 
+    /**
+     * Returns the singleton HttpClient instance.
+     *
+     * Uses lazy initialization for better performance - the client is only created
+     * when first accessed. If a custom client has been set via [initialize], that
+     * client is returned instead.
+     *
+     * Thread-safe: Synchronized to prevent race conditions and ensure proper
+     * initialization of defaultClient.
+     */
     val getInstance: HttpClient
-        get() = client ?: synchronized(this) {
-            client ?: buildClient(null).also { client = it }
+        @Synchronized
+        get() {
+            if (client != null) return client!!
+            if (defaultClient == null) {
+                defaultClient = buildClient(null)
+            }
+            return defaultClient!!
         }
 
+    /**
+     * Initializes the HttpClient with a custom client or engine.
+     *
+     * @param customClient A pre-configured HttpClient to use instead of the default.
+     * @param httpClientEngine A custom HttpClientEngine to use for building the client.
+     */
     @Synchronized
     fun initialize(customClient: HttpClient? = null, httpClientEngine: HttpClientEngine? = null) {
         client = customClient ?: buildClient(httpClientEngine)
@@ -83,6 +162,8 @@ object NetworkHelper {
     private fun invalidateClient() {
         client?.close()
         client = null
+        defaultClient?.close()
+        defaultClient = null
     }
 
     private fun buildClient(httpClientEngine: HttpClientEngine?): HttpClient {
@@ -132,6 +213,7 @@ object NetworkHelper {
         return OkHttpClient.Builder().apply {
             readTimeout(readTimeOutMillis, TimeUnit.MILLISECONDS)
             certificatePinner?.let { certificatePinner(it) }
+            certificateTransparencyInterceptor?.let { addNetworkInterceptor(it) }
             sslContext?.let { sslContext ->
                 trustManager?.let {
                     sslSocketFactory(sslContext.socketFactory, it)
@@ -165,9 +247,36 @@ object NetworkHelper {
         }
     }
 
+    /**
+     * Closes the current HttpClient and releases its resources.
+     *
+     * This method is necessary because NetworkHelper is a singleton that lives for the
+     * entire app lifecycle. Without explicit cleanup, the HttpClient would never be closed
+     * even though it implements Closeable.
+     *
+     * **When to call:**
+     * - During app shutdown or cleanup
+     * - When experiencing memory pressure
+     * - After changing configuration properties (automatically called by property setters)
+     * - When you want to force recreation of the client
+     *
+     * **Note:** The client will be automatically recreated on next access via [getInstance].
+     *
+     * **Example:**
+     * ```kotlin
+     * // Clean up resources during app shutdown
+     * override fun onDestroy() {
+     *     super.onDestroy()
+     *     NetworkHelper.closeClient()
+     * }
+     * ```
+     */
+    @Synchronized
     fun closeClient() {
         client?.close()
         client = null
+        defaultClient?.close()
+        defaultClient = null
     }
 }
 

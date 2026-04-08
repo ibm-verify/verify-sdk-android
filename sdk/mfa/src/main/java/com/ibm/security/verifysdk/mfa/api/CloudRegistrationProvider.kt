@@ -4,6 +4,7 @@
 
 package com.ibm.security.verifysdk.mfa.api
 
+import androidx.biometric.BiometricPrompt
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.core.extension.camelToSnakeCase
 import com.ibm.security.verifysdk.core.extension.entering
@@ -12,6 +13,7 @@ import com.ibm.security.verifysdk.core.extension.replaceInPath
 import com.ibm.security.verifysdk.core.extension.snakeToCamelCase
 import com.ibm.security.verifysdk.core.extension.toJsonObject
 import com.ibm.security.verifysdk.core.helper.ContextHelper
+import com.ibm.security.verifysdk.core.helper.KeystoreHelper
 import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.BiometricFactorInfo
 import com.ibm.security.verifysdk.mfa.EnrollableType
@@ -209,7 +211,7 @@ class CloudRegistrationProvider(data: String) :
         ignoreUnknownKeys = true
     }
 
-    override val canEnrollBiomtric: Boolean
+    override val canEnrollBiometric: Boolean
         get() = canEnrollFingerprint || canEnrollFace
 
     private val canEnrollFingerprint: Boolean
@@ -232,6 +234,8 @@ class CloudRegistrationProvider(data: String) :
     private lateinit var metaData: Metadata
 
     override var pushToken: String = ""
+    override val serviceName: String
+        get() = if (::metaData.isInitialized) metaData.serviceName else ""
     override var accountName: String = ""
     override val countOfAvailableEnrollments: Int
         get() {
@@ -239,6 +243,24 @@ class CloudRegistrationProvider(data: String) :
         }
     override var authenticationRequired: Boolean = false
     override var invalidatedByBiometricEnrollment: Boolean = false
+
+    /**
+     * Holds the pending biometric enrollment state when [authenticationRequired] is `true`.
+     * Set by [getCryptoObjectForEnrollment] and consumed by [enrollBiometric(BiometricPrompt.CryptoObject)].
+     *
+     * Marked [@Volatile] so that writes from one thread are immediately visible to reads on another.
+     */
+    @Volatile
+    private var pendingBiometricEnrollment: PendingBiometricEnrollment? = null
+
+    /** Captures the key name, algorithm and factor needed to complete enrollment after biometric auth. */
+    private data class PendingBiometricEnrollment(
+        val type: EnrollableType,
+        val factor: SignatureEnrollableFactor,
+        val keyName: String,
+        val algorithm: String,
+        val publicKey: String
+    )
 
     init {
         try {
@@ -325,6 +347,103 @@ class CloudRegistrationProvider(data: String) :
         }
     }
 
+    /**
+     * Generates the biometric key pair and returns a [BiometricPrompt.CryptoObject] that must
+     * be passed to [BiometricPrompt.authenticate] when [authenticationRequired] is `true`.
+     *
+     * This method is SDK-internal.  Callers should call [enrollBiometric] and catch
+     * [MFARegistrationException.BiometricAuthenticationRequired] to obtain the
+     * [BiometricPrompt.CryptoObject].
+     *
+     * The key pair is generated with `setUserAuthenticationRequired(true)` so it is locked
+     * until the user authenticates.  The returned [BiometricPrompt.CryptoObject] wraps a
+     * [java.security.Signature] pre-initialised with the locked private key.  After the user
+     * authenticates, pass the authenticated [BiometricPrompt.CryptoObject] from
+     * [BiometricPrompt.AuthenticationResult] to [enrollBiometric(BiometricPrompt.CryptoObject)].
+     *
+     * Returns `null` when [authenticationRequired] is `false` or no biometric factor is
+     * available.
+     */
+    internal fun getCryptoObjectForEnrollment(): BiometricPrompt.CryptoObject? {
+
+        require(::metaData.isInitialized) { "MetaData must be initialized. Call initiate() first." }
+
+        val type = when {
+            canEnrollFingerprint -> EnrollableType.FINGERPRINT
+            canEnrollFace -> EnrollableType.FACE
+            else -> return null
+        }
+
+        if (!authenticationRequired) return null
+
+        val factor = metaData.availableFactors.first { it.type == type } as SignatureEnrollableFactor
+
+        if (!factor.enabled) throw MFARegistrationException.SignatureMethodNotEnabled(factor.type)
+
+        val algorithm = try {
+            HashAlgorithmType.forSigning(factor.algorithm)
+        } catch (_: HashAlgorithmException.InvalidHash) {
+            throw MFARegistrationException.InvalidAlgorithm(factor.algorithm)
+        }
+
+        val keyName = "${metaData.id}.${type.name}"
+
+        // Generate the key pair with authenticationRequired = true.
+        val publicKey = generateKeys(
+            keyName = keyName,
+            algorithm = algorithm,
+            authenticationRequired = true,
+            invalidatedByBiometricEnrollment = invalidatedByBiometricEnrollment,
+        )
+
+        // Store the pending enrollment state so enrollBiometric(cryptoObject) can complete it.
+        pendingBiometricEnrollment = PendingBiometricEnrollment(
+            type = type,
+            factor = factor,
+            keyName = keyName,
+            algorithm = algorithm,
+            publicKey = publicKey
+        )
+
+        // Return a CryptoObject wrapping the Signature pre-initialised with the locked key.
+        return KeystoreHelper.getCryptoObject(keyName, algorithm)
+    }
+
+    /**
+     * Completes biometric enrollment using a hardware-unlocked [BiometricPrompt.CryptoObject]
+     * returned from [BiometricPrompt.AuthenticationCallback.onAuthenticationSucceeded].
+     *
+     * Must be called after [getCryptoObjectForEnrollment] and a successful biometric
+     * authentication.  The [cryptoObject] carries the authenticated [java.security.Signature]
+     * that signs the enrollment challenge without exposing the raw private key.
+     *
+     * @throws MFARegistrationException.InvalidPendingEnrollment if [getCryptoObjectForEnrollment]
+     *         was not called first.
+     */
+    override suspend fun enrollBiometric(
+        cryptoObject: BiometricPrompt.CryptoObject,
+        httpClient: HttpClient
+    ) {
+        val pending = pendingBiometricEnrollment
+            ?: throw MFARegistrationException.InvalidPendingEnrollment()
+
+        pendingBiometricEnrollment = null
+
+        val signedData = sign(
+            cryptoObject = cryptoObject,
+            dataToSign = metaData.id,
+            base64EncodingOptions = android.util.Base64.NO_WRAP
+        )
+
+        enroll(
+            pending.factor,
+            pending.keyName,
+            HashAlgorithmType.fromString(pending.algorithm),
+            pending.publicKey,
+            signedData,
+            httpClient
+        )
+    }
 
     override suspend fun enrollUserPresence(httpClient: HttpClient) {
 
@@ -359,29 +478,40 @@ class CloudRegistrationProvider(data: String) :
 
         val keyName = "${metaData.id}.${type.name}"
         val isBiometric = type == EnrollableType.FACE || type == EnrollableType.FINGERPRINT
-        
-        generateKeys(
+
+        // When authenticationRequired is true for a biometric key, the key is locked after
+        // generation and cannot be signed without a BiometricPrompt.CryptoObject.
+        // getCryptoObjectForEnrollment() generates the key, stores the pending state, and
+        // returns a CryptoObject.  We throw BiometricAuthenticationRequired so the caller
+        // can show the BiometricPrompt and then call enrollBiometric(cryptoObject).
+        if (isBiometric && authenticationRequired) {
+            val cryptoObject = getCryptoObjectForEnrollment()
+                ?: throw MFARegistrationException.NoEnrollableFactors(type)
+            throw MFARegistrationException.BiometricAuthenticationRequired(cryptoObject)
+        }
+
+        val publicKey = generateKeys(
             keyName = keyName,
             algorithm = algorithm,
-            authenticationRequired = isBiometric && authenticationRequired,
+            authenticationRequired = false,
             invalidatedByBiometricEnrollment = isBiometric && invalidatedByBiometricEnrollment,
-        ).let { publicKey ->
-            sign(
-                keyName,
-                algorithm,
-                metaData.id,
-                android.util.Base64.NO_WRAP
-            ).let { signedData ->
-                enroll(
-                    factor,
-                    keyName,
-                    HashAlgorithmType.fromString(algorithm),
-                    publicKey,
-                    signedData,
-                    httpClient
-                )
-            }
-        }
+        )
+
+        val signedData = sign(
+            keyName,
+            algorithm,
+            metaData.id,
+            android.util.Base64.NO_WRAP
+        )
+
+        enroll(
+            factor,
+            keyName,
+            HashAlgorithmType.fromString(algorithm),
+            publicKey,
+            signedData,
+            httpClient
+        )
     }
 
     @OptIn(InternalSerializationApi::class)

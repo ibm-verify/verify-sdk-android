@@ -11,6 +11,9 @@ import com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper
  * This class encapsulates a key with its key type, algorithm,
  * curve, x-coordinate, and y-coordinate.
  *
+ * The byte array representation is computed lazily and cached for performance.
+ * The CBORMapper is shared across all instances to reduce memory overhead.
+ *
  * @param kty The key type identifier.
  * @param alg The algorithm identifier.
  * @param crv The curve identifier.
@@ -22,7 +25,7 @@ import com.fasterxml.jackson.dataformat.cbor.databind.CBORMapper
  * @property _crv The internal storage for the curve.
  * @property _x The internal storage for the x-coordinate.
  * @property _y The internal storage for the y-coordinate.
- * @property toByteArray A property that returns the COSE key as a byte array.
+ * @property toByteArray A property that returns the COSE key as a byte array (cached).
  *
  * @constructor Creates a COSEKey instance with the specified attributes.
  */
@@ -37,20 +40,28 @@ class COSEKey(kty: Int, alg: Int, crv: Int, x: ByteArray, y: ByteArray) {
     /**
      * Converts the COSEKey instance to a byte array representation.
      *
-     * This method constructs a CBOR map containing the key attributes,
-     * and then converts it to a byte array representation using a CBOR mapper.
+     * This property constructs a CBOR map containing the key attributes,
+     * and then converts it to a byte array representation using a shared CBOR mapper.
+     * The result is computed once and cached for subsequent accesses.
      *
      * @return The byte array representation of the COSEKey.
      */
-    val toByteArray: ByteArray
-        get() {
-            val map = HashMap<Int, Any>()
-            map[1] = _kty
-            map[3] = _alg
-            map[-1] = _crv
-            map[-2] = _x
-            map[-3] = _y
+    val toByteArray: ByteArray by lazy {
+        val map = mapOf(
+            1 to _kty,
+            3 to _alg,
+            -1 to _crv,
+            -2 to _x,
+            -3 to _y
+        )
+        cborMapper.writeValueAsBytes(map)
+    }
 
-            return CBORMapper().writeValueAsBytes(map)
-        }
+    companion object {
+        /**
+         * Shared CBORMapper instance used by all COSEKey instances.
+         * This reduces memory overhead and improves performance.
+         */
+        private val cborMapper = CBORMapper()
+    }
 }

@@ -23,8 +23,6 @@ class MFARegistrationExceptionTest {
 
         // Then
         assertNotNull(exception)
-        assertTrue(exception is MFARegistrationException)
-        assertTrue(exception is VerifySdkException)
         assertNull(exception.cause)
         assertEquals("failed_to_parse", exception.error.id)
         assertEquals("Failed to parse JSON value.", exception.error.description)
@@ -231,32 +229,54 @@ class MFARegistrationExceptionTest {
             MFARegistrationException.General("Test")
         )
 
-        // When/Then
+        // When/Then - Verify all exception types can be created
         for (exception in exceptions) {
-            assertTrue(exception is MFARegistrationException)
-            assertTrue(exception is VerifySdkException)
+            assertNotNull(exception)
         }
     }
 
     @Test
     fun sealedClass_shouldBeExhaustive() {
-        // Given
-        val exception: MFARegistrationException = MFARegistrationException.FailedToParse()
+        // Given - Create a list of all exception types to verify exhaustiveness
+        val exceptions = listOf<MFARegistrationException>(
+            MFARegistrationException.FailedToParse(),
+            MFARegistrationException.InvalidFormat(),
+            MFARegistrationException.NoEnrollableFactors(),
+            MFARegistrationException.EnrollmentFailed(),
+            MFARegistrationException.DataInitializationFailed(),
+            MFARegistrationException.MissingAuthenticatorIdentifier(),
+            MFARegistrationException.InvalidRegistrationData(),
+            MFARegistrationException.InvalidAlgorithm("test"),
+            MFARegistrationException.SignatureMethodNotEnabled(),
+            MFARegistrationException.BiometricAuthenticationRequired(
+                androidx.biometric.BiometricPrompt.CryptoObject(
+                    java.security.Signature.getInstance("SHA256withECDSA")
+                )
+            ),
+            MFARegistrationException.InvalidPendingEnrollment(),
+            MFARegistrationException.BiometricAuthenticationCancelled(0, "test"),
+            MFARegistrationException.General("test")
+        )
 
         // When/Then - Verify sealed class behavior
         // If any subtype is missing, this test will fail to compile.
-        when (exception) {
-            is MFARegistrationException.FailedToParse -> assertTrue(true)
-            is MFARegistrationException.InvalidFormat -> assertTrue(true)
-            is MFARegistrationException.NoEnrollableFactors -> assertTrue(true)
-            is MFARegistrationException.EnrollmentFailed -> assertTrue(true)
-            is MFARegistrationException.DataInitializationFailed -> assertTrue(true)
-            is MFARegistrationException.MissingAuthenticatorIdentifier -> assertTrue(true)
-            is MFARegistrationException.InvalidRegistrationData -> assertTrue(true)
-            is MFARegistrationException.InvalidAlgorithm -> assertTrue(true)
-            is MFARegistrationException.SignatureMethodNotEnabled -> assertTrue(true)
-            is MFARegistrationException.General -> assertTrue(true)
-            // No else branch on purpose
+        exceptions.forEach { exception ->
+            when (exception) {
+                is MFARegistrationException.FailedToParse -> assertTrue(true)
+                is MFARegistrationException.InvalidFormat -> assertTrue(true)
+                is MFARegistrationException.NoEnrollableFactors -> assertTrue(true)
+                is MFARegistrationException.EnrollmentFailed -> assertTrue(true)
+                is MFARegistrationException.DataInitializationFailed -> assertTrue(true)
+                is MFARegistrationException.MissingAuthenticatorIdentifier -> assertTrue(true)
+                is MFARegistrationException.InvalidRegistrationData -> assertTrue(true)
+                is MFARegistrationException.InvalidAlgorithm -> assertTrue(true)
+                is MFARegistrationException.SignatureMethodNotEnabled -> assertTrue(true)
+                is MFARegistrationException.BiometricAuthenticationRequired -> assertTrue(true)
+                is MFARegistrationException.InvalidPendingEnrollment -> assertTrue(true)
+                is MFARegistrationException.BiometricAuthenticationCancelled -> assertTrue(true)
+                is MFARegistrationException.General -> assertTrue(true)
+                // No else branch on purpose
+            }
         }
     }
 
