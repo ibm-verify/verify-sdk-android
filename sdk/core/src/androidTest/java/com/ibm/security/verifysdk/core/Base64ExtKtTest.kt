@@ -13,6 +13,7 @@ import org.junit.runner.RunWith
 /**
  * Basic test cases for Base64 URL encoding extension functions.
  */
+@OptIn(ExperimentalUnsignedTypes::class)
 @RunWith(AndroidJUnit4::class)
 class Base64ExtKtTest {
 

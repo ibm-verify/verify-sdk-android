@@ -23,8 +23,6 @@ class MFAServiceExceptionTest {
 
         // Then
         assertNotNull(exception)
-        assertTrue(exception is MFAServiceException)
-        assertTrue(exception is VerifySdkException)
         assertNull(exception.cause)
         assertEquals("invalid_signing_hash", exception.error.id)
         assertEquals("The signing hash algorithm was invalid.", exception.error.description)
@@ -205,10 +203,9 @@ class MFAServiceExceptionTest {
             MFAServiceException.General("Test")
         )
 
-        // When/Then
+        // When/Then - Verify all exception types can be created
         for (exception in exceptions) {
-            assertTrue(exception is MFAServiceException)
-            assertTrue(exception is VerifySdkException)
+            assertNotNull(exception)
         }
     }
 
