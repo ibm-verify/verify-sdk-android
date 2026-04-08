@@ -6,6 +6,7 @@ package com.ibm.security.verifysdk.mfa
 
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 @OptIn(InternalSerializationApi::class)
@@ -83,8 +84,14 @@ data class OTPAuthenticator(
             }
         }
 
+        /**
+         * Removes percent encoding from a URL-encoded string.
+         *
+         * Uses StandardCharsets.UTF_8 for better performance and to avoid
+         * the deprecated String-based charset API.
+         */
         private fun String.removePercentEncoding(): String {
-            return java.net.URLDecoder.decode(this, "UTF-8")
+            return java.net.URLDecoder.decode(this, StandardCharsets.UTF_8)
         }
     }
 }
