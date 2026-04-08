@@ -60,7 +60,7 @@ jobs:
 
       - name: Build + unit tests + documentation
         run: |
-          ./gradlew --build-cache assembleRelease testDebugUnitTest dokkaJavadoc
+          ./gradlew --build-cache assembleRelease testDebugUnitTest dokkaGeneratePublicationHtml
 
       - name: Assemble tests before emulator
         run: |
@@ -142,7 +142,7 @@ jobs:
 
       - name: Build + documentation (merge)
         run: |
-          ./gradlew --build-cache assembleRelease dokkaJavadoc publishToMavenLocal
+          ./gradlew --build-cache assembleRelease dokkaGeneratePublicationHtml publishToMavenLocal
 
       - name: Assemble tests before emulator
         run: |
