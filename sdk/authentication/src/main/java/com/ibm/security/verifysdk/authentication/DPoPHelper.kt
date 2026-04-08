@@ -7,6 +7,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.Log
+import com.ibm.security.verifysdk.core.extension.logDebug
 import org.jose4j.jwk.RsaJsonWebKey
 import org.jose4j.jws.JsonWebSignature
 import org.jose4j.jwt.JwtClaims
@@ -78,7 +79,7 @@ class DPoPHelper {
                 accessToken?.let {
                     val ath = generateAccessTokenHash(it)
                     jwtClaims.setClaim("ath", ath)
-                    Log.d(TAG, "Access token hash (ath): $ath")
+                    logDebug(TAG) { "Access token hash (ath): $ath" }
                 }
 
                 val jws = JsonWebSignature()
@@ -91,7 +92,7 @@ class DPoPHelper {
                 jws.setHeader("typ", "dpop+jwt")
 
                 val jwt = jws.compactSerialization
-                Log.d(TAG, "Generated DPoP token: $jwt")
+                logDebug(TAG) { "Generated DPoP token: $jwt" }
                 jwt
             } catch (e: JoseException) {
                 throw RuntimeException("Failed to generate DPoP token", e)
