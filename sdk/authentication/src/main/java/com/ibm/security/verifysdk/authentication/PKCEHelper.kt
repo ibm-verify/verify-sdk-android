@@ -4,6 +4,7 @@
 package com.ibm.security.verifysdk.authentication
 
 import android.util.Base64
+import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
 
@@ -59,7 +60,7 @@ class PKCEHelper {
          */
         @JvmStatic
         fun generateCodeChallenge(codeVerifier: String): String {
-            val bytes = codeVerifier.toByteArray()
+            val bytes = codeVerifier.toByteArray(StandardCharsets.UTF_8)
             val messageDigest = MessageDigest.getInstance("SHA-256")
             messageDigest.update(bytes, 0, bytes.size)
             val digest = messageDigest.digest()

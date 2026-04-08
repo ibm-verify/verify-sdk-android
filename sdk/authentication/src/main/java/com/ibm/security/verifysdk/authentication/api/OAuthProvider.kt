@@ -212,7 +212,7 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
                 ) { result ->
                     if (result.resultCode == Activity.RESULT_OK) {
                         result.data?.getStringExtra("code")?.let {
-                            continuation.resume(Result.success(it), null)
+                            continuation.resume(Result.success(it))
                         } ?: run {
                             continuation.resume(
                                 Result.failure(
