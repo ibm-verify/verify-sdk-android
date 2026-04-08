@@ -87,11 +87,11 @@ data class OTPAuthenticator(
         /**
          * Removes percent encoding from a URL-encoded string.
          *
-         * Uses StandardCharsets.UTF_8 for better performance and to avoid
-         * the deprecated String-based charset API.
+         * Uses UTF-8 charset name for compatibility with API level 29+.
+         * The Charset overload requires API level 33+.
          */
         private fun String.removePercentEncoding(): String {
-            return java.net.URLDecoder.decode(this, StandardCharsets.UTF_8)
+            return java.net.URLDecoder.decode(this, "UTF-8")
         }
     }
 }

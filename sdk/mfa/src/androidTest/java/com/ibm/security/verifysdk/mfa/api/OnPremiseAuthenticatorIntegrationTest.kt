@@ -40,7 +40,7 @@ import java.net.URL
  * 
  * All sensitive data has been sanitized while preserving structure and flow.
  *
- * Server: IBM Verify Access (ISVA) on-premise deployment
+ * Server: IBM Identity Verify Access (IVIA) on-premise deployment
  */
 @RunWith(AndroidJUnit4::class)
 class OnPremiseAuthenticatorIntegrationTest {
@@ -64,8 +64,7 @@ class OnPremiseAuthenticatorIntegrationTest {
     fun testUserPresenceEnrollment_shouldReturnFactorId(): Unit = runBlocking {
         val mockEngine = MockEngine { request ->
             when {
-                request.url.encodedPath.contains("/scim/Me") &&
-                request.url.encodedQuery?.contains("userPresenceMethods") == true -> {
+                request.url.encodedPath.contains("/scim/Me") && request.url.encodedQuery.contains("userPresenceMethods") -> {
                     respond(
                         content = """
                         {
@@ -122,8 +121,7 @@ class OnPremiseAuthenticatorIntegrationTest {
     fun testBiometricEnrollment_shouldReturnFactorId(): Unit = runBlocking {
         val mockEngine = MockEngine { request ->
             when {
-                request.url.encodedPath.contains("/scim/Me") &&
-                request.url.encodedQuery?.contains("fingerprintMethods") == true -> {
+                request.url.encodedPath.contains("/scim/Me") && request.url.encodedQuery.contains("fingerprintMethods") -> {
                     respond(
                         content = """
                         {
@@ -417,8 +415,7 @@ class OnPremiseAuthenticatorIntegrationTest {
     fun testCompleteTransaction_withSignedChallenge_shouldReturn204(): Unit = runBlocking {
         val mockEngine = MockEngine { request ->
             when {
-                request.url.encodedPath.contains("/apiauthsvc") &&
-                request.url.encodedQuery?.contains("StateId") == true -> {
+                request.url.encodedPath.contains("/apiauthsvc") && request.url.encodedQuery.contains("StateId") -> {
                     respond(
                         content = "",
                         status = HttpStatusCode.NoContent,

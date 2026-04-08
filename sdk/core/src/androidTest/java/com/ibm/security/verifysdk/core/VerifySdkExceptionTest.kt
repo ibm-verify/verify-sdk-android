@@ -37,15 +37,6 @@ class VerifySdkExceptionTest {
     }
 
     @Test
-    fun testExceptionInheritance() {
-        val error = Error("TEST_ERROR", "Test")
-        val exception = VerifySdkException(error)
-        
-        assertTrue(exception is Exception)
-        assertTrue(exception is Throwable)
-    }
-
-    @Test
     fun testExceptionCanBeThrown() {
         val error = Error("TEST_ERROR", "Test exception")
         try {
