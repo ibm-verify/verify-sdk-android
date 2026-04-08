@@ -1,0 +1,3 @@
+# all hidden files
+.*
+google-services.json

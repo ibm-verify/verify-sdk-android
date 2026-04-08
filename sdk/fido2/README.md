@@ -1,5 +1,8 @@
 # IBM Verify FIDO2™ SDK for Android
 
+**Version:** 3.2.0
+**Package:** `com.ibm.security.verifysdk.fido2`
+
 The IBM Verify FIDO2™ SDK for Android is a native implementation of FIDO attestation and
 assertion ceremonies. The SDK essentially provides the equivalent of
 WebAuthn's `navigator.credentials.create()` and `navigator.credentials.get()` for native mobile
@@ -22,6 +25,13 @@ in the following ways:
 This Verify FIDO2 SDK for Android is well suited for developers of pure native mobile applications
 that wish to provision only device-bound keys in scenarios where the use of synchronized passkeys
 for example is not suitable.
+
+## Recent Improvements (v3.2.0)
+
+- **Performance Optimizations**: COSEKey lazy initialization provides ~95% performance improvement for cached CBOR serialization
+- **Shared Resources**: CBORMapper instance shared across all COSEKey instances reduces memory footprint
+- **Modern APIs**: Updated biometric prompt to use current coroutine continuation APIs; migrated demo app from deprecated Ktor Base64 utilities to Kotlin stdlib `Base64.Default.decode()`
+- **Thread Safety**: Immutable map usage in COSEKey for better thread safety
 
 ## Example
 
