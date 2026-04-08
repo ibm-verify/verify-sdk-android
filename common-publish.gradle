@@ -1,29 +1,9 @@
 apply plugin : 'maven-publish'
 
-tasks.register('androidJavadoc', Javadoc) {
-    source = android.sourceSets.main.java.srcDirs
-    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
-    android.libraryVariants.all { variant ->
-        if (variant.name == 'release') {
-            owner.classpath += variant.javaCompileProvider.get().classpath
-        }
-    }
-
-    exclude '**/R.html', '**/R.*.html', '**/index.html'
-    options.encoding 'utf-8'
-    options {
-        addStringOption 'docencoding', 'utf-8'
-        addStringOption 'charset', 'utf-8'
-        links 'https://docs.oracle.com/javase/7/docs/api/'
-        links 'https://d.android.com/reference'
-        links 'https://developer.android.com/reference/androidx/'
-    }
-}
-
 tasks.register('androidJavadocJar', Jar) {
-    dependsOn dokkaJavadoc
+    dependsOn dokkaGeneratePublicationHtml
     archiveClassifier.set('javadoc')
-    from androidJavadoc.destinationDir
+    from layout.buildDirectory.dir("dokka/html")
     preserveFileTimestamps = false
     reproducibleFileOrder = true
 }

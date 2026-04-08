@@ -2,7 +2,6 @@
 plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.jetbrains.kotlin.android) apply false
     alias(libs.plugins.jetbrains.kotlin.jvm) apply false
     alias(libs.plugins.jetbrains.dokka)
     java
@@ -16,8 +15,8 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.1.0"
-extra["versionCode"] = "117"
+extra["versionName"] = "3.2.0"
+extra["versionCode"] = "118"
 
 dependencies {
     add("implementation", enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.15.3"))
@@ -31,8 +30,9 @@ allprojects {
             // Force versions not covered by BOM
             force("com.fasterxml.woodstox:woodstox-core:6.6.2")
             force("com.google.guava:guava:32.0.1-jre")
-            force("com.google.protobuf:protobuf-java:3.25.5")
-            force("com.google.protobuf:protobuf-javalite:3.25.5")
+            // Updated to protobuf 4.x for AGP 9.1.0 compatibility
+            force("com.google.protobuf:protobuf-java:4.29.3")
+            force("com.google.protobuf:protobuf-javalite:4.29.3")
             force("commons-io:commons-io:2.14.0")
             force("io.netty:netty-codec-http2:4.2.5.Final")
             force("io.netty:netty-codec-compression:4.2.5.Final")

@@ -96,3 +96,4 @@ sdk/.idea/migrations.xml
 **/config.properties
 examples/mfa_demo/google-services.json
 .bob/mcp.json
+v3-ivi.txt
