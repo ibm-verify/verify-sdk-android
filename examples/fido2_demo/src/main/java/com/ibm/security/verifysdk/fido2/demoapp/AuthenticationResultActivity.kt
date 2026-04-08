@@ -11,12 +11,14 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.ibm.security.verifysdk.fido2.model.AssertionResultResponse
-import io.ktor.util.decodeBase64Bytes
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 
+@OptIn(ExperimentalEncodingApi::class)
 class AuthenticationResultActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,11 +47,10 @@ class AuthenticationResultActivity : AppCompatActivity() {
             }
 
             credentialData?.getValue("AUTHENTICATOR_ICON")?.jsonPrimitive?.content?.let { image ->
-                val decodedString: ByteArray =
-                    image.substring(image.indexOf(",") + 1).decodeBase64Bytes()
-                val decodedByte =
-                    BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
-                findViewById<ImageView>(R.id.imageView).setImageBitmap(decodedByte)
+                val base64String = image.substring(image.indexOf(",") + 1)
+                val decodedBytes = Base64.Default.decode(base64String)
+                val decodedBitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+                findViewById<ImageView>(R.id.imageView).setImageBitmap(decodedBitmap)
             }
 
             fidoLoginDetailsJson["requestData"]?.jsonObject?.get("registration")?.jsonObject?.get("nickname")?.jsonPrimitive?.let { nickname ->
