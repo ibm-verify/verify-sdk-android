@@ -47,9 +47,11 @@ To include an IBM Verify SDK modules in your Android project, follow these steps
 
     ```kotlin
     dependencies {
-        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.1.0")
-        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-<module>:<version>)
-        ...
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.0")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.0")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.0")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.0")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.0")
     }
     ```
 
