@@ -41,12 +41,12 @@ allprojects {
     }
 
     val jacksonModules = listOf(
-        "com.fasterxml.jackson.core:jackson-core:2.15.3",
-        "com.fasterxml.jackson.core:jackson-databind:2.15.3",
-        "com.fasterxml.jackson.core:jackson-annotations:2.15.3",
-        "com.fasterxml.jackson.module:jackson-module-kotlin:2.15.3",
-        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.15.3",
-        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.15.3"
+        "com.fasterxml.jackson.core:jackson-core:2.21.2",
+        "com.fasterxml.jackson.core:jackson-databind:2.21.2",
+        "com.fasterxml.jackson.core:jackson-annotations:2.21.2",
+        "com.fasterxml.jackson.module:jackson-module-kotlin:2.21.2",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.21.2",
+        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.21.2"
     )
 
     configurations.matching { it.name.contains("dokka", ignoreCase = true) }.all {
