@@ -1,7 +1,7 @@
 package com.ibm.security.verifysdk.fido2.model
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.ibm.security.verifysdk.testutils.json
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.SerializationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -9,6 +9,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+
+private val json = Json {
+    encodeDefaults = true
+    explicitNulls = false
+    ignoreUnknownKeys = true
+    isLenient = true
+}
 
 @RunWith(AndroidJUnit4::class)
 class PublicKeyCredentialDescriptorTest {
