@@ -8,7 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.ibm.security.verifysdk.authentication.model.OIDCMetadataInfo
 import com.ibm.security.verifysdk.core.serializer.DefaultJson
-import com.ibm.security.verifysdk.testutils.json
+import kotlinx.serialization.json.Json
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -17,6 +17,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+
+private val json = Json {
+    encodeDefaults = true
+    explicitNulls = false
+    ignoreUnknownKeys = true
+    isLenient = true
+}
 
 @RunWith(AndroidJUnit4::class)
 @SmallTest
