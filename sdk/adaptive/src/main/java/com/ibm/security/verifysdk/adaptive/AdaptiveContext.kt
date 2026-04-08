@@ -5,9 +5,8 @@
 package com.ibm.security.verifysdk.adaptive
 
 import android.content.Context
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleObserver
-import androidx.lifecycle.OnLifecycleEvent
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import java.util.Date
 import java.util.UUID
@@ -19,7 +18,7 @@ import java.util.UUID
  *
  * @since 3.0.0
  */
-object AdaptiveContext : LifecycleObserver {
+object AdaptiveContext : DefaultLifecycleObserver {
     /** The session identifier for the hosting application. */
     var sessionId: String = UUID.randomUUID().toString()
 
@@ -98,8 +97,11 @@ object AdaptiveContext : LifecycleObserver {
      * the session is reset.
      */
     @Throws(Exception::class)
-    @OnLifecycleEvent(Lifecycle.Event.ON_START)
-    fun resetSession() {
+    override fun onStart(owner: LifecycleOwner) {
+        resetSession()
+    }
+
+    internal fun resetSession() {
         // Check if the session ID has expired, based on session ID interval, and the timestamp at
         // which the session ID was generated. If so, create a new session ID.
         if (Date().time - renewSessionIdTimestamp.time > renewSessionIdInterval * 1000) {
