@@ -221,7 +221,7 @@ class MFAAttributeInfoTest {
         assertTrue(attributes.containsKey("device_id"))
         assertTrue(attributes.containsKey("os_version"))
         assertTrue(attributes.containsKey("face_support"))
-        assertTrue(attributes.containsKey("device_insecure"))
+        assertTrue(attributes.containsKey("device_rooted"))
         assertTrue(attributes.containsKey("fingerprint_support"))
         assertTrue(attributes.containsKey("front_camera_support"))
         assertTrue(attributes.containsKey("verify_sdk_version"))
@@ -348,7 +348,7 @@ class MFAAttributeInfoTest {
         assertEquals(camelCase["deviceId"], snakeCase["device_id"])
         assertEquals(camelCase["osVersion"], snakeCase["os_version"])
         assertEquals(camelCase["faceSupport"], snakeCase["face_support"])
-        assertEquals(camelCase["deviceInsecure"], snakeCase["device_insecure"])
+        assertEquals(camelCase["deviceInsecure"], snakeCase["device_rooted"])   // different key
         assertEquals(camelCase["fingerprintSupport"], snakeCase["fingerprint_support"])
         assertEquals(camelCase["frontCameraSupport"], snakeCase["front_camera_support"])
         assertEquals(camelCase["verifySdkVersion"], snakeCase["verify_sdk_version"])
