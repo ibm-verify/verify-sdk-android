@@ -11,7 +11,20 @@ import java.util.Locale
  * Values indicating the type of hash algorithm to use. Instantiates an instance of the conforming
  * type from a string representation.
  *
- * @param rawValue The name of the algorithm.
+ * The HashAlgorithmType enum represents the underlying hash algorithm (SHA-1, SHA-256, SHA-384,
+ * SHA-512) in an abstract way, independent of the cryptographic operation (HMAC vs RSA). This
+ * design allows the SDK to:
+ * - Store a single enum value that represents the hash algorithm
+ * - Convert to the appropriate format for different contexts (HMAC for TOTP, RSA for biometric)
+ * - Support both symmetric (HMAC) and asymmetric (RSA) operations with the same enum
+ *
+ * The enum accepts multiple string formats via [fromString] (e.g., "SHA256", "HmacSHA256",
+ * "RSASHA256", "SHA256withRSA") and provides conversion methods:
+ * - [toString] returns the HMAC format (e.g., "HmacSHA256")
+ * - [forSigning] returns the RSA signing format (e.g., "SHA256withRSA")
+ * - [toIsvFormat] returns the IBM Verify SaaS format (e.g., "RSASHA256")
+ *
+ * @param rawValue The default string representation of the algorithm (HMAC format).
  */
 @Serializable(with = HashAlgorithmTypeSerializer::class)
 enum class HashAlgorithmType(private val rawValue: String) {

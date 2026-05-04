@@ -386,6 +386,6 @@ class EnrollableSignatureTest {
         assert(result.contains("biometricAuthentication=true"))
         assert(result.contains("algorithmType=HmacSHA256"))
         assert(result.contains("authenticatorId=test-auth-id"))
-        assert(result.contains("enrollableType=FACE"))
+        assert(result.contains("enrollableType=face"))
     }
 }
