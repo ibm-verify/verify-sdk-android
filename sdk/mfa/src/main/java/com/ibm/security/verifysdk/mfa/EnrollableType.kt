@@ -11,19 +11,22 @@ enum class EnrollableType {
     FINGERPRINT,
     USER_PRESENCE;
 
+    override fun toString(): String {
+        return when (this) {
+            USER_PRESENCE -> "userPresence"
+            else -> name.lowercase()
+        }
+    }
+
     companion object {
         fun fromString(type: String): EnrollableType? {
-            return try {
-                valueOf(type.uppercase())
-            } catch (e: IllegalArgumentException) {
-                null
-            }
-        }
-
-        internal fun forIsvaEnrollment(type: EnrollableType?):String {
             return when (type) {
-                USER_PRESENCE -> "userPresence"
-                else -> type?.name?.lowercase() ?: ""
+                "fingerprint" -> FINGERPRINT
+                "face" -> FACE
+                "userPresence" -> USER_PRESENCE
+                "totp" -> TOTP
+                "hotp" -> HOTP
+                else -> null
             }
         }
     }
