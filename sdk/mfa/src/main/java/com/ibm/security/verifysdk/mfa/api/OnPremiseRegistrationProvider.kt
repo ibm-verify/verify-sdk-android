@@ -256,7 +256,7 @@ class OnPremiseRegistrationProvider(data: String) :
             throw MFARegistrationException.InvalidAlgorithm(factor.algorithm)
         }
 
-        val keyName = "${authenticatorId}.${type.name}"
+        val keyName = "${authenticatorId}.${type}"
 
         // Generate the key pair with authenticationRequired = true.
         val publicKey = generateKeys(
@@ -344,7 +344,7 @@ class OnPremiseRegistrationProvider(data: String) :
             throw MFARegistrationException.InvalidAlgorithm(factor.algorithm)
         }
 
-        val keyName = "${authenticatorId}.${type.name}"
+        val keyName = "${authenticatorId}.${type}"
         val isBiometric = type == EnrollableType.FACE || type == EnrollableType.FINGERPRINT
 
         // OPT-1: When authenticationRequired is true for a biometric key, the key is locked after
@@ -391,9 +391,7 @@ class OnPremiseRegistrationProvider(data: String) :
             log.entering()
 
             val path =
-                "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator:${
-                    EnrollableType.forIsvaEnrollment(type)
-                }Methods"
+                "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator:${type}Methods"
             val enrollmentUrl = URL("${signatureEnrollableFactor.uri}?attributes=${path}")
 
             val requestBody = buildJsonObject {
