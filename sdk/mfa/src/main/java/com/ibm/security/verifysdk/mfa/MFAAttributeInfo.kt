@@ -7,6 +7,8 @@ package com.ibm.security.verifysdk.mfa
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
+import androidx.biometric.BiometricManager
 import androidx.core.content.edit
 import com.ibm.security.verifysdk.core.helper.ContextHelper
 import com.scottyab.rootbeer.RootBeer
@@ -80,22 +82,50 @@ object MFAAttributeInfo {
     private var lastRootCheck: Pair<Long, Boolean>? = null
 
     // Lazily computed static attributes (computed once and cached)
+    // Note: deviceId is NOT included here because it needs to be read fresh each time
+    // to support migration scenarios where the device ID is written after first access
     private val staticAttributes: Map<String, Any> by lazy {
         mapOf(
-            "deviceName" to Build.MODEL,
-            "deviceType" to Build.MANUFACTURER,
+            "deviceName" to deviceName,  // User-set device name from Settings
+            "deviceType" to Build.MODEL,  // Device model name (e.g., "Pixel 6")
             "platformType" to "Android",
             "osVersion" to Build.VERSION.RELEASE,
             "applicationId" to applicationBundleIdentifier,
             "applicationName" to applicationName,
             "applicationVersion" to applicationVersion,
-            "deviceId" to deviceID,
             "frontCameraSupport" to hasFrontCamera,
             "fingerprintSupport" to hasTouchID,
             "faceSupport" to hasFaceID,
             "verifySdkVersion" to BuildConfig.VERSION_NAME
         )
     }
+
+    /**
+     * Gets the device name as set by the user in device settings.
+     * Matches v2 SDK behavior for backward compatibility.
+     *
+     * For Android N_MR1 (API 25) and above, reads from Settings.Global.DEVICE_NAME.
+     * For older versions, reads from Settings.Secure "bluetooth_name".
+     * Falls back to Build.MODEL if no name is set.
+     */
+    private val deviceName: String
+        get() {
+            val name = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+                Settings.Global.getString(
+                    applicationContext.contentResolver,
+                    Settings.Global.DEVICE_NAME
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                Settings.Secure.getString(
+                    applicationContext.contentResolver,
+                    "bluetooth_name"
+                )
+            }
+            
+            // Fall back to Build.MODEL if device name is not set
+            return name?.takeIf { it.isNotEmpty() } ?: Build.MODEL
+        }
 
     /**
      * Checks if the device is rooted/insecure with caching.
@@ -142,10 +172,30 @@ object MFAAttributeInfo {
         get() = applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FRONT)
 
     private val hasFaceID: Boolean
-        get() = applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_FACE)
+        get() {
+            // Check if device has face recognition hardware
+            if (!applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_FACE)) {
+                return false
+            }
+            
+            // Check if face biometrics are enrolled
+            val biometricManager = BiometricManager.from(applicationContext)
+            return biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
+                BiometricManager.BIOMETRIC_SUCCESS
+        }
 
     private val hasTouchID: Boolean
-        get() = applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT)
+        get() {
+            // Check if device has fingerprint hardware
+            if (!applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT)) {
+                return false
+            }
+            
+            // Check if fingerprints are enrolled
+            val biometricManager = BiometricManager.from(applicationContext)
+            return biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
+                BiometricManager.BIOMETRIC_SUCCESS
+        }
 
     private val applicationBundleIdentifier: String
         get() = applicationContext.packageName
@@ -212,9 +262,19 @@ object MFAAttributeInfo {
             staticAttributes
         }.toMutableMap()
         
-        // Add fresh deviceInsecure check (cached for 1 minute)
-        val insecureKey = if (snakeCaseKey) "device_insecure" else "deviceInsecure"
-        attributes[insecureKey] = deviceInsecure
+        // Add fresh deviceId (read from SharedPreferences each time to support migration)
+        val deviceIdKey = if (snakeCaseKey) "device_id" else "deviceId"
+        attributes[deviceIdKey] = deviceID
+        
+        // Add fresh root/insecure check (cached for 1 minute)
+        // Use different attribute names based on target platform:
+        // - snakeCaseKey = true  → IBM Verify Identity Access → "device_rooted"
+        // - snakeCaseKey = false → IBM Verify → "deviceInsecure"
+        if (snakeCaseKey) {
+            attributes["device_rooted"] = deviceInsecure
+        } else {
+            attributes["deviceInsecure"] = deviceInsecure
+        }
         
         return attributes
     }
