@@ -2,7 +2,7 @@ android {
     namespace = "com.ibm.security.verifysdk." + project.path.replaceFirst("^:sdk:", "").replace(":", ".")
     testNamespace = "com.ibm.security.verifysdk." + project.path.replaceFirst("^:sdk:", "").replace(":", ".") + ".test"
 
-    compileSdk = 36
+    compileSdk = 37
     buildFeatures.buildConfig = true
 
     defaultConfig {

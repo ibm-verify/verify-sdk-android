@@ -80,7 +80,7 @@ class OnPremiseAuthenticatorIntegrationTest {
                             "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator": {
                               "userPresenceMethods": [{
                                 "id": "uuid-test-factor-id-001",
-                                "keyHandle": "test-authenticator-id-001.USER_PRESENCE",
+                                "keyHandle": "test-authenticator-id-001.userPresence",
                                 "authenticator": "test-authenticator-id-001",
                                 "enabled": true,
                                 "algorithm": "SHA512withRSA"
@@ -137,7 +137,7 @@ class OnPremiseAuthenticatorIntegrationTest {
                             "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator": {
                               "fingerprintMethods": [{
                                 "id": "uuid-test-factor-id-002",
-                                "keyHandle": "test-authenticator-id-001.FINGERPRINT",
+                                "keyHandle": "test-authenticator-id-001.fingerprint",
                                 "authenticator": "test-authenticator-id-001",
                                 "enabled": true,
                                 "algorithm": "SHA512withRSA"
@@ -348,7 +348,7 @@ class OnPremiseAuthenticatorIntegrationTest {
                           "location": "/mga/sps/apiauthsvc?StateId=test_state_token_001",
                           "type": "user_presence",
                           "serverChallenge": "test_server_challenge_001",
-                          "keyHandles": ["test-authenticator-id-001.USER_PRESENCE"]
+                          "keyHandles": ["test-authenticator-id-001.userPresence"]
                         }
                         """.trimIndent(),
                         status = HttpStatusCode.OK,

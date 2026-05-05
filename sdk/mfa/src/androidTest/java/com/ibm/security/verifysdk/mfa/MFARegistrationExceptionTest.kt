@@ -86,7 +86,7 @@ class MFARegistrationExceptionTest {
         val exception = MFARegistrationException.NoEnrollableFactors(EnrollableType.USER_PRESENCE, cause)
 
         // Then
-        assertTrue(exception.message?.contains(EnrollableType.USER_PRESENCE.toString()) ?: false)
+        assertTrue(exception.message?.contains(EnrollableType.USER_PRESENCE.name) ?: false)
         assertEquals(cause, exception.cause)
     }
 

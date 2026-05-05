@@ -33,15 +33,6 @@ class EnrollableTypeTest {
     }
 
     @Test
-    fun fromString_withTOTP_shouldReturnTOTP() {
-        // When
-        val result = EnrollableType.fromString("TOTP")
-
-        // Then
-        assertEquals(EnrollableType.TOTP, result)
-    }
-
-    @Test
     fun fromString_withTOTPLowercase_shouldReturnTOTP() {
         // When
         val result = EnrollableType.fromString("totp")
@@ -51,21 +42,12 @@ class EnrollableTypeTest {
     }
 
     @Test
-    fun fromString_withTOTPMixedCase_shouldReturnTOTP() {
+    fun fromString_withTOTPUppercase_shouldReturnNull() {
         // When
-        val result = EnrollableType.fromString("ToTp")
+        val result = EnrollableType.fromString("TOTP")
 
         // Then
-        assertEquals(EnrollableType.TOTP, result)
-    }
-
-    @Test
-    fun fromString_withHOTP_shouldReturnHOTP() {
-        // When
-        val result = EnrollableType.fromString("HOTP")
-
-        // Then
-        assertEquals(EnrollableType.HOTP, result)
+        assertNull(result)
     }
 
     @Test
@@ -78,30 +60,12 @@ class EnrollableTypeTest {
     }
 
     @Test
-    fun fromString_withFACE_shouldReturnFACE() {
-        // When
-        val result = EnrollableType.fromString("FACE")
-
-        // Then
-        assertEquals(EnrollableType.FACE, result)
-    }
-
-    @Test
     fun fromString_withFACELowercase_shouldReturnFACE() {
         // When
         val result = EnrollableType.fromString("face")
 
         // Then
         assertEquals(EnrollableType.FACE, result)
-    }
-
-    @Test
-    fun fromString_withFINGERPRINT_shouldReturnFINGERPRINT() {
-        // When
-        val result = EnrollableType.fromString("FINGERPRINT")
-
-        // Then
-        assertEquals(EnrollableType.FINGERPRINT, result)
     }
 
     @Test
@@ -114,21 +78,21 @@ class EnrollableTypeTest {
     }
 
     @Test
-    fun fromString_withUSER_PRESENCE_shouldReturnUSER_PRESENCE() {
+    fun fromString_withUserPresenceCamelCase_shouldReturnUSER_PRESENCE() {
         // When
-        val result = EnrollableType.fromString("USER_PRESENCE")
+        val result = EnrollableType.fromString("userPresence")
 
         // Then
         assertEquals(EnrollableType.USER_PRESENCE, result)
     }
 
     @Test
-    fun fromString_withUSER_PRESENCELowercase_shouldReturnUSER_PRESENCE() {
+    fun fromString_withUserPresenceUppercase_shouldReturnNull() {
         // When
-        val result = EnrollableType.fromString("user_presence")
+        val result = EnrollableType.fromString("USER_PRESENCE")
 
         // Then
-        assertEquals(EnrollableType.USER_PRESENCE, result)
+        assertNull(result)
     }
 
     @Test
@@ -158,59 +122,6 @@ class EnrollableTypeTest {
         assertNull(result)
     }
 
-    @Test
-    fun forIsvaEnrollment_withTOTP_shouldReturnLowercase() {
-        // When
-        val result = EnrollableType.forIsvaEnrollment(EnrollableType.TOTP)
-
-        // Then
-        assertEquals("totp", result)
-    }
-
-    @Test
-    fun forIsvaEnrollment_withHOTP_shouldReturnLowercase() {
-        // When
-        val result = EnrollableType.forIsvaEnrollment(EnrollableType.HOTP)
-
-        // Then
-        assertEquals("hotp", result)
-    }
-
-    @Test
-    fun forIsvaEnrollment_withFACE_shouldReturnLowercase() {
-        // When
-        val result = EnrollableType.forIsvaEnrollment(EnrollableType.FACE)
-
-        // Then
-        assertEquals("face", result)
-    }
-
-    @Test
-    fun forIsvaEnrollment_withFINGERPRINT_shouldReturnLowercase() {
-        // When
-        val result = EnrollableType.forIsvaEnrollment(EnrollableType.FINGERPRINT)
-
-        // Then
-        assertEquals("fingerprint", result)
-    }
-
-    @Test
-    fun forIsvaEnrollment_withUSER_PRESENCE_shouldReturnUserPresence() {
-        // When
-        val result = EnrollableType.forIsvaEnrollment(EnrollableType.USER_PRESENCE)
-
-        // Then
-        assertEquals("userPresence", result)
-    }
-
-    @Test
-    fun forIsvaEnrollment_withNull_shouldReturnEmptyString() {
-        // When
-        val result = EnrollableType.forIsvaEnrollment(null)
-
-        // Then
-        assertEquals("", result)
-    }
 
     @Test
     fun name_shouldReturnEnumName() {
@@ -258,30 +169,31 @@ class EnrollableTypeTest {
     }
 
     @Test
-    fun toString_shouldReturnEnumName() {
-        // Then
-        assertEquals("TOTP", EnrollableType.TOTP.toString())
-        assertEquals("HOTP", EnrollableType.HOTP.toString())
-        assertEquals("FACE", EnrollableType.FACE.toString())
-        assertEquals("FINGERPRINT", EnrollableType.FINGERPRINT.toString())
-        assertEquals("USER_PRESENCE", EnrollableType.USER_PRESENCE.toString())
+    fun toString_shouldReturnCorrectFormat() {
+        // Then - matches v2 SubType.toString() format
+        assertEquals("totp", EnrollableType.TOTP.toString())
+        assertEquals("hotp", EnrollableType.HOTP.toString())
+        assertEquals("face", EnrollableType.FACE.toString())
+        assertEquals("fingerprint", EnrollableType.FINGERPRINT.toString())
+        assertEquals("userPresence", EnrollableType.USER_PRESENCE.toString())
     }
 
     @Test
-    fun fromString_roundTrip_shouldPreserveValue() {
+    fun fromString_toString_roundTrip_shouldPreserveValue() {
         // Given
         val types = EnrollableType.values()
 
-        // When/Then
+        // When/Then - toString() returns the format that fromString() expects
         for (type in types) {
-            val result = EnrollableType.fromString(type.name)
+            val stringValue = type.toString()
+            val result = EnrollableType.fromString(stringValue)
             assertEquals(type, result)
         }
     }
 
     @Test
-    fun forIsvaEnrollment_allTypes_shouldReturnValidStrings() {
-        // Given
+    fun toString_allTypes_shouldMatchV2Format() {
+        // Given - Expected format matches v2 SubType.toString()
         val expectedMappings = mapOf(
             EnrollableType.TOTP to "totp",
             EnrollableType.HOTP to "hotp",
@@ -292,7 +204,7 @@ class EnrollableTypeTest {
 
         // When/Then
         for ((type, expected) in expectedMappings) {
-            val result = EnrollableType.forIsvaEnrollment(type)
+            val result = type.toString()
             assertEquals(expected, result)
         }
     }

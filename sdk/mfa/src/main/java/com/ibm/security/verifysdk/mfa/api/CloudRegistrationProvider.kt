@@ -386,7 +386,7 @@ class CloudRegistrationProvider(data: String) :
             throw MFARegistrationException.InvalidAlgorithm(factor.algorithm)
         }
 
-        val keyName = "${metaData.id}.${type.name}"
+        val keyName = "${metaData.id}.${type}"
 
         // Generate the key pair with authenticationRequired = true.
         val publicKey = generateKeys(
@@ -476,7 +476,7 @@ class CloudRegistrationProvider(data: String) :
             throw MFARegistrationException.InvalidAlgorithm(factor.algorithm)
         }
 
-        val keyName = "${metaData.id}.${type.name}"
+        val keyName = "${metaData.id}.${type}"
         val isBiometric = type == EnrollableType.FACE || type == EnrollableType.FINGERPRINT
 
         // When authenticationRequired is true for a biometric key, the key is locked after

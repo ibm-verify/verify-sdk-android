@@ -1111,7 +1111,7 @@ class CloudRegistrationProviderTest {
                     "authenticatorId": "5bbdcd60-92a0-4e0f-a14c-72cb1b8358cd",
                     "additionalData": [{
                         "name": "name",
-                        "value": "5bbdcd60-92a0-4e0f-a14c-72cb1b8358cd.FINGERPRINT"
+                        "value": "5bbdcd60-92a0-4e0f-a14c-72cb1b8358cd.fingerprint"
                     }],
                     "algorithm": "RSASHA256"
                 },
@@ -1245,7 +1245,7 @@ class CloudRegistrationProviderTest {
                     "authenticatorId": "5bbdcd60-92a0-4e0f-a14c-72cb1b8358cd",
                     "additionalData": [{
                         "name": "name",
-                        "value": "5bbdcd60-92a0-4e0f-a14c-72cb1b8358cd.FACE"
+                        "value": "5bbdcd60-92a0-4e0f-a14c-72cb1b8358cd.face"
                     }],
                     "algorithm": "RSASHA256"
                 },
@@ -1379,7 +1379,7 @@ class CloudRegistrationProviderTest {
                     "authenticatorId": "5bbdcd60-92a0-4e0f-a14c-72cb1b8358cd",
                     "additionalData": [{
                         "name": "name",
-                        "value": "5bbdcd60-92a0-4e0f-a14c-72cb1b8358cd.USER_PRESENCE"
+                        "value": "5bbdcd60-92a0-4e0f-a14c-72cb1b8358cd.userPresence"
                     }],
                     "algorithm": "RSASHA256"
                 },
