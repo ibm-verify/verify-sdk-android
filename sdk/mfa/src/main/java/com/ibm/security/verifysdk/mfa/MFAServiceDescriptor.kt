@@ -224,7 +224,7 @@ suspend fun MFAServiceDescriptor.login(
         }
 
         if (response.status.isSuccess()) {
-            Result.success(decoder.decodeFromString<Unit>(response.bodyAsText()))
+            Result.success(Unit)
         } else {
             Result.failure(MFAServiceException.General(response.bodyAsText()))
         }
