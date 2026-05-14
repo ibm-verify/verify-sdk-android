@@ -757,4 +757,111 @@ class CloudAuthenticatorService(
             "PendingRequestMessageDefault"
         }
     }
+
+    /**
+     * Handles a password-less login request to the given endpoint.
+     *
+     * This method submits a login code to authenticate the user without requiring a password.
+     * It's typically used for QR code-based authentication flows where the user scans a QR code
+     * and approves the login from their mobile device.
+     *
+     * ## Implementation Details
+     * Based on the v2 SDK implementation in AuthenticatorContext.loginCloud():
+     * - Creates a JSON payload with the login code: `{"code": "<lsi_value>"}`
+     * - Makes a POST request to the provided login endpoint
+     * - Uses bearer token authentication with the current access token
+     * - Returns success (Unit) if the login is approved, or failure with exception
+     *
+     * ## Usage Example
+     * ```kotlin
+     * val service = CloudAuthenticatorService(
+     *     _accessToken = authenticator.token.accessToken,
+     *     _refreshUri = authenticator.refreshUri,
+     *     _transactionUri = authenticator.transactionUri,
+     *     _authenticatorId = authenticator.id,
+     *     httpClient = NetworkHelper.getInstance
+     * )
+     *
+     * service.login(
+     *     qrLoginEndpoint = "https://sdk.verify.ibm.com/v1.0/authenticators/login",
+     *     code = "abc123xyz"
+     * ).onSuccess {
+     *     println("Login successful")
+     * }.onFailure { error ->
+     *     println("Login failed: ${error.message}")
+     * }
+     * ```
+     *
+     * @param qrLoginEndpoint The endpoint URL to submit the login request to
+     * @param code The login session identifier (LSI) code from the QR code scan
+     * @return A [Result] containing:
+     *         - **Success:** Unit indicating the login was approved
+     *         - **Failure:** Exception indicating why the login failed
+     *
+     * @throws Exception if network request fails
+     * @throws AuthorizationException if authentication fails (401)
+     *
+     * @see CloudLoginHandler
+     */
+    suspend fun login(
+        qrLoginEndpoint: String,
+        code: String
+    ): Result<Unit> {
+        return try {
+            logInfo(TAG) { "Starting QR code login for authenticator $_authenticatorId" }
+            
+            // Build JSON payload with the code
+            val jsonBody = buildJsonObject {
+                put("code", code)
+            }
+            
+            // Make POST request to login endpoint
+            val response: HttpResponse = httpClient.post {
+                url(qrLoginEndpoint)
+                bearerAuth(_accessToken)
+                contentType(ContentType.Application.Json)
+                setBody(jsonBody.toString())
+            }
+            
+            // Handle response
+            if (response.status.isSuccess()) {
+                logInfo(TAG) { "QR code login successful for authenticator $_authenticatorId" }
+                Result.success(Unit)
+            } else {
+                val errorBody = response.bodyAsText()
+                logError(TAG) { "QR code login failed for authenticator $_authenticatorId: ${response.status} - $errorBody" }
+                
+                // Parse error response if available
+                val errorMessage = try {
+                    val errorResponse = DefaultJson.decodeFromString<ErrorMessage>(errorBody)
+                    errorResponse.errorDescription
+                } catch (e: Exception) {
+                    "Login failed with status ${response.status.value}"
+                }
+                
+                Result.failure(
+                    if (response.status.value == 401) {
+                        AuthorizationException(
+                            code = response.status,
+                            id = "login_unauthorized",
+                            description = errorMessage
+                        )
+                    } else {
+                        MFAServiceException.General(errorMessage)
+                    }
+                )
+            }
+        } catch (e: CancellationException) {
+            // Coroutine was cancelled - this is normal, don't log as error
+            throw e
+        } catch (e: Throwable) {
+            logError(TAG, e) { "Exception during QR code login for authenticator $_authenticatorId" }
+            Result.failure(
+                MFAServiceException.General(
+                    e.message ?: "Unknown error during login",
+                    e
+                )
+            )
+        }
+    }
 }
