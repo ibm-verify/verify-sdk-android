@@ -255,5 +255,210 @@ class CloudAuthenticatorServiceTest {
 
         httpClient.close()
     }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testLoginSuccess() {
+        // Verify successful QR code login
+        val mockEngine = MockEngine { request ->
+            // Verify request structure
+            assertEquals("POST", request.method.value)
+            assertTrue(request.url.toString().contains("/login"))
+            assertTrue(request.headers["Authorization"]?.startsWith("Bearer ") == true)
+
+            respond(
+                content = "",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+
+        val httpClient = HttpClient(mockEngine)
+
+        val service = CloudAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://example.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://example.com/v1.0/authenticators/transactions"),
+            _authenticatorId = "test_authenticator_id",
+            httpClient = httpClient
+        )
+
+        runBlocking {
+            val result = service.login(
+                qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
+                code = "abc123xyz"
+            )
+
+            assertTrue("Login should succeed", result.isSuccess)
+        }
+
+        httpClient.close()
+    }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testLoginUnauthorized() {
+        // Verify 401 unauthorized response handling
+        val mockEngine = MockEngine { request ->
+            respond(
+                content = """{"error":"invalid_token","error_description":"The access token is invalid or expired"}""",
+                status = HttpStatusCode.Unauthorized,
+                headers = headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+
+        val httpClient = HttpClient(mockEngine)
+
+        val service = CloudAuthenticatorService(
+            _accessToken = "invalid_token",
+            _refreshUri = URL("https://example.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://example.com/v1.0/authenticators/transactions"),
+            _authenticatorId = "test_authenticator_id",
+            httpClient = httpClient
+        )
+
+        runBlocking {
+            val result = service.login(
+                qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
+                code = "abc123xyz"
+            )
+
+            assertTrue("Login should fail with 401", result.isFailure)
+            result.onFailure { error ->
+                assertTrue(
+                    "Error should be AuthorizationException",
+                    error is com.ibm.security.verifysdk.core.AuthorizationException
+                )
+            }
+        }
+
+        httpClient.close()
+    }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testLoginInvalidCode() {
+        // Verify handling of invalid login code
+        val mockEngine = MockEngine { request ->
+            respond(
+                content = """{"error":"invalid_code","error_description":"The provided login code is invalid or expired"}""",
+                status = HttpStatusCode.BadRequest,
+                headers = headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+
+        val httpClient = HttpClient(mockEngine)
+
+        val service = CloudAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://example.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://example.com/v1.0/authenticators/transactions"),
+            _authenticatorId = "test_authenticator_id",
+            httpClient = httpClient
+        )
+
+        runBlocking {
+            val result = service.login(
+                qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
+                code = "invalid_code"
+            )
+
+            assertTrue("Login should fail with invalid code", result.isFailure)
+            result.onFailure { error ->
+                assertTrue(
+                    "Error should be MFAServiceException",
+                    error is com.ibm.security.verifysdk.mfa.MFAServiceException
+                )
+            }
+        }
+
+        httpClient.close()
+    }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testLoginNetworkError() {
+        // Verify handling of network errors
+        val mockEngine = MockEngine { request ->
+            throw Exception("Network connection failed")
+        }
+
+        val httpClient = HttpClient(mockEngine)
+
+        val service = CloudAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://example.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://example.com/v1.0/authenticators/transactions"),
+            _authenticatorId = "test_authenticator_id",
+            httpClient = httpClient
+        )
+
+        runBlocking {
+            val result = service.login(
+                qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
+                code = "abc123xyz"
+            )
+
+            assertTrue("Login should fail with network error", result.isFailure)
+            result.onFailure { error ->
+                assertTrue(
+                    "Error should be MFAServiceException.General",
+                    error is com.ibm.security.verifysdk.mfa.MFAServiceException.General
+                )
+                assertTrue(
+                    "Error message should mention network failure",
+                    error.message?.contains("Network connection failed") == true
+                )
+            }
+        }
+
+        httpClient.close()
+    }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testLoginRequestPayload() {
+        // Verify that the request payload is correctly formatted
+        var capturedRequestBody: String? = null
+
+        val mockEngine = MockEngine { request ->
+            capturedRequestBody = request.body.toString()
+
+            respond(
+                content = "",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+
+        val httpClient = HttpClient(mockEngine)
+
+        val service = CloudAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://example.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://example.com/v1.0/authenticators/transactions"),
+            _authenticatorId = "test_authenticator_id",
+            httpClient = httpClient
+        )
+
+        runBlocking {
+            service.login(
+                qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
+                code = "test_code_123"
+            )
+
+            // Verify the request body contains the code
+            assertTrue(
+                "Request body should contain the code",
+                capturedRequestBody?.contains("test_code_123") == true
+            )
+            assertTrue(
+                "Request body should be JSON format",
+                capturedRequestBody?.contains("\"code\"") == true
+            )
+        }
+
+        httpClient.close()
+    }
 }
 
