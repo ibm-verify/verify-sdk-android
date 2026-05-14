@@ -40,7 +40,7 @@ object NetworkHelper {
     var connectTimeoutMillis: Long = 15000L
     var requestTimeoutMillis: Long = 15000L
     var readTimeOutMillis: Long = 15000L
-    var logLevel = LogLevel.ALL
+    var logLevel = LogLevel.HEADERS
     var logger = Logger.ANDROID
     var followRedirects = true
     var followSslRedirects = true
