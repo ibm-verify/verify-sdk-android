@@ -601,6 +601,10 @@ class CloudRegistrationProvider(data: String) :
 
         return try {
 
+            // Save original additional data from initial token response
+            // This preserves fields like display_name, authenticator_id, ISV_push_enabled, etc.
+            val originalAdditionalData = tokenInfo.additionalData
+
             val registrationUrl =
                 URL("${initializationInfo.uri}?metadataInResponse=false")
 
@@ -618,7 +622,11 @@ class CloudRegistrationProvider(data: String) :
 
             if (response.status.isSuccess()) {
                 response.bodyAsText().let { responseBodyData ->
-                    tokenInfo = decoder.decodeFromString(responseBodyData)
+                    val refreshedToken: TokenInfo = decoder.decodeFromString(responseBodyData)
+                    // Merge additional data: preserve original fields, allow refresh response to override
+                    tokenInfo = refreshedToken.copy(
+                        additionalData = originalAdditionalData + refreshedToken.additionalData
+                    )
                 }
                 Result.success(
                     CloudAuthenticator(

@@ -800,4 +800,244 @@ class OnPremiseRegistrationProviderTest {
 
         httpClient.close()
     }
+
+    /**
+     * Test enrollment without service name in metadata.
+     *
+     * When service_name is not provided in metadata, the serviceName should default
+     * to the host from the details_url.
+     */
+    @Test
+    fun testEnrollNoServiceName_Success() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_authorization_code_002",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "ignoreSSLCertificate": false
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                // Details endpoint without service_name in metadata
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {},
+                          "discovery_mechanisms": [
+                            "urn:ibm:security:authentication:asf:mechanism:mobile_user_approval:user_presence"
+                          ],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                // Token endpoint
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "A1b2C3D4",
+                          "refresh_token": "test_refresh_token_002",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "test-authenticator-id-002",
+                          "ISV_push_enabled": "true",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json;charset=UTF-8")
+                    )
+                }
+                // Enrollment endpoint
+                request.url.encodedPath.contains("/scim/Me") -> {
+                    respond(
+                        content = """
+                        {
+                          "id": "test-authenticator-id-002",
+                          "schemas": ["urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator"],
+                          "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator": {
+                            "enabled": true
+                          }
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        
+        // Initiate with account name
+        val initResult = provider.initiate(
+            accountName = "OnPremise account",
+            pushToken = "abc123",
+            additionalHeaders = null,
+            httpClient = httpClient
+        )
+
+        assertTrue("Initiate should succeed", initResult.isSuccess)
+        assertNotNull("Provider should not be null", provider)
+
+        // Finalize enrollment
+        val finalizeResult = provider.finalize(httpClient)
+
+        assertTrue("Finalize should succeed", finalizeResult.isSuccess)
+        finalizeResult.onSuccess { authenticator ->
+            assertNotNull("Authenticator should not be null", authenticator)
+            assertEquals("A1b2C3D4", authenticator.token.accessToken)
+            // Service name should default to host when not provided in metadata
+            assertEquals("test.example.com", authenticator.serviceName)
+            // No factors enrolled yet
+            assertFalse("User presence should not be enrolled", authenticator.userPresence != null)
+            assertFalse("Biometric should not be enrolled", authenticator.biometric != null)
+        }
+
+        httpClient.close()
+    }
+
+    /**
+     * Test enrollment without account name provided.
+     *
+     * When accountName is empty string, it remains empty in the authenticator.
+     * The display_name from token response is stored in additionalData but not
+     * automatically assigned to accountName.
+     */
+    @Test
+    fun testEnrollNoAccountName_Success() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_authorization_code_003",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "ignoreSSLCertificate": false
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                // Details endpoint
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {"service_name": "Test Service"},
+                          "discovery_mechanisms": [
+                            "urn:ibm:security:authentication:asf:mechanism:mobile_user_approval:user_presence"
+                          ],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                // Token endpoint
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "A1b2C3D4",
+                          "refresh_token": "test_refresh_token_003",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "test-authenticator-id-003",
+                          "ISV_push_enabled": "true",
+                          "token_type": "bearer",
+                          "display_name": "testuser",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json;charset=UTF-8")
+                    )
+                }
+                // Enrollment endpoint
+                request.url.encodedPath.contains("/scim/Me") -> {
+                    respond(
+                        content = """
+                        {
+                          "id": "test-authenticator-id-003",
+                          "schemas": ["urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator"],
+                          "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator": {
+                            "enabled": true
+                          }
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        
+        // Initiate with empty account name
+        val initResult = provider.initiate(
+            accountName = "",
+            pushToken = "abc123",
+            additionalHeaders = null,
+            httpClient = httpClient
+        )
+
+        assertTrue("Initiate should succeed", initResult.isSuccess)
+        assertNotNull("Provider should not be null", provider)
+
+        // Finalize enrollment
+        val finalizeResult = provider.finalize(httpClient)
+
+        assertTrue("Finalize should succeed", finalizeResult.isSuccess)
+        finalizeResult.onSuccess { authenticator ->
+            assertNotNull("Authenticator should not be null", authenticator)
+            assertEquals("A1b2C3D4", authenticator.token.accessToken)
+            // Account name remains empty as passed to initiate()
+            assertEquals("", authenticator.accountName)
+            // display_name is available in token additionalData
+            assertEquals("testuser", authenticator.token.additionalData["display_name"])
+            // No biometric enrolled yet
+            assertFalse("Biometric should not be enrolled", authenticator.biometric != null)
+        }
+
+        httpClient.close()
+    }
 }
