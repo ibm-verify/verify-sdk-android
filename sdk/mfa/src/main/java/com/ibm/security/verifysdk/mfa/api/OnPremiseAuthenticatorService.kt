@@ -9,6 +9,8 @@ import com.ibm.security.verifysdk.authentication.api.OAuthProvider
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.core.extension.entering
 import com.ibm.security.verifysdk.core.extension.exiting
+import com.ibm.security.verifysdk.core.extension.logError
+import com.ibm.security.verifysdk.core.extension.logInfo
 import com.ibm.security.verifysdk.core.helper.ContextHelper
 import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.MFAAttributeInfo
@@ -35,6 +37,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
@@ -135,6 +138,10 @@ class OnPremiseAuthenticatorService(
 
     val ignoreSslCertificate: Boolean
         get() = _ignoreSslCertificate
+
+    companion object {
+        private const val TAG = "OnPremAuthService"
+    }
 
     /**
      * Refreshes the OAuth token with **CRITICAL** persistence guarantees.
@@ -314,6 +321,101 @@ class OnPremiseAuthenticatorService(
             )
         }
     }
+    /**
+     * Performs QR code login for OnPremise authenticators.
+     *
+     * This function sends a login request to the OnPremise server using the provided
+     * QR login endpoint and login session identifier (lsi). The request is authenticated
+     * using the authenticator's OAuth access token.
+     *
+     * ## Usage Example
+     * ```kotlin
+     * val service = OnPremiseAuthenticatorService(...)
+     * val result = service.login(
+     *     qrLoginEndpoint = "https://onprem.company.com/mga/sps/mmfa/user/mgmt/login",
+     *     code = "abc123xyz"  // The lsi from QR code
+     * )
+     *
+     * result.onSuccess {
+     *     // Login successful
+     * }.onFailure { error ->
+     *     // Handle error
+     * }
+     * ```
+     *
+     * @param qrLoginEndpoint The full URL of the OnPremise login endpoint
+     * @param code The login session identifier (lsi) from the QR code
+     *
+     * @return A [Result] containing either:
+     *         - Success: Unit indicating the login was successful
+     *         - Failure: An exception indicating why the login failed
+     *
+     * @throws kotlinx.coroutines.CancellationException if the coroutine is cancelled
+     * @throws MFAServiceException.General if the request fails
+     *
+     * @see com.ibm.security.verifysdk.mfa.model.onprem.OnPremiseAuthenticator
+     */
+    suspend fun login(
+        qrLoginEndpoint: String,
+        code: String
+    ): Result<Unit> {
+        return try {
+            log.entering()
+            logInfo(TAG) { "Starting QR code login for authenticator $authenticatorId" }
+            
+            // Build JSON payload with the lsi code (same as v2 implementation)
+            val jsonBody = buildJsonObject {
+                put("lsi", JsonPrimitive(code))
+            }
+            
+            // Make POST request to login endpoint
+            val response = httpClient.post {
+                url(qrLoginEndpoint)
+                bearerAuth(accessToken)
+                contentType(ContentType.Application.Json)
+                accept(ContentType.Application.Json)
+                setBody(TextContent(jsonBody.toString(), ContentType.Application.Json))
+            }
+            
+            // Handle response
+            if (response.status.isSuccess()) {
+                logInfo(TAG) { "QR code login successful for authenticator $authenticatorId" }
+                Result.success(Unit)
+            } else {
+                val errorBody = response.bodyAsText()
+                logError(TAG) { "QR code login failed for authenticator $authenticatorId: ${response.status} - $errorBody" }
+                
+                // Parse error response if available
+                val errorMessage = try {
+                    val json = Json { ignoreUnknownKeys = true }
+                    val errorResponse = json.parseToJsonElement(errorBody).jsonObject
+                    errorResponse["error_description"]?.toString()?.trim('"')
+                        ?: errorResponse["error"]?.toString()?.trim('"')
+                        ?: "Login failed with status ${response.status.value}"
+                } catch (e: Exception) {
+                    "Login failed with status ${response.status.value}"
+                }
+                
+                Result.failure(
+                    MFAServiceException.General(errorMessage)
+                )
+            }
+        } catch (e: CancellationException) {
+            // Don't wrap cancellation exceptions
+            throw e
+        } catch (e: Exception) {
+            logError(TAG, e) { "Exception during QR code login for authenticator $authenticatorId" }
+            Result.failure(
+                MFAServiceException.General(
+                    "Exception during login: ${e.message}",
+                    e
+                )
+            )
+        } finally {
+            log.exiting()
+        }
+    }
+
 
     suspend fun remove(httpClient: HttpClient = NetworkHelper.getInstance): Result<Unit> {
 
@@ -371,14 +473,26 @@ class OnPremiseAuthenticatorService(
 
         // Get all transaction IDs for this authenticator
         val transactionIds = if (transactionId != null) {
-            // If specific transaction requested, only get that one
-            listOf(transactionId)
+            // If specific transaction requested, validate it belongs to this authenticator first
+            val belongsToThisAuthenticator = transactionResult.attributes.any {
+                it.transactionId == transactionId &&
+                it.uri == "mmfa:request:authenticator:id" &&
+                it.values.contains(authenticatorId)
+            }
+            if (belongsToThisAuthenticator) {
+                listOf(transactionId)
+            } else {
+                log.debug("Transaction $transactionId does not belong to authenticator $authenticatorId")
+                emptyList()
+            }
         } else if (identifiers.isNotEmpty()) {
             // Get all transactions for this authenticator
             identifiers.map { it.transactionId }
         } else {
-            // Fallback to all transactions
-            transactionResult.transactions.map { it.transactionId }
+            // No transactions for this authenticator - return empty list
+            // This prevents attempting to process transactions that belong to other authenticators
+            log.debug("No transactions found for authenticator $authenticatorId")
+            emptyList()
         }
 
         val now = Clock.System.now()
@@ -420,6 +534,24 @@ class OnPremiseAuthenticatorService(
             if (response.status.isSuccess()) {
                 val verificationInfo =
                     decoder.decodeFromString<VerificationInfo>(response.bodyAsText())
+
+                // Validate that this transaction belongs to this authenticator
+                // This prevents one authenticator from attempting to complete another's transaction
+                val authenticatorIdAttribute = transactionResult.attributes.firstOrNull {
+                    it.transactionId == transactionInfoResult.transactionId &&
+                    it.uri == "mmfa:request:authenticator:id"
+                }
+
+                if (authenticatorIdAttribute != null) {
+                    if (!authenticatorIdAttribute.values.contains(authenticatorId)) {
+                        log.debug("Transaction $transactionId does not belong to authenticator $authenticatorId")
+                        return Result.failure(
+                            MFAServiceException.General(
+                                "Transaction $transactionId does not belong to authenticator $authenticatorId"
+                            )
+                        )
+                    }
+                }
 
                 // Extract expiry time from attributesPending array
                 // Look for mmfa.transactionPending.minAgeBeforeAbort attribute
