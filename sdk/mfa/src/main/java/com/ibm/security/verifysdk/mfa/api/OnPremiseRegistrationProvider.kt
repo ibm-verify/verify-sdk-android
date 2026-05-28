@@ -478,6 +478,10 @@ class OnPremiseRegistrationProvider(data: String) :
         return try {
             log.entering()
 
+            // Save original additional data from initial token response
+            // This preserves fields like display_name, authenticator_id, ISV_push_enabled, etc.
+            val originalAdditionalData = tokenInfo.additionalData
+
             // Generate requestBody for token refresh based on OnPremiseAuthenticatorService.refreshToken
             val attributes = MFAAttributeInfo.dictionary(snakeCaseKey = true).toMutableMap()
             attributes["accountName"] = accountName
@@ -503,7 +507,11 @@ class OnPremiseRegistrationProvider(data: String) :
 
             if (response.status.isSuccess()) {
                 response.bodyAsText().let { responseBodyData ->
-                    tokenInfo = decoder.decodeFromString(responseBodyData)
+                    val refreshedToken: TokenInfo = decoder.decodeFromString(responseBodyData)
+                    // Merge additional data: preserve original fields, allow refresh response to override
+                    tokenInfo = refreshedToken.copy(
+                        additionalData = originalAdditionalData + refreshedToken.additionalData
+                    )
                 }
                 Result.success(
                     OnPremiseAuthenticator(
