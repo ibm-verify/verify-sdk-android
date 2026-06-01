@@ -90,6 +90,7 @@ class OnPremiseRegistrationProvider(data: String) :
     private lateinit var tokenInfo: TokenInfo
     private lateinit var metaData: Metadata
     private lateinit var authenticatorId: String
+    private lateinit var registrationHttpClient: HttpClient
 
     /**
      * Holds the pending biometric enrollment state when [authenticationRequired] is `true`.
@@ -141,7 +142,22 @@ class OnPremiseRegistrationProvider(data: String) :
             log.entering()
             this.accountName = accountName
             this.pushToken = pushToken.orEmpty()
-            val responseDetail = httpClient.get {
+            
+            // Create appropriate HTTP client based on SSL certificate flag
+            // This implements the two-level security model:
+            // 1. initializationInfo.ignoreSSLCertificate (from QR code) indicates need
+            // 2. NetworkHelper.allowInsecureSSL (app-level) grants permission
+            // Store the client for use throughout the registration process
+            registrationHttpClient = if (initializationInfo.ignoreSSLCertificate) {
+                // Use insecure client for this registration
+                // Will throw exception if NetworkHelper.allowInsecureSSL is false
+                NetworkHelper.createInsecureClient()
+            } else {
+                // Use provided client (default secure client or custom)
+                httpClient
+            }
+            
+            val responseDetail = registrationHttpClient.get {
                 url(initializationInfo.uri)
             }
 
@@ -170,9 +186,10 @@ class OnPremiseRegistrationProvider(data: String) :
 
             val attributes =
                 MFAAttributeInfo.dictionary(snakeCaseKey = true).toMutableMap()
-            attributes["accountName"] = this.accountName
-            attributes["pushToken"] = this.pushToken
-            attributes["tenant_id"] = UUID.randomUUID().toString()
+            attributes["account_name"] = this.accountName
+            attributes["push_token"] = this.pushToken
+            val tenantId = UUID.randomUUID().toString()
+            attributes["tenant_id"] = tenantId
 
             val oAuthProvider = OAuthProvider(
                 clientId = initializationInfo.clientId,
@@ -186,14 +203,18 @@ class OnPremiseRegistrationProvider(data: String) :
                 url = metaData.registrationUri,
                 authorizationCode = initializationInfo.code,
                 scope = arrayOf("mmfaAuthn"),
-                httpClient = httpClient
+                httpClient = registrationHttpClient
             )
 
             responseToken.fold(
                 onSuccess = { tokenInfo ->
                     this.tokenInfo = tokenInfo
-                    authenticatorId = tokenInfo.additionalData["authenticator_id"] as? String
-                        ?: return Result.failure(MFARegistrationException.MissingAuthenticatorIdentifier())
+                    // Verify server returned an authenticator_id
+                    if (tokenInfo.additionalData["authenticator_id"] !is String) return Result.failure(
+                        MFARegistrationException.MissingAuthenticatorIdentifier()
+                    )
+                    // Use the tenant_id we generated, not the server's authenticator_id
+                    authenticatorId = tenantId
 
                     return Result.success(
                         OnPremiseRegistrationProviderResultData(
@@ -246,7 +267,8 @@ class OnPremiseRegistrationProvider(data: String) :
 
         if (!authenticationRequired) return null
 
-        val factor = metaData.availableFactors.first { it.type == type } as SignatureEnrollableFactor
+        val factor =
+            metaData.availableFactors.first { it.type == type } as SignatureEnrollableFactor
 
         if (!factor.enabled) throw MFARegistrationException.SignatureMethodNotEnabled(factor.type)
 
@@ -460,7 +482,7 @@ class OnPremiseRegistrationProvider(data: String) :
                             )
                         }
 
-                        EnrollableType.TOTP , EnrollableType.HOTP -> {
+                        EnrollableType.TOTP, EnrollableType.HOTP -> {
 
                         }
                     }
@@ -482,10 +504,15 @@ class OnPremiseRegistrationProvider(data: String) :
             // This preserves fields like display_name, authenticator_id, ISV_push_enabled, etc.
             val originalAdditionalData = tokenInfo.additionalData
 
+            log.debug("=== FINALIZE: Original token additionalData ===")
+            originalAdditionalData.forEach { (key, value) ->
+                log.debug("  $key: $value")
+            }
+
             // Generate requestBody for token refresh based on OnPremiseAuthenticatorService.refreshToken
             val attributes = MFAAttributeInfo.dictionary(snakeCaseKey = true).toMutableMap()
-            attributes["accountName"] = accountName
-            attributes["pushToken"] = pushToken
+            attributes["account_name"] = accountName
+            attributes["push_token"] = pushToken
             attributes["tenant_id"] = authenticatorId
 
             val requestBody = mutableMapOf(
@@ -493,12 +520,12 @@ class OnPremiseRegistrationProvider(data: String) :
                 "client_id" to initializationInfo.clientId,
                 "refresh_token" to tokenInfo.refreshToken
             )
-            
+
             attributes.forEach { (key, value) ->
                 requestBody[key] = value.toString()
             }
 
-            val response = httpClient.post {
+            val response = registrationHttpClient.post {
                 url(metaData.registrationUri.toString())
                 accept(ContentType.Application.Json)
                 contentType(ContentType.Application.FormUrlEncoded)
@@ -507,12 +534,46 @@ class OnPremiseRegistrationProvider(data: String) :
 
             if (response.status.isSuccess()) {
                 response.bodyAsText().let { responseBodyData ->
+                    log.debug("=== FINALIZE: Server refresh response ===")
+                    log.debug(responseBodyData)
+
                     val refreshedToken: TokenInfo = decoder.decodeFromString(responseBodyData)
+
+                    log.debug("=== FINALIZE: Refreshed token additionalData ===")
+                    refreshedToken.additionalData.forEach { (key, value) ->
+                        log.debug("  $key: $value")
+                    }
+
                     // Merge additional data: preserve original fields, allow refresh response to override
+                    val mergedAdditionalData =
+                        originalAdditionalData + refreshedToken.additionalData
+
+                    log.debug("=== FINALIZE: Merged additionalData (BEFORE storing) ===")
+                    mergedAdditionalData.forEach { (key, value) ->
+                        log.debug("  $key: $value")
+                    }
+
                     tokenInfo = refreshedToken.copy(
-                        additionalData = originalAdditionalData + refreshedToken.additionalData
+                        additionalData = mergedAdditionalData
                     )
+
+                    log.debug("=== FINALIZE: Final tokenInfo to be stored ===")
+                    log.debug("  accessToken: ${tokenInfo.accessToken}")
+                    log.debug("  refreshToken: ${tokenInfo.refreshToken}")
+                    log.debug("  expiresIn: ${tokenInfo.expiresIn}")
+                    log.debug("  additionalData:")
+                    tokenInfo.additionalData.forEach { (key, value) ->
+                        log.debug("    $key: $value")
+                    }
                 }
+
+                log.debug("=== FINALIZE: Creating OnPremiseAuthenticator ===")
+                log.debug("  id (authenticatorId): $authenticatorId")
+                log.debug("  serviceName: ${metaData.serviceName}")
+                log.debug("  accountName: $accountName")
+                log.debug("  refreshUri: ${metaData.registrationUri}")
+                log.debug("  transactionUri: ${metaData.transactionUri}")
+
                 Result.success(
                     OnPremiseAuthenticator(
                         refreshUri = URL(metaData.registrationUri.toString()),
