@@ -25,7 +25,17 @@ The project is divided into SDK modules and example applications:
 - **`:examples:dpop_demo`**: Demonstrates Demonstrating Proof-of-Possession (DPoP) at the Application Layer.
 - **`:examples:fido2_demo`**: Showcases FIDO2 registration and authentication.
 
-## Recent Changes (Release 3.2.0)
+## Recent Changes (Release 3.2.4)
+
+- **SSL Certificate Bypass Support**: Added two-level security model for on-premise authenticators with self-signed certificates via `NetworkHelper.allowInsecureSSL` flag and `createInsecureClient()` method.
+- **On-Premise Authenticator ID Fix**: Fixed critical issue where authenticators used server's `authenticator_id` instead of client-generated `tenant_id`, causing transaction filtering failures.
+- **Transaction Filtering Improvements**: Enhanced transaction filtering logic to correctly use server's `authenticator_id` for matching transactions.
+- **QR Code Options Parsing**: Added support for parsing `options` field from QR codes (e.g., `"options":"ignoreSslCerts=true"`).
+- **Registration Attribute Naming**: Fixed attribute names to use snake_case (`account_name`, `push_token`) for consistency with server API.
+- **Enhanced Debug Logging**: Added comprehensive debug logging for transaction filtering, authenticator ID tracking, and registration flows.
+- **Build Configuration**: Temporarily disabled Dokka documentation generation for faster development builds.
+
+### Previous Major Changes (Release 3.2.0-3.2.3)
 
 - **Exception-Based Error Handling**: Replaced error classes with exceptions (`MFARegistrationException`, `MFAServiceException`) for better error chaining.
 - **Biometric Factor Consolidation**: Unified face and fingerprint factors into a single `FactorType.Biometric`.
@@ -41,6 +51,8 @@ The project is divided into SDK modules and example applications:
 - **Test Utils Module Removal**: Eliminated the `:sdk:test_utils` module by moving test utilities to module-specific test sources for better encapsulation.
 - **Integration Test Suite**: Added `CloudAuthenticatorIntegrationTest` based on real network traces to validate complete MFA flows.
 - **Deprecation Fixes**: Replaced deprecated Ktor Base64 utilities with Kotlin stdlib `Base64.Default.decode()` in FIDO2 demo; migrated from deprecated `LifecycleObserver` with `@OnLifecycleEvent` to `DefaultLifecycleObserver` in Adaptive SDK for better type safety and compile-time checking.
+- **QR Code Login**: Added passwordless login support for both cloud (3.2.2) and on-premise (3.2.3) authenticators.
+- **Token Data Preservation**: Fixed token metadata loss during registration finalization (3.2.3).
 
 ## Build and Test Commands
 
@@ -99,7 +111,7 @@ The project uses a Version Catalog (`gradle/libs.versions.toml`) for managing de
 
 ## Versioning
 
-Current Version: `3.2.0` (Code: `119`)
+Current Version: `3.2.4` (Code: `122`)
 Minimum Android SDK: 29 (Android 10.0)
 Target Android SDK: 36 (Android 16)
 
