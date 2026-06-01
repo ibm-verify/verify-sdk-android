@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.jetbrains.kotlin.jvm) apply false
-    alias(libs.plugins.jetbrains.dokka)
+//    alias(libs.plugins.jetbrains.dokka)
     java
     jacoco
     alias(libs.plugins.neotech.rootcoverage) apply true
@@ -15,8 +15,8 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.3"
-extra["versionCode"] = "121"
+extra["versionName"] = "3.2.4"
+extra["versionCode"] = "122"
 
 dependencies {
     add("implementation", enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.15.3"))
@@ -110,7 +110,7 @@ tasks.jacocoTestCoverageVerification {
 subprojects {
     apply {
         plugin("maven-publish")
-        plugin("org.jetbrains.dokka")
+//        plugin("org.jetbrains.dokka")
     }
 
     /**
