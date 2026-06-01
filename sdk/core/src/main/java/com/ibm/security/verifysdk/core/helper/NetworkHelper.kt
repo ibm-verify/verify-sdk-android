@@ -49,6 +49,60 @@ object NetworkHelper {
     var certificatePinner: CertificatePinner? = null
 
     /**
+     * Controls whether SSL certificate bypass is allowed for authenticators with self-signed certificates.
+     *
+     * ## Two-Level Security Model
+     *
+     * This flag works in conjunction with the per-authenticator `ignoreSSLCertificate` flag to provide
+     * two levels of security control:
+     *
+     * 1. **App-Level Permission** (`allowInsecureSSL`): Controls whether the application is allowed
+     *    to bypass SSL validation at all. This is a global permission that must be explicitly enabled
+     *    by the application developer.
+     *
+     * 2. **Authenticator-Level Need** (`ignoreSSLCertificate`): Indicates whether a specific
+     *    authenticator requires SSL bypass (typically from QR code `"options":"ignoreSslCerts=true"`).
+     *
+     * **Both conditions must be true** for SSL bypass to occur for a specific authenticator.
+     *
+     * ## Security Warning
+     *
+     * Enabling this in production exposes your application to man-in-the-middle attacks.
+     * Only enable this if you need to connect to OnPremise servers with self-signed certificates
+     * that you trust.
+     *
+     * ## Default Behavior
+     *
+     * - **Default**: `false` (SSL bypass disabled - secure default)
+     * - All authenticators use standard SSL certificate validation
+     * - Attempting to use an authenticator with `ignoreSSLCertificate=true` will fail
+     *
+     * ## Usage Example
+     *
+     * ```kotlin
+     * class MyApplication : Application() {
+     *     override fun onCreate() {
+     *         super.onCreate()
+     *
+     *         // Enable SSL bypass capability for OnPrem authenticators
+     *         NetworkHelper.allowInsecureSSL = true
+     *     }
+     * }
+     * ```
+     *
+     * ## When to Enable
+     *
+     * Enable this flag only when:
+     * - You need to connect to OnPremise IBM Verify Access servers
+     * - Those servers use self-signed certificates
+     * - You trust those servers and their network environment
+     * - You understand the security implications
+     *
+     * @see createInsecureClient
+     */
+    var allowInsecureSSL: Boolean = false
+
+    /**
      * Optional Certificate Transparency (CT) interceptor for this SDK's HTTP client.
      *
      * When set, the provided interceptor enforces Certificate Transparency checks for
@@ -222,6 +276,81 @@ object NetworkHelper {
             hostnameVerifier?.let { hostnameVerifier(it) }
             customDnsResolver?.let { dns(it) }
         }.build()
+    }
+
+    /**
+     * Creates an HttpClient with SSL certificate validation disabled.
+     *
+     * ## Two-Level Security Check
+     *
+     * This method enforces the two-level security model:
+     * 1. Checks [allowInsecureSSL] flag (app-level permission)
+     * 2. Should only be called for authenticators with `ignoreSSLCertificate=true` (authenticator-level need)
+     *
+     * ## Security Warning
+     *
+     * **WARNING**: This creates an HTTP client that accepts ALL SSL certificates, including:
+     * - Self-signed certificates
+     * - Expired certificates
+     * - Certificates with mismatched hostnames
+     * - Certificates from untrusted Certificate Authorities
+     *
+     * This exposes your application to man-in-the-middle attacks. Only use this when:
+     * - Connecting to trusted OnPremise IBM Verify Access servers
+     * - Those servers use self-signed certificates
+     * - You control or trust the network environment
+     *
+     * ## Usage
+     *
+     * This method is called internally by the SDK when an authenticator with `ignoreSSLCertificate=true`
+     * is used. Application developers should not call this method directly.
+     *
+     * ```kotlin
+     * // Internal SDK usage (in MFAServiceController or OnPremiseRegistrationProvider)
+     * val clientToUse = if (authenticator.ignoreSSLCertificate) {
+     *     NetworkHelper.createInsecureClient()  // Only if allowInsecureSSL=true
+     * } else {
+     *     httpClient  // Use secure client
+     * }
+     * ```
+     *
+     * @return HttpClient configured to accept all SSL certificates
+     * @throws IllegalStateException if [allowInsecureSSL] is false
+     *
+     * @see allowInsecureSSL
+     * @see insecureTrustManager
+     */
+    fun createInsecureClient(): HttpClient {
+        if (!allowInsecureSSL) {
+            throw IllegalStateException(
+                "SSL bypass is disabled. To enable SSL bypass for self-signed certificates, " +
+                "set NetworkHelper.allowInsecureSSL = true in your application initialization. " +
+                "WARNING: This should only be used with trusted OnPremise servers. " +
+                "See NetworkHelper.allowInsecureSSL documentation for details."
+            )
+        }
+
+        val trustManager = insecureTrustManager()
+        val sslContext = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf(trustManager), java.security.SecureRandom())
+        }
+
+        val insecureOkHttpClient = OkHttpClient.Builder().apply {
+            readTimeout(readTimeOutMillis, TimeUnit.MILLISECONDS)
+            sslSocketFactory(sslContext.socketFactory, trustManager)
+            hostnameVerifier { _, _ -> true } // Accept all hostnames
+            followRedirects(followRedirects)
+            followSslRedirects(followSslRedirects)
+            customInterceptor?.let { addInterceptor(it) }
+            customLoggingInterceptor?.let { addInterceptor(it) }
+        }.build()
+
+        return HttpClient(OkHttp) {
+            engine {
+                preconfigured = insecureOkHttpClient
+            }
+            configureClient()
+        }
     }
 
     fun insecureTrustManager(): X509TrustManager {
