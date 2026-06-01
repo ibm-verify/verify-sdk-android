@@ -48,9 +48,15 @@ import org.slf4j.LoggerFactory
  * // Create the registration controller
  * val controller = MFARegistrationController(qrScanResult)
  *
- * // Check if SSL certificate validation should be ignored
+ * // Two-Level Security Check for SSL Bypass
+ * // Level 1: Check if this authenticator needs SSL bypass (from QR code)
  * if (controller.ignoreSSLCertificate) {
  *     // Alert user about self-signed certificate
+ *     showSecurityWarning()
+ *
+ *     // Level 2: Ensure app has granted permission for SSL bypass
+ *     // This must be set in Application.onCreate() or before registration
+ *     NetworkHelper.allowInsecureSSL = true
  * }
  *
  * // Initiate the provider
@@ -99,12 +105,10 @@ class MFARegistrationController(private var data: String) {
 
         val jsonObject: JsonObject = DefaultJson.parseToJsonElement(data).jsonObject
 
-        jsonObject.let {
-            it.contains("options").let {
-                this.ignoreSSLCertificate =
-                    jsonObject["options"].toString()
-                        .filter { c -> !c.isWhitespace() } == "ignoreSslCerts=true"
-            }
+        // Parse the options field to check for ignoreSslCerts
+        if (jsonObject.contains("options")) {
+            val optionsValue = jsonObject["options"]?.toString()?.trim('"') ?: ""
+            this.ignoreSSLCertificate = optionsValue.contains("ignoreSslCerts=true")
         }
     }
 
