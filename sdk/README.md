@@ -50,6 +50,13 @@ The IBM Verify MFA SDK provides multi-factor authentication capabilities for mob
 
 **Documentation**: API docs available at [ibm-verify.github.io/android/mfa/docs](https://ibm-verify.github.io/android/mfa/docs/)
 
+**On-Premise identifier handling**:
+- [`authenticator.id`](sdk/mfa/src/main/java/com/ibm/security/verifysdk/mfa/api/OnPremiseAuthenticatorService.kt:137) is the client-side authenticator identifier and corresponds to the generated `tenant_id`.
+- `token.additionalData["authenticator_id"]` is the server-side authenticator identifier returned by the Verify Access server and typically uses a `uuid...` value.
+- These values must be kept distinct. Use the client-side `tenant_id` / [`authenticator.id`](sdk/mfa/src/main/java/com/ibm/security/verifysdk/mfa/api/OnPremiseAuthenticatorService.kt:137) for local persistence lookups and token refresh callbacks.
+- Use the server-side `authenticator_id` for server correlation scenarios such as transaction filtering, and preserve it in token additional data across registration and token refresh flows.
+- When creating [`OnPremiseAuthenticatorService`](sdk/mfa/src/main/java/com/ibm/security/verifysdk/mfa/api/OnPremiseAuthenticatorService.kt:109), pass [`authenticator.id`](sdk/mfa/src/main/java/com/ibm/security/verifysdk/mfa/api/OnPremiseAuthenticatorService.kt:137) as `_authenticatorId` and `token.additionalData["authenticator_id"]` as `_serverAuthenticatorId`.
+
 **Example**: [MFA Demo](../examples/mfa_demo/)
 
 ---

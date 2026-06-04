@@ -27,13 +27,13 @@ The project is divided into SDK modules and example applications:
 
 ## Recent Changes (Release 3.2.4)
 
-- **SSL Certificate Bypass Support**: Added two-level security model for on-premise authenticators with self-signed certificates via `NetworkHelper.allowInsecureSSL` flag and `createInsecureClient()` method.
-- **On-Premise Authenticator ID Fix**: Fixed critical issue where authenticators used server's `authenticator_id` instead of client-generated `tenant_id`, causing transaction filtering failures.
-- **Transaction Filtering Improvements**: Enhanced transaction filtering logic to correctly use server's `authenticator_id` for matching transactions.
-- **QR Code Options Parsing**: Added support for parsing `options` field from QR codes (e.g., `"options":"ignoreSslCerts=true"`).
-- **Registration Attribute Naming**: Fixed attribute names to use snake_case (`account_name`, `push_token`) for consistency with server API.
-- **Enhanced Debug Logging**: Added comprehensive debug logging for transaction filtering, authenticator ID tracking, and registration flows.
-- **Build Configuration**: Temporarily disabled Dokka documentation generation for faster development builds.
+- **Controlled SSL Bypass Support**: Added a guarded insecure-client path for on-premise authenticators with self-signed certificates through [`NetworkHelper.allowInsecureSSL`](IBMVerifyApp/v3/verify-sdk-android/sdk/core/src/main/java/com/ibm/security/verifysdk/core/helper/NetworkHelper.kt) and [`NetworkHelper.createInsecureClient()`](IBMVerifyApp/v3/verify-sdk-android/sdk/core/src/main/java/com/ibm/security/verifysdk/core/helper/NetworkHelper.kt).
+- **On-Premise Identifier Separation Fix**: Corrected the distinction between client-side `tenant_id` / authenticator identifier and server-side `authenticator_id`, preventing incorrect persistence and transaction ownership checks.
+- **Transaction Ownership Filtering Improvements**: Updated on-premise transaction filtering to match transactions using the server-side `authenticator_id` while preserving tenant-id-based local persistence semantics.
+- **QR Code Options Parsing**: Added support for parsing the QR-code `options` field so flags such as `ignoreSslCerts=true` are preserved and applied during authenticator initialization.
+- **Persistence Semantics Hardening**: Ensured registration and token refresh flows preserve required identifier data across response processing and persistence callbacks.
+- **Expanded Regression Coverage**: Added broader Cloud and On-Prem integration coverage for multi-transaction ownership, token refresh persistence, identifier separation, and SSL client selection behavior.
+- **Release Documentation Refresh**: Added a comprehensive [`3.2.4` release note](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.4.md) and updated SDK guidance for identifier handling.
 
 ### Previous Major Changes (Release 3.2.0-3.2.3)
 
@@ -112,6 +112,8 @@ The project uses a Version Catalog (`gradle/libs.versions.toml`) for managing de
 ## Versioning
 
 Current Version: `3.2.4` (Code: `122`)
+
+**Release Notes:** [`docs/releases/3.2.4.md`](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.4.md)
 Minimum Android SDK: 29 (Android 10.0)
 Target Android SDK: 36 (Android 16)
 
