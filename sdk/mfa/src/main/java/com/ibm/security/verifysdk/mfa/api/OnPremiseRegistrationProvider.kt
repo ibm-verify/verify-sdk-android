@@ -21,6 +21,7 @@ import com.ibm.security.verifysdk.mfa.MFAAttributeInfo
 import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
 import com.ibm.security.verifysdk.mfa.MFARegistrationDescriptor
 import com.ibm.security.verifysdk.mfa.MFARegistrationException
+import com.ibm.security.verifysdk.mfa.OTPAuthenticator
 import com.ibm.security.verifysdk.mfa.SignatureEnrollableFactor
 import com.ibm.security.verifysdk.mfa.UserPresenceFactorInfo
 import com.ibm.security.verifysdk.mfa.generateKeys
@@ -48,10 +49,12 @@ import io.ktor.http.headers
 import io.ktor.http.isSuccess
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
 import java.net.URL
@@ -83,6 +86,9 @@ class OnPremiseRegistrationProvider(data: String) :
 
     override val canEnrollUserPresence: Boolean
         get() = metaData.availableFactors.any { it.type == EnrollableType.USER_PRESENCE }
+
+    override val canEnrollOneTimePasscode: Boolean
+        get() = ::metaData.isInitialized && metaData.totpUri.toString().isNotEmpty()
 
     private val initializationInfo: InitializationInfo
     private var biometricFactor: BiometricFactorInfo? = null
@@ -342,6 +348,78 @@ class OnPremiseRegistrationProvider(data: String) :
             type = EnrollableType.USER_PRESENCE,
             httpClient = httpClient
         )
+    }
+
+    override suspend fun enrollOneTimePasscode(httpClient: HttpClient): OTPAuthenticator {
+        log.entering()
+        
+        require(::tokenInfo.isInitialized) { "TokenInfo must be initialized. Call initiate() first." }
+        require(::metaData.isInitialized) { "MetaData must be initialized. Call initiate() first." }
+        require(::authenticatorId.isInitialized) { "Authenticator ID must be initialized. Call initiate() first." }
+        
+        if (!canEnrollOneTimePasscode) {
+            throw MFARegistrationException.NoEnrollableFactors(EnrollableType.TOTP)
+        }
+        
+        return try {
+            // Make GET request to TOTP shared secret endpoint
+            val response = httpClient.get {
+                url(metaData.totpUri)
+                accept(ContentType.Application.Json)
+                bearerAuth(tokenInfo.accessToken)
+            }
+            
+            if (!response.status.isSuccess()) {
+                throw MFARegistrationException.General(
+                    "Failed to enroll TOTP: ${response.status.value} - ${response.bodyAsText()}"
+                )
+            }
+            
+            // Parse the JSON response
+            // Response format: {"period":"30","secretKeyUrl":"otpauth://totp/...","secretKey":"...","digits":"6","username":"...","algorithm":"HmacSHA1"}
+            val responseBody = response.bodyAsText()
+            val jsonResponse = decoder.decodeFromString<JsonObject>(responseBody)
+            
+            // Extract base URI (contains secret and issuer)
+            val baseUri = jsonResponse["secretKeyUrl"]?.jsonPrimitive?.content
+                ?: throw MFARegistrationException.FailedToParse(
+                    IllegalArgumentException("Missing 'secretKeyUrl' field in TOTP response")
+                )
+            
+            // Extract additional parameters from JSON
+            val digits = jsonResponse["digits"]?.jsonPrimitive?.content ?: "6"
+            val period = jsonResponse["period"]?.jsonPrimitive?.content ?: "30"
+            val algorithm = jsonResponse["algorithm"]?.jsonPrimitive?.content ?: "HmacSHA1"
+            
+            // Convert algorithm from HmacSHA1 format to SHA1 format for otpauth URI
+            val algorithmParam = when {
+                algorithm.startsWith("Hmac", ignoreCase = true) -> algorithm.substring(4).uppercase()
+                else -> algorithm.uppercase()
+            }
+            
+            // Construct complete TOTP URI with all parameters
+            val completeUri = if (baseUri.contains("?")) {
+                "$baseUri&digits=$digits&period=$period&algorithm=$algorithmParam"
+            } else {
+                "$baseUri?digits=$digits&period=$period&algorithm=$algorithmParam"
+            }
+            
+            // Use OTPAuthenticator.fromQRScan to parse the complete otpauth:// URI
+            val otpAuthenticator = OTPAuthenticator.fromQRScan(completeUri)
+                ?: throw MFARegistrationException.FailedToParse(
+                    IllegalArgumentException("Invalid TOTP URI format: $completeUri")
+                )
+            
+            log.exiting()
+            otpAuthenticator
+            
+        } catch (e: MFARegistrationException) {
+            log.exiting()
+            throw e
+        } catch (e: Exception) {
+            log.exiting()
+            throw MFARegistrationException.General("TOTP enrollment failed: ${e.message}", e)
+        }
     }
 
     private suspend fun performSignatureEnrollment(

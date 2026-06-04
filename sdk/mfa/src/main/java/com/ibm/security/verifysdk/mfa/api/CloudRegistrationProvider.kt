@@ -23,6 +23,7 @@ import com.ibm.security.verifysdk.mfa.MFAAttributeInfo
 import com.ibm.security.verifysdk.mfa.MFAAuthenticatorDescriptor
 import com.ibm.security.verifysdk.mfa.MFARegistrationDescriptor
 import com.ibm.security.verifysdk.mfa.MFARegistrationException
+import com.ibm.security.verifysdk.mfa.OTPAuthenticator
 import com.ibm.security.verifysdk.mfa.RegistrationInitiation
 import com.ibm.security.verifysdk.mfa.SignatureEnrollableFactor
 import com.ibm.security.verifysdk.mfa.UserPresenceFactorInfo
@@ -227,6 +228,9 @@ class CloudRegistrationProvider(data: String) :
     override val canEnrollUserPresence: Boolean
         get() = metaData.availableFactors.any { it.type == EnrollableType.USER_PRESENCE }
 
+    override val canEnrollOneTimePasscode: Boolean
+        get() = metaData.availableFactors.any { it.type == EnrollableType.TOTP }
+
     private var initializationInfo: InitializationInfo
     private var biometricFactor: BiometricFactorInfo? = null
     private var userPresenceFactor: UserPresenceFactorInfo? = null
@@ -275,6 +279,7 @@ class CloudRegistrationProvider(data: String) :
     internal suspend fun initiate(
         accountName: String,
         pushToken: String?,
+        skipTotpEnrollment: Boolean = true,
         httpClient: HttpClient = NetworkHelper.getInstance
     ): Result<CloudRegistrationProviderResultData> {
         log.entering()
@@ -283,7 +288,7 @@ class CloudRegistrationProvider(data: String) :
 
         return try {
             val registrationUrl =
-                URL("${initializationInfo.uri}?skipTotpEnrollment=true")
+                URL("${initializationInfo.uri}?skipTotpEnrollment=$skipTotpEnrollment")
 
             val response = httpClient.post {
                 url(registrationUrl.toString())
@@ -454,6 +459,46 @@ class CloudRegistrationProvider(data: String) :
             type = EnrollableType.USER_PRESENCE,
             httpClient = httpClient
         )
+    }
+
+    override suspend fun enrollOneTimePasscode(httpClient: HttpClient): OTPAuthenticator {
+        require(::tokenInfo.isInitialized) { "TokenInfo must be initialized. Call initiate() first." }
+        require(::metaData.isInitialized) { "MetaData must be initialized. Call initiate() first." }
+        
+        if (!canEnrollOneTimePasscode) {
+            throw MFARegistrationException.NoEnrollableFactors(EnrollableType.TOTP)
+        }
+        
+        // Find the TOTP factor in available factors
+        val totpFactor = metaData.availableFactors
+            .firstOrNull { it.type == EnrollableType.TOTP } as? com.ibm.security.verifysdk.mfa.model.cloud.CloudTOTPEnrollableFactor
+            ?: throw MFARegistrationException.NoEnrollableFactors(EnrollableType.TOTP)
+        
+        // Build otpauth:// URI using the existing CloudTOTPEnrollableFactor fields
+        val otpauthUri = buildString {
+            append("otpauth://totp/")
+            append(metaData.serviceName)
+            append(":")
+            append(accountName)
+            append("?secret=")
+            append(totpFactor.secret)
+            append("&issuer=")
+            append(metaData.serviceName)
+            append("&algorithm=")
+            append(totpFactor.algorithm.uppercase())
+            append("&digits=")
+            append(totpFactor.digits)
+            append("&period=")
+            append(totpFactor.period)
+        }
+        
+        // Use existing OTPAuthenticator.fromQRScan() to parse the URI
+        val otpAuthenticator = OTPAuthenticator.fromQRScan(otpauthUri)
+            ?: throw MFARegistrationException.FailedToParse(
+                IllegalArgumentException("Failed to parse TOTP URI: $otpauthUri")
+            )
+        
+        return otpAuthenticator
     }
 
     private suspend fun performSignatureEnrollment(
