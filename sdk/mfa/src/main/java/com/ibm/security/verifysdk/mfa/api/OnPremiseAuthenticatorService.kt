@@ -67,6 +67,7 @@ import kotlin.time.ExperimentalTime
  *     _transactionUri = authenticator.transactionUri,
  *     _clientId = authenticator.clientId,
  *     _authenticatorId = authenticator.id,
+ *     _serverAuthenticatorId = authenticator.token.additionalData["authenticator_id"] as? String,
  *     httpClient = NetworkHelper.getInstance,
  *     _ignoreSslCertificate = authenticator.ignoreSslCertificate,
  *     persistenceCallback = repository
@@ -85,6 +86,7 @@ import kotlin.time.ExperimentalTime
  *         _transactionUri = authenticator.transactionUri,
  *         _clientId = authenticator.clientId,
  *         _authenticatorId = authenticator.id,
+ *         _serverAuthenticatorId = newToken.additionalData["authenticator_id"] as? String,
  *         httpClient = NetworkHelper.getInstance,
  *         _ignoreSslCertificate = authenticator.ignoreSslCertificate,
  *         persistenceCallback = repository
@@ -97,7 +99,8 @@ import kotlin.time.ExperimentalTime
  * @property _refreshUri The endpoint URL for token refresh operations
  * @property _transactionUri The endpoint URL for transaction operations
  * @property _clientId The OAuth client ID
- * @property _authenticatorId The unique identifier for this authenticator
+ * @property _authenticatorId The unique identifier for this authenticator (tenant_id)
+ * @property _serverAuthenticatorId The server's authenticator ID for transaction filtering (optional)
  * @property httpClient The HTTP client for making network requests
  * @property _ignoreSslCertificate Whether to ignore SSL certificate validation
  * @property persistenceCallback Optional callback for automatic token persistence
@@ -109,6 +112,7 @@ class OnPremiseAuthenticatorService(
     private val _transactionUri: URL,
     private val _clientId: String,
     private val _authenticatorId: String,
+    private val _serverAuthenticatorId: String? = null,
     internal val httpClient: HttpClient,
     private val _ignoreSslCertificate: Boolean = false,
     private val persistenceCallback: com.ibm.security.verifysdk.mfa.TokenPersistenceCallback? = null
@@ -169,10 +173,10 @@ class OnPremiseAuthenticatorService(
             val attributes =
                 MFAAttributeInfo.dictionary(snakeCaseKey = true).toMutableMap()
             accountName?.let {
-                attributes["accountName"] = it
+                attributes["account_name"] = it
             }
             pushToken?.let {
-                attributes["pushToken"] = it
+                attributes["push_token"] = it
             }
             attributes["tenant_id"] = authenticatorId
             additionalData?.let {
@@ -185,9 +189,8 @@ class OnPremiseAuthenticatorService(
                     .mapValues { entry -> entry.value.toString() }
                     .toMutableMap()
             )
-            if (ignoreSslCertificate) {
-                // disable SSL validations for network client
-            }
+            // Note: SSL certificate bypass is handled at the HTTP client level
+            // The httpClient passed to this service is already configured for SSL bypass if needed
 
             val responseToken = oAuthProvider.refresh(
                 url = refreshUri,
@@ -213,7 +216,7 @@ class OnPremiseAuthenticatorService(
                                 )
                             )
                         }
-                        log.debug("Token persisted successfully for authenticator $_authenticatorId")
+                        log.error("Token persisted successfully for authenticator $_authenticatorId")
                     }
                 }
             }
@@ -230,32 +233,65 @@ class OnPremiseAuthenticatorService(
 
         return try {
             log.entering()
+            log.error("nextTransaction called with transactionID: $transactionID")
+            log.error("nextTransaction - _authenticatorId: $_authenticatorId")
+            log.error("nextTransaction - _serverAuthenticatorId: $_serverAuthenticatorId")
+            log.error("nextTransaction - transactionUri: $transactionUri")
+            log.error("nextTransaction - accessToken length: ${accessToken.length}")
+
             val response = httpClient.get {
                 url(transactionUri.toString())
                 accept(ContentType.Application.Json)
                 bearerAuth(accessToken)
             }
 
+            log.error("nextTransaction - HTTP response status: ${response.status}")
+            log.error("nextTransaction - HTTP response body length: ${response.bodyAsText().length}")
+
             if (response.status.isSuccess()) {
+                val responseBody = response.bodyAsText()
+                log.error("nextTransaction - Response body: $responseBody")
+
                 val transactionResult = decoder.decodeFromString(
                     TransactionResult.TransactionResultSerializer,
-                    response.bodyAsText()
+                    responseBody
                 )
+
+                log.error("nextTransaction - Decoded transactions count: ${transactionResult.transactions.size}")
+                transactionResult.transactions.forEachIndexed { index, txn ->
+                    log.error("nextTransaction - Transaction[$index] transactionId: ${txn.transactionId}")
+                    log.error("nextTransaction - Transaction[$index] creationTime: ${txn.creationTime}")
+                    log.error("nextTransaction - Transaction[$index] requestUrl: ${txn.requestUrl}")
+                    log.error("nextTransaction - Transaction[$index] authnPolicyUri: ${txn.authnPolicyUri}")
+                }
+
                 if (transactionResult.transactions.isEmpty()) {
+                    log.error("nextTransaction - No transactions from server, returning empty list")
                     Result.success(NextTransactionInfo(emptyList(), 0))
                 } else {
+                    log.error("nextTransaction - Calling createPendingTransactions with transactionID: $transactionID")
                     val transactions = createPendingTransactions(transactionResult, transactionID)
-                    Result.success(
+                    log.error("nextTransaction - createPendingTransactions returned ${transactions.size} transactions")
+                    transactions.forEachIndexed { index, pending ->
+                        log.error("nextTransaction - PendingTransaction[$index] id: ${pending.id}")
+                        log.error("nextTransaction - PendingTransaction[$index] message: ${pending.message}")
+                    }
+
+                    val result = Result.success(
                         NextTransactionInfo(
                             transactions,
                             transactionResult.transactions.count()
                         )
                     )
+                    log.error("nextTransaction - Returning success with ${transactions.size} pending, ${transactionResult.transactions.count()} total")
+                    result
                 }
             } else {
+                log.error("nextTransaction - HTTP request failed with status: ${response.status}")
                 Result.failure(MFAServiceException.InvalidDataResponse())
             }
         } catch (e: Throwable) {
+            log.error("nextTransaction - Exception caught: ${e.message}", e)
             Result.failure(e)
         } finally {
             log.exiting()
@@ -289,7 +325,7 @@ class OnPremiseAuthenticatorService(
                 // Add denyReason if denyReasonEnabled flag is set to "true"
                 val denyReasonEnabled = transaction.additionalData[TransactionAttribute.DenyReason]
                 if (denyReasonEnabled == "true") {
-                    put("denyReason", JsonPrimitive(userAction.toString()))
+                    put("userAction", JsonPrimitive(userAction.value))
                 }
             }
 
@@ -309,7 +345,7 @@ class OnPremiseAuthenticatorService(
                     )
                 )
             }
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (e: CancellationException) {
             // Don't wrap cancellation exceptions
             throw e
         } catch (e: Exception) {
@@ -321,6 +357,7 @@ class OnPremiseAuthenticatorService(
             )
         }
     }
+
     /**
      * Performs QR code login for OnPremise authenticators.
      *
@@ -362,12 +399,12 @@ class OnPremiseAuthenticatorService(
         return try {
             log.entering()
             logInfo(TAG) { "Starting QR code login for authenticator $authenticatorId" }
-            
+
             // Build JSON payload with the lsi code (same as v2 implementation)
             val jsonBody = buildJsonObject {
                 put("lsi", JsonPrimitive(code))
             }
-            
+
             // Make POST request to login endpoint
             val response = httpClient.post {
                 url(qrLoginEndpoint)
@@ -376,7 +413,7 @@ class OnPremiseAuthenticatorService(
                 accept(ContentType.Application.Json)
                 setBody(TextContent(jsonBody.toString(), ContentType.Application.Json))
             }
-            
+
             // Handle response
             if (response.status.isSuccess()) {
                 logInfo(TAG) { "QR code login successful for authenticator $authenticatorId" }
@@ -384,7 +421,7 @@ class OnPremiseAuthenticatorService(
             } else {
                 val errorBody = response.bodyAsText()
                 logError(TAG) { "QR code login failed for authenticator $authenticatorId: ${response.status} - $errorBody" }
-                
+
                 // Parse error response if available
                 val errorMessage = try {
                     val json = Json { ignoreUnknownKeys = true }
@@ -395,7 +432,7 @@ class OnPremiseAuthenticatorService(
                 } catch (e: Exception) {
                     "Login failed with status ${response.status.value}"
                 }
-                
+
                 Result.failure(
                     MFAServiceException.General(errorMessage)
                 )
@@ -466,49 +503,107 @@ class OnPremiseAuthenticatorService(
         transactionResult: TransactionResult,
         transactionId: String? = null
     ): List<PendingTransactionInfo> {
+        log.error("=== createPendingTransactions START ===")
+        log.error("Requested specific transaction: ${transactionId ?: "ALL"}")
+        log.error("Client authenticator ID (_authenticatorId): $_authenticatorId")
+        log.error("Server authenticator ID (_serverAuthenticatorId): $_serverAuthenticatorId")
+
+        // Use server's authenticator_id for filtering transactions
+        // If not available, return empty list as transactions won't match tenant_id
+        val filterAuthenticatorId = _serverAuthenticatorId
+
+        if (filterAuthenticatorId == null) {
+            log.error("❌ No server authenticator_id available for filtering transactions")
+            log.error("=== createPendingTransactions END: 0 transactions ===")
+            return emptyList()
+        }
+
+        log.error("Using filter authenticator ID: $filterAuthenticatorId")
+
+        // Log all authenticator IDs in the transaction result
+        val allAuthenticatorIds = transactionResult.attributes
+            .filter { it.uri == "mmfa:request:authenticator:id" }
+        log.error("Found ${allAuthenticatorIds.size} authenticator ID attributes in transaction result:")
+        allAuthenticatorIds.forEach { attr ->
+            log.error("  - Transaction ${attr.transactionId}: ${attr.values.joinToString(", ")}")
+        }
+
         // Get identifiers for this authenticator
         val identifiers = transactionResult.attributes.filter {
-            it.uri == "mmfa:request:authenticator:id" && it.values.contains(authenticatorId)
+            it.uri == "mmfa:request:authenticator:id" && it.values.contains(filterAuthenticatorId)
+        }
+
+        log.error("Matched ${identifiers.size} identifier(s) for authenticator $filterAuthenticatorId")
+        identifiers.forEach { id ->
+            log.error("  - Matched transaction: ${id.transactionId}")
         }
 
         // Get all transaction IDs for this authenticator
         val transactionIds = if (transactionId != null) {
+            log.error("Specific transaction requested: $transactionId")
             // If specific transaction requested, validate it belongs to this authenticator first
             val belongsToThisAuthenticator = transactionResult.attributes.any {
                 it.transactionId == transactionId &&
-                it.uri == "mmfa:request:authenticator:id" &&
-                it.values.contains(authenticatorId)
+                        it.uri == "mmfa:request:authenticator:id" &&
+                        it.values.contains(filterAuthenticatorId)
             }
             if (belongsToThisAuthenticator) {
+                log.error("✓ Transaction $transactionId belongs to this authenticator")
                 listOf(transactionId)
             } else {
-                log.debug("Transaction $transactionId does not belong to authenticator $authenticatorId")
+                log.error("❌ Transaction $transactionId does not belong to authenticator $filterAuthenticatorId")
                 emptyList()
             }
         } else if (identifiers.isNotEmpty()) {
             // Get all transactions for this authenticator
-            identifiers.map { it.transactionId }
+            val ids = identifiers.map { it.transactionId }
+            log.error(
+                "✓ Found ${ids.size} transaction(s) for this authenticator: ${
+                    ids.joinToString(
+                        ", "
+                    )
+                }"
+            )
+            ids
         } else {
             // No transactions for this authenticator - return empty list
             // This prevents attempting to process transactions that belong to other authenticators
-            log.debug("No transactions found for authenticator $authenticatorId")
+            log.error("❌ No transactions found for authenticator $filterAuthenticatorId")
             emptyList()
         }
 
-        val now = Clock.System.now()
+        log.error("Processing ${transactionIds.size} transaction ID(s)")
 
-        return transactionIds.mapNotNull { txnId ->
+        val now = Clock.System.now()
+        log.error("Current time: $now")
+
+        val pendingTransactions = transactionIds.mapNotNull { txnId ->
+            log.error("Creating pending transaction for ID: $txnId")
             val result = createPendingTransaction(transactionResult, txnId)
-            result.getOrNull()?.let { transaction ->
-                // Filter out expired transactions
-                transaction.expiryTime?.let { expiry ->
-                    if (now > expiry) {
-                        return@mapNotNull null
-                    }
+            result.fold(
+                onSuccess = { transaction ->
+                    log.error("✓ Successfully created transaction object for $txnId")
+                    // Filter out expired transactions
+                    transaction.expiryTime?.let { expiry ->
+                        log.error("  Transaction expiry: $expiry")
+                        if (now > expiry) {
+                            log.error("  ❌ Transaction $txnId is EXPIRED (now: $now > expiry: $expiry)")
+                            return@mapNotNull null
+                        } else {
+                            log.error("  ✓ Transaction $txnId is NOT expired")
+                        }
+                    } ?: log.error("  ℹ Transaction $txnId has no expiry time")
+                    transaction
+                },
+                onFailure = { error ->
+                    log.error("❌ Failed to create transaction object for $txnId: ${error.message}")
+                    null
                 }
-                transaction
-            }
+            )
         }
+
+        log.error("=== createPendingTransactions END: ${pendingTransactions.size} transaction(s) ===")
+        return pendingTransactions
     }
 
     private suspend fun createPendingTransaction(
@@ -539,15 +634,15 @@ class OnPremiseAuthenticatorService(
                 // This prevents one authenticator from attempting to complete another's transaction
                 val authenticatorIdAttribute = transactionResult.attributes.firstOrNull {
                     it.transactionId == transactionInfoResult.transactionId &&
-                    it.uri == "mmfa:request:authenticator:id"
+                            it.uri == "mmfa:request:authenticator:id"
                 }
 
                 if (authenticatorIdAttribute != null) {
-                    if (!authenticatorIdAttribute.values.contains(authenticatorId)) {
-                        log.debug("Transaction $transactionId does not belong to authenticator $authenticatorId")
+                    if (!authenticatorIdAttribute.values.contains(_serverAuthenticatorId)) {
+                        log.error("Transaction $transactionId does not belong to authenticator $_serverAuthenticatorId")
                         return Result.failure(
                             MFAServiceException.General(
-                                "Transaction $transactionId does not belong to authenticator $authenticatorId"
+                                "Transaction $transactionId does not belong to authenticator $_serverAuthenticatorId"
                             )
                         )
                     }

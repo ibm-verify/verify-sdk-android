@@ -1,6 +1,6 @@
 # IBM Verify SDK - MFA Module
 
-**Version:** 3.2.0
+**Version:** 3.2.4
 **Package:** `com.ibm.security.verifysdk.mfa`
 
 ## Overview
@@ -13,8 +13,14 @@ The MFA (Multi-Factor Authentication) module provides comprehensive support for 
 - **Biometric Authentication** - Unified biometric factor (fingerprint/face)
 - **User Presence** - Device-based authentication factors
 
-## Recent Improvements (v3.2.0)
+## Recent Improvements (v3.2.4)
 
+- **SSL Certificate Bypass**: Support for on-premise authenticators with self-signed certificates
+- **Authenticator ID Fix**: Corrected on-premise authenticator ID handling (tenant_id vs authenticator_id)
+- **Transaction Filtering**: Enhanced filtering logic using server's authenticator_id
+- **QR Code Options**: Support for parsing options field from QR codes
+- **Registration Attributes**: Fixed attribute naming to use snake_case (account_name, push_token)
+- **Enhanced Logging**: Comprehensive debug logging for transaction processing
 - **Performance Optimizations**: Lazy logging reduces memory allocations in production builds
 - **JSON Standardization**: Type-safe parsing with `kotlinx.serialization`
 - **Improved Test Coverage**: Comprehensive test cases for TokenPersistenceCallback and TransactionData
@@ -55,7 +61,27 @@ val service = OnPremiseAuthenticatorService(
     _transactionUri = authenticator.transactionUri,
     _authenticatorId = authenticator.id,
     _clientId = authenticator.clientId,
-    _ignoreSslCertificate = false,
+    _ignoreSslCertificate = authenticator.ignoreSSLCertificate,
+    httpClient = NetworkHelper.getInstance,
+    persistenceCallback = repository
+)
+```
+
+**SSL Certificate Bypass:**
+For on-premise servers with self-signed certificates, enable SSL bypass:
+
+```kotlin
+// In Application.onCreate()
+NetworkHelper.allowInsecureSSL = true
+
+// Service will automatically use insecure client when needed
+val service = OnPremiseAuthenticatorService(
+    _accessToken = authenticator.token.accessToken,
+    _refreshUri = authenticator.refreshUri,
+    _transactionUri = authenticator.transactionUri,
+    _authenticatorId = authenticator.id,
+    _clientId = authenticator.clientId,
+    _ignoreSslCertificate = true,  // From QR code options
     httpClient = NetworkHelper.getInstance,
     persistenceCallback = repository
 )
@@ -339,6 +365,7 @@ fun `token refresh persists before returning success`() = runBlocking {
 
 ## Documentation
 
+- **Release Notes:** `/docs/releases/3.2.4.md`
 - **SDK Usage Guide:** `/docs/SDK-USAGE-GUIDE.md`
 - **Token Persistence Fix:** `/docs/token-persistence-critical-fix.md`
 - **Service Design Analysis:** `/docs/stateless-vs-stateful-service-analysis.md`
@@ -369,9 +396,14 @@ fun `token refresh persists before returning success`() = runBlocking {
 - **Documentation:** See `/docs` directory
 - **Examples:** See `/examples/mfa_demo` for complete implementation
 
+## Known Issues
+
+### Debug Logging
+Debug logs currently use `log.error()` for visibility during development. These will be changed to `log.debug()` in a future release.
+
 ---
 
-**Module Version:** 3.2.0
-**Last Updated:** 2026-04-08
+**Module Version:** 3.2.4
+**Last Updated:** 2026-06-01
 **Minimum Android SDK:** 29
 **Target Android SDK:** 36

@@ -48,9 +48,15 @@ import org.slf4j.LoggerFactory
  * // Create the registration controller
  * val controller = MFARegistrationController(qrScanResult)
  *
- * // Check if SSL certificate validation should be ignored
+ * // Two-Level Security Check for SSL Bypass
+ * // Level 1: Check if this authenticator needs SSL bypass (from QR code)
  * if (controller.ignoreSSLCertificate) {
  *     // Alert user about self-signed certificate
+ *     showSecurityWarning()
+ *
+ *     // Level 2: Ensure app has granted permission for SSL bypass
+ *     // This must be set in Application.onCreate() or before registration
+ *     NetworkHelper.allowInsecureSSL = true
  * }
  *
  * // Initiate the provider
@@ -99,12 +105,10 @@ class MFARegistrationController(private var data: String) {
 
         val jsonObject: JsonObject = DefaultJson.parseToJsonElement(data).jsonObject
 
-        jsonObject.let {
-            it.contains("options").let {
-                this.ignoreSSLCertificate =
-                    jsonObject["options"].toString()
-                        .filter { c -> !c.isWhitespace() } == "ignoreSslCerts=true"
-            }
+        // Parse the options field to check for ignoreSslCerts
+        if (jsonObject.contains("options")) {
+            val optionsValue = jsonObject["options"]?.toString()?.trim('"') ?: ""
+            this.ignoreSSLCertificate = optionsValue.contains("ignoreSslCerts=true")
         }
     }
 
@@ -144,6 +148,10 @@ class MFARegistrationController(private var data: String) {
      * @param pushToken A token that identifies the device for push notifications. This is typically obtained
      *                  from Firebase Cloud Messaging (FCM). Pass an empty string if push notifications are
      *                  not required. Default is an empty string.
+     * @param skipTotpEnrollment For Cloud authenticators: whether to skip TOTP enrollment. When false, the
+     *                           server will return TOTP configuration if available. Note: Users can only have
+     *                           one TOTP enrollment, so the server may not return TOTP data even when this is
+     *                           false. This parameter is ignored for OnPremise authenticators. Default is true.
      * @param additionalHeaders (Optional) A map of additional HTTP headers to be included in the registration
      *                         request. This is primarily used for on-premise registrations. Default is `null`.
      *
@@ -160,12 +168,13 @@ class MFARegistrationController(private var data: String) {
     suspend fun initiate(
         accountName: String,
         pushToken: String? = "",
+        skipTotpEnrollment: Boolean = true,
         additionalHeaders: HashMap<String, String>? = null
     ): Result<MFARegistrationDescriptor<MFAAuthenticatorDescriptor>> {
 
         try {
             CloudRegistrationProvider(data).let { cloudRegistrationProvider ->
-                cloudRegistrationProvider.initiate(accountName, pushToken)
+                cloudRegistrationProvider.initiate(accountName, pushToken, skipTotpEnrollment)
                     .let { resultInitiate ->
                         resultInitiate.onSuccess {
                             return Result.success(cloudRegistrationProvider)

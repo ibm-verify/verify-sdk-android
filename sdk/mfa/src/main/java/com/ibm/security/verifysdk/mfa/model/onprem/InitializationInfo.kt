@@ -7,6 +7,7 @@ package com.ibm.security.verifysdk.mfa.model.onprem
 import com.ibm.security.verifysdk.core.serializer.URLSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.UseSerializers
 import java.net.URL
 
@@ -15,7 +16,10 @@ internal data class InitializationInfo(
     @SerialName("details_url")
     val uri: URL,
     val code: String,
-    val ignoreSSLCertificate: Boolean = false,
     @SerialName("client_id")
-    val clientId: String
-)
+    val clientId: String,
+    val options: String? = null
+) {
+    @Transient
+    val ignoreSSLCertificate: Boolean = options?.contains("ignoreSslCerts=true") == true
+}

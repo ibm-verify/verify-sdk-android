@@ -25,7 +25,17 @@ The project is divided into SDK modules and example applications:
 - **`:examples:dpop_demo`**: Demonstrates Demonstrating Proof-of-Possession (DPoP) at the Application Layer.
 - **`:examples:fido2_demo`**: Showcases FIDO2 registration and authentication.
 
-## Recent Changes (Release 3.2.0)
+## Recent Changes (Release 3.2.4)
+
+- **Controlled SSL Bypass Support**: Added a guarded insecure-client path for on-premise authenticators with self-signed certificates through [`NetworkHelper.allowInsecureSSL`](IBMVerifyApp/v3/verify-sdk-android/sdk/core/src/main/java/com/ibm/security/verifysdk/core/helper/NetworkHelper.kt) and [`NetworkHelper.createInsecureClient()`](IBMVerifyApp/v3/verify-sdk-android/sdk/core/src/main/java/com/ibm/security/verifysdk/core/helper/NetworkHelper.kt).
+- **On-Premise Identifier Separation Fix**: Corrected the distinction between client-side `tenant_id` / authenticator identifier and server-side `authenticator_id`, preventing incorrect persistence and transaction ownership checks.
+- **Transaction Ownership Filtering Improvements**: Updated on-premise transaction filtering to match transactions using the server-side `authenticator_id` while preserving tenant-id-based local persistence semantics.
+- **QR Code Options Parsing**: Added support for parsing the QR-code `options` field so flags such as `ignoreSslCerts=true` are preserved and applied during authenticator initialization.
+- **Persistence Semantics Hardening**: Ensured registration and token refresh flows preserve required identifier data across response processing and persistence callbacks.
+- **Expanded Regression Coverage**: Added broader Cloud and On-Prem integration coverage for multi-transaction ownership, token refresh persistence, identifier separation, and SSL client selection behavior.
+- **Release Documentation Refresh**: Added a comprehensive [`3.2.4` release note](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.4.md) and updated SDK guidance for identifier handling.
+
+### Previous Major Changes (Release 3.2.0-3.2.3)
 
 - **Exception-Based Error Handling**: Replaced error classes with exceptions (`MFARegistrationException`, `MFAServiceException`) for better error chaining.
 - **Biometric Factor Consolidation**: Unified face and fingerprint factors into a single `FactorType.Biometric`.
@@ -41,6 +51,8 @@ The project is divided into SDK modules and example applications:
 - **Test Utils Module Removal**: Eliminated the `:sdk:test_utils` module by moving test utilities to module-specific test sources for better encapsulation.
 - **Integration Test Suite**: Added `CloudAuthenticatorIntegrationTest` based on real network traces to validate complete MFA flows.
 - **Deprecation Fixes**: Replaced deprecated Ktor Base64 utilities with Kotlin stdlib `Base64.Default.decode()` in FIDO2 demo; migrated from deprecated `LifecycleObserver` with `@OnLifecycleEvent` to `DefaultLifecycleObserver` in Adaptive SDK for better type safety and compile-time checking.
+- **QR Code Login**: Added passwordless login support for both cloud (3.2.2) and on-premise (3.2.3) authenticators.
+- **Token Data Preservation**: Fixed token metadata loss during registration finalization (3.2.3).
 
 ## Build and Test Commands
 
@@ -99,7 +111,9 @@ The project uses a Version Catalog (`gradle/libs.versions.toml`) for managing de
 
 ## Versioning
 
-Current Version: `3.2.0` (Code: `119`)
+Current Version: `3.2.4` (Code: `122`)
+
+**Release Notes:** [`docs/releases/3.2.4.md`](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.4.md)
 Minimum Android SDK: 29 (Android 10.0)
 Target Android SDK: 36 (Android 16)
 

@@ -132,16 +132,32 @@ class MFAServiceController(private val authenticator: MFAAuthenticatorDescriptor
     ): MFAServiceDescriptor {
 
         when (authenticator) {
-            is OnPremiseAuthenticator -> return OnPremiseAuthenticatorService(
-                _accessToken = authenticator.token.accessToken,
-                _refreshUri = authenticator.refreshUri,
-                _transactionUri = authenticator.transactionUri,
-                _clientId = authenticator.clientId,
-                _authenticatorId = authenticator.id,
-                httpClient = httpClient,
-                _ignoreSslCertificate = authenticator.ignoreSSLCertificate,
-                persistenceCallback = persistenceCallback
-            )
+            is OnPremiseAuthenticator -> {
+                // Create appropriate HTTP client based on SSL certificate flag
+                // This implements the two-level security model:
+                // 1. authenticator.ignoreSSLCertificate (from QR code) indicates need
+                // 2. NetworkHelper.allowInsecureSSL (app-level) grants permission
+                val clientToUse = if (authenticator.ignoreSSLCertificate) {
+                    // Use insecure client for this authenticator
+                    // Will throw exception if NetworkHelper.allowInsecureSSL is false
+                    NetworkHelper.createInsecureClient()
+                } else {
+                    // Use provided client (default secure client or custom)
+                    httpClient
+                }
+                
+                return OnPremiseAuthenticatorService(
+                    _accessToken = authenticator.token.accessToken,
+                    _refreshUri = authenticator.refreshUri,
+                    _transactionUri = authenticator.transactionUri,
+                    _clientId = authenticator.clientId,
+                    _authenticatorId = authenticator.id,
+                    _serverAuthenticatorId = authenticator.token.additionalData["authenticator_id"] as? String,
+                    httpClient = clientToUse,
+                    _ignoreSslCertificate = authenticator.ignoreSSLCertificate,
+                    persistenceCallback = persistenceCallback
+                )
+            }
 
             is CloudAuthenticator -> return CloudAuthenticatorService(
                 _accessToken = authenticator.token.accessToken,

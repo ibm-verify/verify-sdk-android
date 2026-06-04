@@ -255,6 +255,7 @@ class MFARegistrationExceptionTest {
             ),
             MFARegistrationException.InvalidPendingEnrollment(),
             MFARegistrationException.BiometricAuthenticationCancelled(0, "test"),
+            MFARegistrationException.BiometricAuthenticationFailedRetryable(),
             MFARegistrationException.General("test")
         )
 
@@ -274,6 +275,7 @@ class MFARegistrationExceptionTest {
                 is MFARegistrationException.BiometricAuthenticationRequired -> assertTrue(true)
                 is MFARegistrationException.InvalidPendingEnrollment -> assertTrue(true)
                 is MFARegistrationException.BiometricAuthenticationCancelled -> assertTrue(true)
+                is MFARegistrationException.BiometricAuthenticationFailedRetryable -> assertTrue(true)
                 is MFARegistrationException.General -> assertTrue(true)
                 // No else branch on purpose
             }

@@ -28,6 +28,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 
 /**
  * Instrumented tests for OnPremiseRegistrationProvider based on network traces.
@@ -140,7 +141,7 @@ class OnPremiseRegistrationProviderTest {
                           "access_token": "test_access_token_001",
                           "refresh_token": "test_refresh_token_001",
                           "scope": "mmfaAuthn",
-                          "authenticator_id": "test-authenticator-id-001",
+                          "authenticator_id": "uuidtest-authenticator-id-001",
                           "ISV_push_enabled": "true",
                           "token_type": "bearer",
                           "display_name": "testuser@example.com",
@@ -148,9 +149,13 @@ class OnPremiseRegistrationProviderTest {
                         }
                         """.trimIndent(),
                         status = HttpStatusCode.OK,
-                        headers = headersOf(HttpHeaders.ContentType, "application/json;charset=UTF-8")
+                        headers = headersOf(
+                            HttpHeaders.ContentType,
+                            "application/json;charset=UTF-8"
+                        )
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -177,6 +182,10 @@ class OnPremiseRegistrationProviderTest {
             assertNotNull("Token info should not be null", data.tokenInfo)
             assertEquals("test_access_token_001", data.tokenInfo.accessToken)
             assertEquals("test_refresh_token_001", data.tokenInfo.refreshToken)
+            assertEquals(
+                "uuidtest-authenticator-id-001",
+                data.tokenInfo.additionalData["authenticator_id"]
+            )
             assertEquals("Test Service", data.metadata.serviceName)
         }
 
@@ -223,6 +232,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 request.url.encodedPath.contains("/oauth20/token") -> {
                     respond(
                         content = """
@@ -237,6 +247,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -304,6 +315,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 request.url.encodedPath.contains("/oauth20/token") -> {
                     respond(
                         content = """
@@ -318,6 +330,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -388,6 +401,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 request.url.encodedPath.contains("/oauth20/token") -> {
                     respond(
                         content = """
@@ -395,7 +409,7 @@ class OnPremiseRegistrationProviderTest {
                           "access_token": "test_access_token_final",
                           "refresh_token": "test_refresh_token_final",
                           "scope": "mmfaAuthn",
-                          "authenticator_id": "test-authenticator-id-001",
+                          "authenticator_id": "uuidtest-authenticator-id-001",
                           "ISV_push_enabled": "true",
                           "token_type": "bearer",
                           "display_name": "testuser@example.com",
@@ -403,9 +417,13 @@ class OnPremiseRegistrationProviderTest {
                         }
                         """.trimIndent(),
                         status = HttpStatusCode.OK,
-                        headers = headersOf(HttpHeaders.ContentType, "application/json;charset=UTF-8")
+                        headers = headersOf(
+                            HttpHeaders.ContentType,
+                            "application/json;charset=UTF-8"
+                        )
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -420,7 +438,7 @@ class OnPremiseRegistrationProviderTest {
         }
 
         val provider = OnPremiseRegistrationProvider(qrCodeJson)
-        
+
         // Initialize first
         val initResult = provider.initiate(
             accountName = "testuser@example.com",
@@ -437,7 +455,20 @@ class OnPremiseRegistrationProviderTest {
         assertTrue("Finalize should succeed", result.isSuccess)
         result.onSuccess { authenticator ->
             assertNotNull("Authenticator should not be null", authenticator)
-            assertEquals("test-authenticator-id-001", authenticator.id)
+            assertNotEquals(
+                "uuidtest-authenticator-id-001",
+                authenticator.id,
+                "Authenticator id should be client-side tenant_id, not server authenticator_id"
+            )
+            assertTrue(
+                "Authenticator id should be a client-generated tenant_id without uuid prefix",
+                !authenticator.id.startsWith("uuid")
+            )
+            assertEquals(
+                "Server authenticator_id should remain in token additionalData",
+                "uuidtest-authenticator-id-001",
+                authenticator.token.additionalData["authenticator_id"]
+            )
             assertEquals("Test Service", authenticator.serviceName)
             assertEquals("testuser@example.com", authenticator.accountName)
             assertEquals("test_access_token_final", authenticator.token.accessToken)
@@ -446,6 +477,230 @@ class OnPremiseRegistrationProviderTest {
 
         httpClient.close()
     }
+
+    @Test
+    fun testFinalize_FailsWhenClientAuthenticatorIdMatchesServerAuthenticatorId() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "ignoreSSLCertificate": false
+        }
+        """.trimIndent()
+
+        val serverAuthenticatorId = "uuidserver-authenticator-id-001"
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {"service_name": "Test Service"},
+                          "discovery_mechanisms": [
+                            "urn:ibm:security:authentication:asf:mechanism:mobile_user_approval:user_presence"
+                          ],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "test_access_token_final",
+                          "refresh_token": "test_refresh_token_final",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "$serverAuthenticatorId",
+                          "ISV_push_enabled": "true",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(
+                            HttpHeaders.ContentType,
+                            "application/json;charset=UTF-8"
+                        )
+                    )
+                }
+
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        val initResult = provider.initiate(
+            accountName = "testuser@example.com",
+            pushToken = "test_push_token",
+            additionalHeaders = null,
+            httpClient = httpClient
+        )
+
+        assertTrue("Initiate should succeed", initResult.isSuccess)
+
+        val result = provider.finalize(httpClient)
+
+        assertTrue("Finalize should succeed", result.isSuccess)
+        result.onSuccess { authenticator ->
+            assertFalse(
+                "Regression guard: authenticator.id must not equal server-side authenticator_id",
+                authenticator.id == authenticator.token.additionalData["authenticator_id"]
+            )
+            assertNotEquals(
+                "Regression guard: client authenticator.id must remain distinct from server authenticator_id",
+                serverAuthenticatorId,
+                authenticator.id
+            )
+        }
+
+        httpClient.close()
+    }
+
+    @Test
+    fun testFinalize_PreservesTenantIdAndServerAuthenticatorIdAcrossRegistrationAndRefresh() =
+        runTest {
+            val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "ignoreSSLCertificate": false
+        }
+        """.trimIndent()
+
+            val serverAuthenticatorId = "uuidserver-authenticator-id-001"
+            val tokenResponses = mutableListOf<String>()
+
+            val mockEngine = MockEngine { request ->
+                when {
+                    request.url.encodedPath.contains("/details") -> {
+                        respond(
+                            content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {"service_name": "Test Service"},
+                          "discovery_mechanisms": [
+                            "urn:ibm:security:authentication:asf:mechanism:mobile_user_approval:user_presence"
+                          ],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                            status = HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentType, "application/json")
+                        )
+                    }
+
+                    request.url.encodedPath.contains("/oauth20/token") -> {
+                        val responseBody = if (tokenResponses.isEmpty()) {
+                            """
+                        {
+                          "access_token": "initial_access_token",
+                          "refresh_token": "initial_refresh_token",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "$serverAuthenticatorId",
+                          "ISV_push_enabled": "true",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent()
+                        } else {
+                            """
+                        {
+                          "access_token": "refreshed_access_token",
+                          "refresh_token": "refreshed_refresh_token",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "$serverAuthenticatorId",
+                          "ISV_push_enabled": "true",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent()
+                        }
+                        tokenResponses.add(responseBody)
+                        respond(
+                            content = responseBody,
+                            status = HttpStatusCode.OK,
+                            headers = headersOf(
+                                HttpHeaders.ContentType,
+                                "application/json;charset=UTF-8"
+                            )
+                        )
+                    }
+
+                    else -> respond("", HttpStatusCode.NotFound)
+                }
+            }
+
+            val httpClient = HttpClient(mockEngine) {
+                install(ContentNegotiation) {
+                    json(Json {
+                        ignoreUnknownKeys = true
+                        encodeDefaults = true
+                    })
+                }
+            }
+
+            val provider = OnPremiseRegistrationProvider(qrCodeJson)
+
+            val initResult = provider.initiate(
+                accountName = "testuser@example.com",
+                pushToken = "test_push_token",
+                additionalHeaders = null,
+                httpClient = httpClient
+            )
+
+            assertTrue("Initiate should succeed", initResult.isSuccess)
+
+            val finalizeResult = provider.finalize(httpClient)
+            assertTrue("Finalize should succeed", finalizeResult.isSuccess)
+
+            finalizeResult.onSuccess { authenticator ->
+                assertNotEquals(
+                    serverAuthenticatorId,
+                    authenticator.id,
+                    "Server authenticator_id must not be stored as authenticator.id"
+                )
+                assertTrue(
+                    "authenticator.id should remain the client tenant_id without uuid prefix",
+                    !authenticator.id.startsWith("uuid")
+                )
+                assertEquals(
+                    serverAuthenticatorId,
+                    authenticator.token.additionalData["authenticator_id"]
+                )
+            }
+
+            httpClient.close()
+        }
 
     /**
      * Test initiate() failure when details endpoint returns error.
@@ -526,6 +781,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 request.url.encodedPath.contains("/oauth20/token") -> {
                     respond(
                         content = """{"error": "invalid_grant"}""",
@@ -533,6 +789,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -597,6 +854,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 request.url.encodedPath.contains("/oauth20/token") -> {
                     respond(
                         content = """
@@ -611,6 +869,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -625,7 +884,7 @@ class OnPremiseRegistrationProviderTest {
         }
 
         val provider = OnPremiseRegistrationProvider(qrCodeJson)
-        
+
         // Before initialization, serviceName should be empty
         assertEquals("", provider.serviceName)
 
@@ -681,6 +940,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 request.url.encodedPath.contains("/oauth20/token") -> {
                     respond(
                         content = """
@@ -695,6 +955,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -759,6 +1020,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 request.url.encodedPath.contains("/oauth20/token") -> {
                     respond(
                         content = """
@@ -773,6 +1035,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -858,7 +1121,10 @@ class OnPremiseRegistrationProviderTest {
                         }
                         """.trimIndent(),
                         status = HttpStatusCode.OK,
-                        headers = headersOf(HttpHeaders.ContentType, "application/json;charset=UTF-8")
+                        headers = headersOf(
+                            HttpHeaders.ContentType,
+                            "application/json;charset=UTF-8"
+                        )
                     )
                 }
                 // Enrollment endpoint
@@ -877,6 +1143,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -891,7 +1158,7 @@ class OnPremiseRegistrationProviderTest {
         }
 
         val provider = OnPremiseRegistrationProvider(qrCodeJson)
-        
+
         // Initiate with account name
         val initResult = provider.initiate(
             accountName = "OnPremise account",
@@ -978,7 +1245,10 @@ class OnPremiseRegistrationProviderTest {
                         }
                         """.trimIndent(),
                         status = HttpStatusCode.OK,
-                        headers = headersOf(HttpHeaders.ContentType, "application/json;charset=UTF-8")
+                        headers = headersOf(
+                            HttpHeaders.ContentType,
+                            "application/json;charset=UTF-8"
+                        )
                     )
                 }
                 // Enrollment endpoint
@@ -997,6 +1267,7 @@ class OnPremiseRegistrationProviderTest {
                         headers = headersOf(HttpHeaders.ContentType, "application/json")
                     )
                 }
+
                 else -> respond("", HttpStatusCode.NotFound)
             }
         }
@@ -1011,7 +1282,7 @@ class OnPremiseRegistrationProviderTest {
         }
 
         val provider = OnPremiseRegistrationProvider(qrCodeJson)
-        
+
         // Initiate with empty account name
         val initResult = provider.initiate(
             accountName = "",

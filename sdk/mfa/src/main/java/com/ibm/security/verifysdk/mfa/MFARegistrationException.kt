@@ -188,6 +188,54 @@ sealed class MFARegistrationException(error: Error, cause: Throwable? = null) :
         ),
         cause
     )
+    /**
+     * Thrown when biometric authentication fails and should be retried with device credential.
+     * 
+     * This exception signals the app to retry enrollment with a [BiometricPrompt.PromptInfo] that
+     * includes [androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL].
+     * 
+     * The app should catch this exception and call [MFARegistrationDescriptor.enrollBiometric]
+     * again with an updated PromptInfo that allows device credential (PIN/pattern/password) as
+     * a fallback authentication method.
+     * 
+     * ## Usage
+     * ```kotlin
+     * val result = provider.enrollBiometric(activity, promptInfo)
+     * result.fold(
+     *     onSuccess = { /* enrollment complete */ },
+     *     onFailure = { error ->
+     *         when (error) {
+     *             is MFARegistrationException.BiometricAuthenticationFailedRetryable -> {
+     *                 // Retry with device credential enabled
+     *                 val retryPromptInfo = BiometricPrompt.PromptInfo.Builder()
+     *                     .setTitle("Authentication Required")
+     *                     .setAllowedAuthenticators(
+     *                         BiometricManager.Authenticators.BIOMETRIC_STRONG or
+     *                         BiometricManager.Authenticators.DEVICE_CREDENTIAL
+     *                     )
+     *                     .build()
+     *                 provider.enrollBiometric(activity, retryPromptInfo)
+     *             }
+     *             else -> { /* handle other errors */ }
+     *         }
+     *     }
+     * )
+     * ```
+     * 
+     * @param attemptNumber The attempt number (1 for first failure, 2 for second, etc.)
+     */
+    class BiometricAuthenticationFailedRetryable(
+        val attemptNumber: Int = 1,
+        cause: Throwable? = null
+    ) : MFARegistrationException(
+        Error(
+            "biometric_authentication_failed_retryable",
+            "Biometric authentication failed on attempt $attemptNumber. " +
+                "Retry with device credential (PIN/pattern/password) enabled."
+        ),
+        cause
+    )
+
 
     /**
      * Represents a general or otherwise uncategorized registration exception.

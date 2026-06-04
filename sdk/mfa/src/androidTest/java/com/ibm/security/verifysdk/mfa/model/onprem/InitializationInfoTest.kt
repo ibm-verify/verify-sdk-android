@@ -45,8 +45,8 @@ class InitializationInfoTest {
         val info = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = false,
-            clientId = testClientId
+            clientId = testClientId,
+            options = null
         )
 
         // Then
@@ -59,8 +59,8 @@ class InitializationInfoTest {
         val info = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = true,
-            clientId = testClientId
+            clientId = testClientId,
+            options = "ignoreSslCerts=true"
         )
 
         // Then
@@ -121,8 +121,8 @@ class InitializationInfoTest {
         val info = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = true,
-            clientId = testClientId
+            clientId = testClientId,
+            options = "ignoreSslCerts=true"
         )
         val json = Json { prettyPrint = true }
 
@@ -144,7 +144,7 @@ class InitializationInfoTest {
             {
                 "details_url": "https://example.com/details",
                 "code": "ABC123XYZ",
-                "ignoreSSLCertificate": true,
+                "options": "ignoreSslCerts=true",
                 "client_id": "client-id-123"
             }
         """.trimIndent()
@@ -186,7 +186,7 @@ class InitializationInfoTest {
             {
                 "details_url": "https://example.com/details",
                 "code": "ABC123XYZ",
-                "ignoreSSLCertificate": false,
+                "options": "",
                 "client_id": "client-id-123",
                 "extraField": "extraValue"
             }
@@ -209,8 +209,8 @@ class InitializationInfoTest {
         val original = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = true,
-            clientId = testClientId
+            clientId = testClientId,
+            options = "ignoreSslCerts=true"
         )
 
         // When
@@ -268,12 +268,12 @@ class InitializationInfoTest {
         val original = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = false,
-            clientId = testClientId
+            clientId = testClientId,
+            options = null
         )
 
         // When
-        val modified = original.copy(ignoreSSLCertificate = true)
+        val modified = original.copy(options = "ignoreSslCerts=true")
 
         // Then
         assertEquals(original.uri, modified.uri)
@@ -307,14 +307,14 @@ class InitializationInfoTest {
         val info1 = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = true,
-            clientId = testClientId
+            clientId = testClientId,
+            options = "ignoreSslCerts=true"
         )
         val info2 = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = true,
-            clientId = testClientId
+            clientId = testClientId,
+            options = "ignoreSslCerts=true"
         )
 
         // Then
@@ -363,14 +363,14 @@ class InitializationInfoTest {
         val info1 = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = true,
-            clientId = testClientId
+            clientId = testClientId,
+            options = "ignoreSslCerts=true"
         )
         val info2 = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = false,
-            clientId = testClientId
+            clientId = testClientId,
+            options = null
         )
 
         // Then
@@ -401,14 +401,14 @@ class InitializationInfoTest {
         val info1 = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = true,
-            clientId = testClientId
+            clientId = testClientId,
+            options = "ignoreSslCerts=true"
         )
         val info2 = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = true,
-            clientId = testClientId
+            clientId = testClientId,
+            options = "ignoreSslCerts=true"
         )
 
         // Then
@@ -421,8 +421,8 @@ class InitializationInfoTest {
         val info = InitializationInfo(
             uri = testUri,
             code = testCode,
-            ignoreSSLCertificate = true,
-            clientId = testClientId
+            clientId = testClientId,
+            options = "ignoreSslCerts=true"
         )
 
         // When
@@ -483,8 +483,8 @@ class InitializationInfoTest {
         val info = InitializationInfo(
             uri = testUri,
             code = specialCode,
-            ignoreSSLCertificate = true,
-            clientId = specialClientId
+            clientId = specialClientId,
+            options = "ignoreSslCerts=true"
         )
         val json = Json { prettyPrint = true }
 
