@@ -354,11 +354,6 @@ object NetworkHelper {
     }
 
     fun insecureTrustManager(): X509TrustManager {
-
-        if (!BuildConfig.DEBUG) {
-            throw IllegalStateException("Insecure Trust Manager should not be used in production!")
-        }
-
         return object : X509TrustManager {
             override fun checkClientTrusted(
                 chain: Array<out java.security.cert.X509Certificate>?,
