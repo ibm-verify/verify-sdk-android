@@ -4,6 +4,7 @@
 
 package com.ibm.security.verifysdk.mfa
 
+import android.util.Log
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -23,8 +24,8 @@ import kotlin.coroutines.resume
  *
  * @param Authenticator The type of authenticator descriptor returned upon successful registration.
  *
- * @see CloudRegistrationProvider
- * @see OnPremiseRegistrationProvider
+ * @see com.ibm.security.verifysdk.mfa.api.CloudRegistrationProvider
+ * @see com.ibm.security.verifysdk.mfa.api.OnPremiseRegistrationProvider
  */
 interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescriptor> {
 
@@ -87,6 +88,17 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      * @return `true` if biometric enrollment is available, `false` otherwise.
      */
     val canEnrollBiometric: Boolean
+
+    /**
+     * Indicates whether TOTP (Time-based One-Time Password) can be enrolled.
+     *
+     * TOTP enrollment allows the authenticator to generate time-based one-time passwords
+     * that can be used for authentication. This is based on the presence of the
+     * `totp_shared_secret_endpoint` in the server's discovery response.
+     *
+     * @return `true` if TOTP enrollment is available, `false` otherwise.
+     */
+    val canEnrollOneTimePasscode: Boolean
 
     /**
      * The number of authentication factors available for enrollment.
@@ -222,7 +234,12 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
             // the coroutine itself suspends without blocking the thread.
             val cryptoResult = suspendCancellableCoroutine { continuation ->
                 val executor = ContextCompat.getMainExecutor(activity)
-                val prompt = BiometricPrompt(
+                // Declare prompt as lateinit var so it can be accessed in the callback
+                lateinit var prompt: BiometricPrompt
+                // Track if authentication failed (to trigger retry on cancel)
+                var authenticationFailed = false
+                
+                prompt = BiometricPrompt(
                     activity,
                     executor,
                     object : BiometricPrompt.AuthenticationCallback() {
@@ -243,20 +260,42 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
                             errorCode: Int,
                             errString: CharSequence
                         ) {
-                            continuation.resume(
-                                Result.failure(
-                                    MFARegistrationException.BiometricAuthenticationCancelled(
-                                        errorCode,
-                                        errString.toString()
+                            Log.e("MFARegistrationDescriptor", "onAuthenticationError: errorCode=$errorCode, errString=$errString, authenticationFailed=$authenticationFailed, continuation.isActive=${continuation.isActive}")
+                            
+                            // If authentication failed and user cancelled, signal retry
+                            if (authenticationFailed &&
+                                (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+                                 errorCode == BiometricPrompt.ERROR_USER_CANCELED ||
+                                 errorCode == BiometricPrompt.ERROR_CANCELED)) {
+                                Log.w("MFARegistrationDescriptor", "Signaling retry with device credential after failed authentication")
+                                continuation.resume(
+                                    Result.failure(
+                                        MFARegistrationException.BiometricAuthenticationFailedRetryable(
+                                            attemptNumber = 1
+                                        )
                                     )
                                 )
-                            )
+                            } else {
+                                Log.d("MFARegistrationDescriptor", "Not signaling retry: authenticationFailed=$authenticationFailed, errorCode=$errorCode")
+                                continuation.resume(
+                                    Result.failure(
+                                        MFARegistrationException.BiometricAuthenticationCancelled(
+                                            errorCode,
+                                            errString.toString()
+                                        )
+                                    )
+                                )
+                            }
                         }
 
                         override fun onAuthenticationFailed() {
-                            // A single attempt failed — the prompt stays open; do nothing here.
-                            // The coroutine will resume via onAuthenticationSucceeded or
-                            // onAuthenticationError.
+                            // If this is the first failure, automatically cancel to trigger retry with device credential
+                            if (!authenticationFailed) {
+                                authenticationFailed = true
+                                Log.w("MFARegistrationDescriptor", "First authentication failure - canceling to retry with device credential")
+                                // Cancel the prompt to trigger onAuthenticationError with ERROR_CANCELED
+                                prompt.cancelAuthentication()
+                            }
                         }
                     }
                 )
@@ -303,6 +342,31 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      */
     @Throws
     suspend fun enrollUserPresence(httpClient: HttpClient = NetworkHelper.getInstance)
+
+    /**
+     * Enrolls TOTP (Time-based One-Time Password) as an authentication factor.
+     *
+     * This method requests a shared secret from the server and creates a TOTP authenticator
+     * that can generate time-based one-time passwords. The shared secret is securely stored
+     * and used to generate OTP codes that are synchronized with the server.
+     *
+     * TOTP enrollment is only available when [canEnrollOneTimePasscode] returns `true`,
+     * which indicates that the server supports TOTP and has provided a
+     * `totp_shared_secret_endpoint` in the discovery response.
+     *
+     * @param httpClient Optional HTTP client instance for making network requests.
+     *                   Defaults to [NetworkHelper.getInstance].
+     *
+     * @return An [OTPAuthenticator] containing the TOTP configuration including the
+     *         shared secret, algorithm, digits, and period.
+     *
+     * @throws MFARegistrationException.NoEnrollableFactors if TOTP enrollment is not
+     *         available ([canEnrollOneTimePasscode] is `false`).
+     * @throws MFARegistrationException if enrollment fails due to network errors,
+     *         invalid state, or server rejection.
+     */
+    @Throws
+    suspend fun enrollOneTimePasscode(httpClient: HttpClient = NetworkHelper.getInstance): OTPAuthenticator
 
     /**
      * Finalizes the registration process and returns the registered authenticator.
