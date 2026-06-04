@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.jetbrains.kotlin.jvm) apply false
-//    alias(libs.plugins.jetbrains.dokka)
+    alias(libs.plugins.jetbrains.dokka)
     java
     jacoco
     alias(libs.plugins.neotech.rootcoverage) apply true
@@ -110,7 +110,7 @@ tasks.jacocoTestCoverageVerification {
 subprojects {
     apply {
         plugin("maven-publish")
-//        plugin("org.jetbrains.dokka")
+        plugin("org.jetbrains.dokka")
     }
 
     /**
