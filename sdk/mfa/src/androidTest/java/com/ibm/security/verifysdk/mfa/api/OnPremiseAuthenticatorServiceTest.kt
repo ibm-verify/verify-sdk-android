@@ -408,5 +408,237 @@ class OnPremiseAuthenticatorServiceTest {
 
         httpClient.close()
     }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testTokenRefresh_PersistsTenantIdSeparatelyFromServerAuthenticatorId() {
+        var callbackAuthenticatorId: String? = null
+        var persistedToken: TokenInfo? = null
+
+        val callback = object : TokenPersistenceCallback {
+            override suspend fun onTokenRefreshed(
+                authenticatorId: String,
+                newToken: TokenInfo
+            ): Result<Unit> {
+                callbackAuthenticatorId = authenticatorId
+                persistedToken = newToken
+                return Result.success(Unit)
+            }
+        }
+
+        val mockEngine = MockEngine {
+            respond(
+                content = """
+                {
+                  "access_token": "new_token",
+                  "refresh_token": "new_refresh",
+                  "scope": "mmfaAuthn",
+                  "authenticator_id": "uuidserver-authenticator-id-001",
+                  "token_type": "bearer",
+                  "expires_in": 3600
+                }
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json;charset=UTF-8")
+            )
+        }
+
+        val httpClient = HttpClient(mockEngine)
+
+        val service = OnPremiseAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://example.com/mga/sps/oauth/oauth20/token"),
+            _transactionUri = URL("https://example.com/scim/Me"),
+            _clientId = "AuthenticatorClient",
+            _authenticatorId = "tenant-id-001",
+            _serverAuthenticatorId = "uuidserver-authenticator-id-001",
+            httpClient = httpClient,
+            persistenceCallback = callback
+        )
+
+        runBlocking {
+            val result = service.refreshToken(
+                refreshToken = "test_refresh_token",
+                accountName = "test@example.com",
+                pushToken = "test_push_token",
+                additionalData = null
+            )
+
+            assertTrue("refreshToken should succeed", result.isSuccess)
+            assertEquals("tenant-id-001", callbackAuthenticatorId)
+            assertEquals("new_token", persistedToken?.accessToken)
+            assertEquals("uuidserver-authenticator-id-001", persistedToken?.additionalData?.get("authenticator_id"))
+        }
+
+        httpClient.close()
+    }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testNextTransaction_shouldReturnEmptyWhenServerAuthenticatorIdMissing() {
+        val now = kotlin.time.Clock.System.now()
+        val creationTime = now.toString()
+        val lastActivityTime = now.toString()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/scim/Me") -> {
+                    respond(
+                        content = """
+                        {
+                          "meta": {
+                            "location": "https://example.com/scim/Users/test_user_id",
+                            "resourceType": "User"
+                          },
+                          "schemas": [
+                            "urn:ietf:params:scim:schemas:core:2.0:User",
+                            "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction"
+                          ],
+                          "id": "test_user_id",
+                          "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction": {
+                            "attributesPending": [
+                              {
+                                "dataType": "String",
+                                "values": ["Approve transaction for authenticator A"],
+                                "name": "mmfa.request.context.message",
+                                "uri": "mmfa:request:context:message",
+                                "transactionId": "transaction-a-001"
+                              },
+                              {
+                                "dataType": "String",
+                                "values": ["uuidserver-authenticator-id-A"],
+                                "name": "mmfa.request.authenticator.id",
+                                "uri": "mmfa:request:authenticator:id",
+                                "transactionId": "transaction-a-001"
+                              }
+                            ],
+                            "transactionsPending": [{
+                              "authnPolicyAction": "POST",
+                              "txnStatus": "PENDING",
+                              "creationTime": "$creationTime",
+                              "requestUrl": "https://example.com/mga/sps/apiauthsvc?MmfaTransactionId=TRANSACTION-A-001",
+                              "authnPolicyURI": "urn:ibm:security:authentication:asf:mmfa_response_userpresence",
+                              "lastActivityTime": "$lastActivityTime",
+                              "transactionId": "transaction-a-001"
+                            }]
+                          },
+                          "userName": "testuser@example.com"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/scim+json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine)
+        val service = OnPremiseAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://example.com/mga/sps/oauth/oauth20/token"),
+            _transactionUri = URL("https://example.com/scim/Me?attributes=urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction:transactionsPending,urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction:attributesPending"),
+            _clientId = "AuthenticatorClient",
+            _authenticatorId = "tenant-id-A",
+            _serverAuthenticatorId = null,
+            httpClient = httpClient
+        )
+
+        runBlocking {
+            val result = service.nextTransaction()
+
+            assertTrue("nextTransaction should succeed", result.isSuccess)
+            result.onSuccess { (transactions, count) ->
+                assertEquals(1, count)
+                assertTrue("Transactions should be empty when server authenticator id is missing", transactions.isEmpty())
+            }
+        }
+
+        httpClient.close()
+    }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testNextTransaction_byIdentifier_shouldReturnEmptyWhenOwnershipDoesNotMatch() {
+        val now = kotlin.time.Clock.System.now()
+        val creationTime = now.toString()
+        val lastActivityTime = now.toString()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/scim/Me") -> {
+                    respond(
+                        content = """
+                        {
+                          "meta": {
+                            "location": "https://example.com/scim/Users/test_user_id",
+                            "resourceType": "User"
+                          },
+                          "schemas": [
+                            "urn:ietf:params:scim:schemas:core:2.0:User",
+                            "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction"
+                          ],
+                          "id": "test_user_id",
+                          "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction": {
+                            "attributesPending": [
+                              {
+                                "dataType": "String",
+                                "values": ["Approve transaction for authenticator B"],
+                                "name": "mmfa.request.context.message",
+                                "uri": "mmfa:request:context:message",
+                                "transactionId": "transaction-b-001"
+                              },
+                              {
+                                "dataType": "String",
+                                "values": ["uuidserver-authenticator-id-B"],
+                                "name": "mmfa.request.authenticator.id",
+                                "uri": "mmfa:request:authenticator:id",
+                                "transactionId": "transaction-b-001"
+                              }
+                            ],
+                            "transactionsPending": [{
+                              "authnPolicyAction": "POST",
+                              "txnStatus": "PENDING",
+                              "creationTime": "$creationTime",
+                              "requestUrl": "https://example.com/mga/sps/apiauthsvc?MmfaTransactionId=TRANSACTION-B-001",
+                              "authnPolicyURI": "urn:ibm:security:authentication:asf:mmfa_response_userpresence",
+                              "lastActivityTime": "$lastActivityTime",
+                              "transactionId": "transaction-b-001"
+                            }]
+                          },
+                          "userName": "testuser@example.com"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/scim+json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine)
+        val service = OnPremiseAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://example.com/mga/sps/oauth/oauth20/token"),
+            _transactionUri = URL("https://example.com/scim/Me?attributes=urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction:transactionsPending,urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction:attributesPending"),
+            _clientId = "AuthenticatorClient",
+            _authenticatorId = "tenant-id-A",
+            _serverAuthenticatorId = "uuidserver-authenticator-id-A",
+            httpClient = httpClient
+        )
+
+        runBlocking {
+            val result = service.nextTransaction("transaction-b-001")
+
+            assertTrue("nextTransaction should succeed", result.isSuccess)
+            result.onSuccess { (transactions, count) ->
+                assertEquals(1, count)
+                assertTrue("Transactions should be empty when requested transaction belongs to another authenticator", transactions.isEmpty())
+            }
+        }
+
+        httpClient.close()
+    }
 }
 

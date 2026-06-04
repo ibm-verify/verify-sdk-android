@@ -322,4 +322,231 @@ class CloudAuthenticatorIntegrationTest {
 
         httpClient.close()
     }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testFetchPendingTransaction_withMultipleTransactions_shouldReturnAllForAuthenticator(): Unit = runBlocking {
+        val now = kotlin.time.Clock.System.now()
+        val creationTime = now.toString()
+        val expiryTime = now.plus(kotlin.time.Duration.parse("2m")).toString()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/verifications") -> {
+                    respond(
+                        content = """
+                        {
+                          "total": 2,
+                          "count": 2,
+                          "verifications": [
+                            {
+                              "id": "11111111-aaaa-bbbb-cccc-000000000001",
+                              "creationTime": "$creationTime",
+                              "expiryTime": "$expiryTime",
+                              "correlationEnabled": true,
+                              "correlationValue": "13",
+                              "transactionData": "{\"message\":\"Approve sign in for account A\",\"originIpAddress\":\"192.168.1.100\",\"originUserAgent\":\"Mozilla/5.0 (Account A Browser)\",\"additionalData\":[{\"name\":\"type\",\"value\":\"Sign in request\"},{\"name\":\"originLocation\",\"value\":\"Brisbane, AU\"},{\"name\":\"denyReasonEnabled\",\"value\":\"true\"},{\"name\":\"merchant\",\"value\":\"Account A\"}]}",
+                              "authenticationMethods": [{
+                                "id": "87dbc69e-3e4a-4b33-9b89-6ecdaf3c8510",
+                                "methodType": "signature",
+                                "subType": "user_presence"
+                              }]
+                            },
+                            {
+                              "id": "22222222-aaaa-bbbb-cccc-000000000002",
+                              "creationTime": "$creationTime",
+                              "expiryTime": "$expiryTime",
+                              "transactionData": "{\"message\":\"Approve payment for account A\",\"originIpAddress\":\"192.168.1.101\",\"originUserAgent\":\"Mozilla/5.0 (Account A Payments)\",\"additionalData\":[{\"name\":\"type\",\"value\":\"Payment approval\"},{\"name\":\"imageURL\",\"value\":\"https://example.com/payment.png\"},{\"name\":\"merchant\",\"value\":\"Account A Payments\"}]}",
+                              "authenticationMethods": [{
+                                "id": "97dbc69e-3e4a-4b33-9b89-6ecdaf3c8511",
+                                "methodType": "signature",
+                                "subType": "user_presence"
+                              }]
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine)
+        val service = CloudAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://sdk.verify.ibm.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://sdk.verify.ibm.com/v1.0/authenticators/test-authenticator-id/verifications"),
+            _authenticatorId = "test-authenticator-id",
+            httpClient = httpClient
+        )
+
+        val result = service.nextTransaction()
+
+        assertTrue("Fetch pending transaction should succeed", result.isSuccess)
+        result.onSuccess { (transactions, count) ->
+            assertEquals(2, count)
+            assertEquals(2, transactions.size)
+
+            val firstTransaction = transactions[0]
+            assertEquals("11111111-aaaa-bbbb-cccc-000000000001", firstTransaction.id)
+            assertEquals("Approve sign in for account A", firstTransaction.message)
+            assertEquals("13", firstTransaction.additionalData[TransactionAttribute.Correlation])
+            assertEquals("true", firstTransaction.additionalData[TransactionAttribute.DenyReason])
+            assertEquals("Brisbane, AU", firstTransaction.additionalData[TransactionAttribute.Location])
+            assertEquals("Sign in request", firstTransaction.additionalData[TransactionAttribute.Type])
+            assertTrue(
+                "First transaction should preserve custom attributes",
+                firstTransaction.additionalData[TransactionAttribute.Custom]?.contains("merchant") == true
+            )
+
+            val secondTransaction = transactions[1]
+            assertEquals("22222222-aaaa-bbbb-cccc-000000000002", secondTransaction.id)
+            assertEquals("Approve payment for account A", secondTransaction.message)
+            assertEquals("Payment approval", secondTransaction.additionalData[TransactionAttribute.Type])
+            assertEquals("https://example.com/payment.png", secondTransaction.additionalData[TransactionAttribute.Image])
+            assertTrue(
+                "Second transaction should preserve custom attributes",
+                secondTransaction.additionalData[TransactionAttribute.Custom]?.contains("Account A Payments") == true
+            )
+        }
+
+        httpClient.close()
+    }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testFetchPendingTransaction_byIdentifier_shouldReturnOnlyRequestedTransaction(): Unit = runBlocking {
+        val now = kotlin.time.Clock.System.now()
+        val creationTime = now.toString()
+        val expiryTime = now.plus(kotlin.time.Duration.parse("2m")).toString()
+        var requestedUrl: String? = null
+
+        val mockEngine = MockEngine { request ->
+            requestedUrl = request.url.toString()
+            when {
+                request.url.encodedPath.contains("/verifications") -> {
+                    respond(
+                        content = """
+                        {
+                          "total": 1,
+                          "count": 1,
+                          "verifications": [{
+                            "id": "22222222-aaaa-bbbb-cccc-000000000002",
+                            "creationTime": "$creationTime",
+                            "expiryTime": "$expiryTime",
+                            "transactionData": "{\"message\":\"Approve payment for account A\",\"originIpAddress\":\"192.168.1.101\",\"originUserAgent\":\"Mozilla/5.0 (Account A Payments)\"}",
+                            "authenticationMethods": [{
+                              "id": "97dbc69e-3e4a-4b33-9b89-6ecdaf3c8511",
+                              "methodType": "signature",
+                              "subType": "user_presence"
+                            }]
+                          }]
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine)
+        val service = CloudAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://sdk.verify.ibm.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://sdk.verify.ibm.com/v1.0/authenticators/test-authenticator-id/verifications"),
+            _authenticatorId = "test-authenticator-id",
+            httpClient = httpClient
+        )
+
+        val result = service.nextTransaction("22222222-aaaa-bbbb-cccc-000000000002")
+
+        assertTrue("Fetch by identifier should succeed", result.isSuccess)
+        assertTrue(
+            "Request URL should include the requested transaction identifier",
+            requestedUrl?.contains("id=\"22222222-aaaa-bbbb-cccc-000000000002\"") == true
+        )
+        result.onSuccess { (transactions, count) ->
+            assertEquals(1, count)
+            assertEquals(1, transactions.size)
+            assertEquals("22222222-aaaa-bbbb-cccc-000000000002", transactions.first().id)
+        }
+
+        httpClient.close()
+    }
+
+    @SuppressLint("DenyListedBlockingApi")
+    @Test
+    fun testFetchPendingTransaction_shouldFilterExpiredTransactionsButKeepServerCount(): Unit = runBlocking {
+        val now = kotlin.time.Clock.System.now()
+        val creationTime = now.toString()
+        val expiredTime = now.minus(kotlin.time.Duration.parse("1m")).toString()
+        val validExpiryTime = now.plus(kotlin.time.Duration.parse("2m")).toString()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/verifications") -> {
+                    respond(
+                        content = """
+                        {
+                          "total": 2,
+                          "count": 2,
+                          "verifications": [
+                            {
+                              "id": "expired-transaction-id-001",
+                              "creationTime": "$creationTime",
+                              "expiryTime": "$expiredTime",
+                              "transactionData": "{\"message\":\"Expired transaction\"}",
+                              "authenticationMethods": [{
+                                "id": "87dbc69e-3e4a-4b33-9b89-6ecdaf3c8510",
+                                "methodType": "signature",
+                                "subType": "user_presence"
+                              }]
+                            },
+                            {
+                              "id": "valid-transaction-id-002",
+                              "creationTime": "$creationTime",
+                              "expiryTime": "$validExpiryTime",
+                              "transactionData": "{\"message\":\"Valid transaction\"}",
+                              "authenticationMethods": [{
+                                "id": "97dbc69e-3e4a-4b33-9b89-6ecdaf3c8511",
+                                "methodType": "signature",
+                                "subType": "user_presence"
+                              }]
+                            }
+                          ]
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine)
+        val service = CloudAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://sdk.verify.ibm.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://sdk.verify.ibm.com/v1.0/authenticators/test-authenticator-id/verifications"),
+            _authenticatorId = "test-authenticator-id",
+            httpClient = httpClient
+        )
+
+        val result = service.nextTransaction()
+
+        assertTrue("Fetch should succeed", result.isSuccess)
+        result.onSuccess { (transactions, count) ->
+            assertEquals("Server count should remain unchanged", 2, count)
+            assertEquals("Only non-expired transactions should be returned", 1, transactions.size)
+            assertEquals("valid-transaction-id-002", transactions.first().id)
+        }
+
+        httpClient.close()
+    }
 }
