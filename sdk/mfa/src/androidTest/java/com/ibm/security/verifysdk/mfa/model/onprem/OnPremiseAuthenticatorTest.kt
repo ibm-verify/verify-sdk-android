@@ -6,17 +6,23 @@ package com.ibm.security.verifysdk.mfa.model.onprem
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
-import kotlin.time.ExperimentalTime
+import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.BiometricFactorInfo
 import com.ibm.security.verifysdk.mfa.HashAlgorithmType
+import com.ibm.security.verifysdk.mfa.MFAServiceController
 import com.ibm.security.verifysdk.mfa.UserPresenceFactorInfo
+import com.ibm.security.verifysdk.mfa.api.OnPremiseAuthenticatorService
+import io.ktor.client.HttpClient
+import kotlin.time.ExperimentalTime
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -366,5 +372,79 @@ class OnPremiseAuthenticatorTest {
         assertNotNull(authenticator.id)
         assertNotNull(authenticator.serviceName)
         assertNotNull(authenticator.accountName)
+    }
+
+    @Test
+    fun createService_withIgnoreSSLCertificateFalse_shouldReuseProvidedSecureClient() {
+        val originalAllowInsecureSSL = NetworkHelper.allowInsecureSSL
+        val providedClient = HttpClient()
+
+        try {
+            NetworkHelper.allowInsecureSSL = false
+
+            val authenticator = OnPremiseAuthenticator(
+                refreshUri = testRefreshUri,
+                transactionUri = testTransactionUri,
+                theme = testTheme,
+                token = testToken,
+                id = testId,
+                serviceName = testServiceName,
+                accountName = testAccountName,
+                qrLoginUri = testQrLoginUri,
+                ignoreSSLCertificate = false,
+                clientId = testClientId
+            )
+
+            val service = MFAServiceController(authenticator).initiate(
+                httpClient = providedClient
+            )
+
+            assertTrue(service is OnPremiseAuthenticatorService)
+            service as OnPremiseAuthenticatorService
+            assertSame(providedClient, service.httpClient)
+            assertFalse(service.ignoreSslCertificate)
+        } finally {
+            NetworkHelper.allowInsecureSSL = originalAllowInsecureSSL
+            providedClient.close()
+            NetworkHelper.closeClient()
+        }
+    }
+
+    @Test
+    fun createService_withIgnoreSSLCertificateTrue_shouldUseDedicatedInsecureClient() {
+        val originalAllowInsecureSSL = NetworkHelper.allowInsecureSSL
+        val providedClient = HttpClient()
+
+        try {
+            NetworkHelper.allowInsecureSSL = true
+
+            val authenticator = OnPremiseAuthenticator(
+                refreshUri = testRefreshUri,
+                transactionUri = testTransactionUri,
+                theme = testTheme,
+                token = testToken,
+                id = testId,
+                serviceName = testServiceName,
+                accountName = testAccountName,
+                qrLoginUri = testQrLoginUri,
+                ignoreSSLCertificate = true,
+                clientId = testClientId
+            )
+
+            val service = MFAServiceController(authenticator).initiate(
+                httpClient = providedClient
+            )
+
+            assertTrue(service is OnPremiseAuthenticatorService)
+            service as OnPremiseAuthenticatorService
+            assertNotSame(providedClient, service.httpClient)
+            assertTrue(service.ignoreSslCertificate)
+
+            service.httpClient.close()
+        } finally {
+            NetworkHelper.allowInsecureSSL = originalAllowInsecureSSL
+            providedClient.close()
+            NetworkHelper.closeClient()
+        }
     }
 }
