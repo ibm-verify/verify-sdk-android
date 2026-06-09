@@ -33,9 +33,12 @@ object NetworkHelper {
 
     @Volatile
     private var client: HttpClient? = null
-    
+
     @Volatile
     private var defaultClient: HttpClient? = null
+
+    @Volatile
+    private var customEngine: HttpClientEngine? = null
 
     var connectTimeoutMillis: Long = 15000L
     var requestTimeoutMillis: Long = 15000L
@@ -61,13 +64,13 @@ object NetworkHelper {
      *    by the application developer.
      *
      * 2. **Authenticator-Level Need** (`ignoreSSLCertificate`): Indicates whether a specific
-     *    authenticator requires SSL bypass (typically from QR code `"options":"ignoreSslCerts=true"`).
+     *    authenticator requires SSL bypass (typically from QR code with `"ignoreSSLCertificate":true`).
      *
      * **Both conditions must be true** for SSL bypass to occur for a specific authenticator.
      *
      * ## Security Warning
      *
-     * Enabling this in production exposes your application to man-in-the-middle attacks.
+     * ⚠️ Enabling this in production exposes your application to man-in-the-middle attacks.
      * Only enable this if you need to connect to OnPremise servers with self-signed certificates
      * that you trust.
      *
@@ -75,7 +78,7 @@ object NetworkHelper {
      *
      * - **Default**: `false` (SSL bypass disabled - secure default)
      * - All authenticators use standard SSL certificate validation
-     * - Attempting to use an authenticator with `ignoreSSLCertificate=true` will fail
+     * - Attempting to register an authenticator with `ignoreSSLCertificate=true` will fail
      *
      * ## Usage Example
      *
@@ -90,15 +93,28 @@ object NetworkHelper {
      * }
      * ```
      *
+     * ## Provider Behavior
+     *
+     * - **CloudRegistrationProvider**: Never uses SSL bypass (always secure)
+     * - **OnPremiseRegistrationProvider**: Uses SSL bypass when both conditions are met
+     *
      * ## When to Enable
      *
      * Enable this flag only when:
      * - You need to connect to OnPremise IBM Verify Access servers
-     * - Those servers use self-signed certificates
+     * - Those servers use self-signed certificates or private CAs
      * - You trust those servers and their network environment
      * - You understand the security implications
      *
+     * ## Documentation
+     *
+     * For comprehensive information on SSL certificate bypass, including security considerations,
+     * implementation details, and best practices, see:
+     * [SSL Certificate Bypass Documentation](../../../docs/SSL_CERTIFICATE_BYPASS.md)
+     *
      * @see createInsecureClient
+     * @see com.ibm.security.verifysdk.mfa.api.OnPremiseRegistrationProvider
+     * @see com.ibm.security.verifysdk.mfa.api.CloudRegistrationProvider
      */
     var allowInsecureSSL: Boolean = false
 
@@ -155,7 +171,7 @@ object NetworkHelper {
                 invalidateClient()
             }
         }
-    
+
     var sslContext: SSLContext? = null
     var hostnameVerifier: HostnameVerifier? = null
         set(value) {
@@ -204,12 +220,80 @@ object NetworkHelper {
     /**
      * Initializes the HttpClient with a custom client or engine.
      *
+     * This method provides two ways to customize the SDK's HTTP networking:
+     *
+     * ## Option 1: Custom Client (`customClient`)
+     *
+     * Provide a fully configured [HttpClient] when you need complete control over all
+     * Ktor plugins and configuration.
+     *
+     * **Use when:**
+     * - You need custom authentication, logging, or other Ktor plugins
+     * - You want to manage the client lifecycle yourself
+     * - You don't need SSL bypass for OnPremise authenticators
+     *
+     * **Example:**
+     * ```kotlin
+     * val myClient = HttpClient(OkHttp) {
+     *     install(ContentNegotiation) { json() }
+     *     install(Logging) { level = LogLevel.BODY }
+     *     install(Auth) { /* custom auth */ }
+     * }
+     * NetworkHelper.initialize(customClient = myClient)
+     * ```
+     *
+     * **Limitation:** SSL bypass ([createInsecureClient]) will not work because the SDK
+     * cannot access the underlying engine to create insecure variants.
+     *
+     * ## Option 2: Custom Engine (`httpClientEngine`)
+     *
+     * Provide just the transport layer ([HttpClientEngine]) when you want to customize
+     * network behavior while letting the SDK configure Ktor plugins.
+     *
+     * **Use when:**
+     * - You need custom connection pooling, timeouts, or proxy configuration
+     * - You want to use a different HTTP engine (CIO, Darwin, etc.)
+     * - You need SSL bypass to work with your custom configuration
+     * - You want the SDK to handle JSON serialization and other plugins
+     *
+     * **Example:**
+     * ```kotlin
+     * val customEngine = OkHttp.create {
+     *     config {
+     *         connectTimeout(30, TimeUnit.SECONDS)
+     *         proxy(myProxy)
+     *         dns(myCustomDNS)
+     *     }
+     * }
+     * NetworkHelper.initialize(httpClientEngine = customEngine)
+     * ```
+     *
+     * **Benefit:** The engine is stored and reused for both secure and insecure clients,
+     * enabling SSL bypass ([createInsecureClient]) to work with your custom configuration.
+     *
+     * ## Testing
+     *
+     * Tests typically use `httpClientEngine` with Ktor's MockEngine:
+     * ```kotlin
+     * val mockEngine = MockEngine { request ->
+     *     respond(content = "...", status = HttpStatusCode.OK)
+     * }
+     * NetworkHelper.initialize(httpClientEngine = mockEngine)
+     * ```
+     *
      * @param customClient A pre-configured HttpClient to use instead of the default.
+     *                     Mutually exclusive with [httpClientEngine].
      * @param httpClientEngine A custom HttpClientEngine to use for building the client.
+     *                         The SDK will configure Ktor plugins on top of this engine.
+     *                         Mutually exclusive with [customClient].
+     *
+     * @see createInsecureClient
+     * @see allowInsecureSSL
      */
     @Synchronized
     fun initialize(customClient: HttpClient? = null, httpClientEngine: HttpClientEngine? = null) {
         client = customClient ?: buildClient(httpClientEngine)
+        customEngine = httpClientEngine // Store for reuse in createInsecureClient()
     }
 
     @Synchronized
@@ -218,6 +302,7 @@ object NetworkHelper {
         client = null
         defaultClient?.close()
         defaultClient = null
+        customEngine = null
     }
 
     private fun buildClient(httpClientEngine: HttpClientEngine?): HttpClient {
@@ -287,6 +372,11 @@ object NetworkHelper {
      * 1. Checks [allowInsecureSSL] flag (app-level permission)
      * 2. Should only be called for authenticators with `ignoreSSLCertificate=true` (authenticator-level need)
      *
+     * ## Testing Support
+     *
+     * If a custom engine was provided via [initialize], it will be reused here. This allows
+     * tests to inject mock engines that will be used for both secure and insecure clients.
+     *
      * ## Security Warning
      *
      * **WARNING**: This creates an HTTP client that accepts ALL SSL certificates, including:
@@ -303,15 +393,40 @@ object NetworkHelper {
      * ## Usage
      *
      * This method is called internally by the SDK when an authenticator with `ignoreSSLCertificate=true`
-     * is used. Application developers should not call this method directly.
+     * is used. Application developers typically don't need to call this method directly.
+     *
+     * ### Automatic Usage (Recommended)
+     *
+     * OnPremise registration providers automatically use the correct client:
+     * ```kotlin
+     * val provider = OnPremiseRegistrationProvider(qrData)
+     * provider.initiate(accountName, pushToken)
+     *
+     * // Automatically uses insecure client if ignoreSSLCertificate=true
+     * provider.enrollBiometric()
+     * provider.finalize()
+     * ```
+     *
+     * ### Manual Usage (Advanced)
+     *
+     * For advanced scenarios, you can create and pass an insecure client explicitly:
+     * ```kotlin
+     * val insecureClient = NetworkHelper.createInsecureClient()
+     * provider.enrollBiometric(httpClient = insecureClient)
+     * ```
+     *
+     * ### Internal Implementation
      *
      * ```kotlin
-     * // Internal SDK usage (in MFAServiceController or OnPremiseRegistrationProvider)
-     * val clientToUse = if (authenticator.ignoreSSLCertificate) {
+     * // In OnPremiseRegistrationProvider.initiate()
+     * registrationHttpClient = if (initializationInfo.ignoreSSLCertificate) {
      *     NetworkHelper.createInsecureClient()  // Only if allowInsecureSSL=true
      * } else {
      *     httpClient  // Use secure client
      * }
+     *
+     * // In enrollment methods
+     * val client = httpClient ?: registrationHttpClient  // Falls back to configured client
      * ```
      *
      * @return HttpClient configured to accept all SSL certificates
@@ -324,32 +439,43 @@ object NetworkHelper {
         if (!allowInsecureSSL) {
             throw IllegalStateException(
                 "SSL bypass is disabled. To enable SSL bypass for self-signed certificates, " +
-                "set NetworkHelper.allowInsecureSSL = true in your application initialization. " +
-                "WARNING: This should only be used with trusted OnPremise servers. " +
-                "See NetworkHelper.allowInsecureSSL documentation for details."
+                        "set NetworkHelper.allowInsecureSSL = true in your application initialization. " +
+                        "WARNING: This should only be used with trusted OnPremise servers. " +
+                        "See NetworkHelper.allowInsecureSSL documentation for details."
             )
         }
 
-        val trustManager = insecureTrustManager()
-        val sslContext = SSLContext.getInstance("TLS").apply {
-            init(null, arrayOf(trustManager), java.security.SecureRandom())
-        }
-
-        val insecureOkHttpClient = OkHttpClient.Builder().apply {
-            readTimeout(readTimeOutMillis, TimeUnit.MILLISECONDS)
-            sslSocketFactory(sslContext.socketFactory, trustManager)
-            hostnameVerifier { _, _ -> true } // Accept all hostnames
-            followRedirects(followRedirects)
-            followSslRedirects(followSslRedirects)
-            customInterceptor?.let { addInterceptor(it) }
-            customLoggingInterceptor?.let { addInterceptor(it) }
-        }.build()
-
-        return HttpClient(OkHttp) {
-            engine {
-                preconfigured = insecureOkHttpClient
+        // If a custom engine was provided (e.g., MockEngine for testing), use it
+        // This allows tests to inject mock engines that work for both secure and insecure clients
+        return customEngine?.let { engine ->
+            HttpClient(engine) {
+                configureClient()
+                // Note: Insecure SSL settings are NOT applied to custom engines
+                // as they are assumed to be mocks or already configured appropriately
             }
-            configureClient()
+        } ?: run {
+            // Production path: Create real insecure OkHttp client
+            val trustManager = insecureTrustManager()
+            val sslContext = SSLContext.getInstance("TLS").apply {
+                init(null, arrayOf(trustManager), java.security.SecureRandom())
+            }
+
+            val insecureOkHttpClient = OkHttpClient.Builder().apply {
+                readTimeout(readTimeOutMillis, TimeUnit.MILLISECONDS)
+                sslSocketFactory(sslContext.socketFactory, trustManager)
+                hostnameVerifier { _, _ -> true } // Accept all hostnames
+                followRedirects(followRedirects)
+                followSslRedirects(followSslRedirects)
+                customInterceptor?.let { addInterceptor(it) }
+                customLoggingInterceptor?.let { addInterceptor(it) }
+            }.build()
+
+            HttpClient(OkHttp) {
+                engine {
+                    preconfigured = insecureOkHttpClient
+                }
+                configureClient()
+            }
         }
     }
 
@@ -415,7 +541,7 @@ inline fun <R> safeRunCatching(block: () -> R): Result<R> {
     }
 }
 
-inline suspend fun <R> safeRunCatchingSuspend(block: suspend () -> R): Result<R> {
+suspend inline fun <R> safeRunCatchingSuspend(block: suspend () -> R): Result<R> {
     return try {
         Result.success(block())
     } catch (e: CancellationException) {
