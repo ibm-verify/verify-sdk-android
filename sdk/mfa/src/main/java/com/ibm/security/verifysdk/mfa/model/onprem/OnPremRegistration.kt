@@ -35,7 +35,7 @@ internal data class DetailsData @OptIn(ExperimentalSerializationApi::class) cons
     @SerialName("authntrxn_endpoint")
     val authntrxnEndpoint: URL,
     @SerialName("metadata")
-    val metadataService: MetadataService,
+    val metadataService: MetadataService? = null,
     @SerialName("discovery_mechanisms")
     val discoveryMechanisms: ArrayList<DiscoveredMechanisms> = arrayListOf(),
     @SerialName("enrollment_endpoint")
@@ -53,7 +53,7 @@ internal data class DetailsData @OptIn(ExperimentalSerializationApi::class) cons
     val theme: Map<String, String>? = null
 ) {
 
-    val serviceName: String = metadataService.serviceName ?: enrollmentEndpoint.host
+    val serviceName: String = metadataService?.serviceName ?: enrollmentEndpoint.host
     var availableFactors: ArrayList<EnrollableFactor> = ArrayList()
 
     init {
