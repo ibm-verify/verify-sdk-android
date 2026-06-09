@@ -9,11 +9,9 @@ import com.ibm.security.verifysdk.authentication.api.OAuthProvider
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
 import com.ibm.security.verifysdk.core.extension.entering
 import com.ibm.security.verifysdk.core.extension.exiting
-import com.ibm.security.verifysdk.core.helper.ContextHelper
 import com.ibm.security.verifysdk.core.helper.KeystoreHelper
 import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.BiometricFactorInfo
-import com.ibm.security.verifysdk.mfa.EnrollableSignature
 import com.ibm.security.verifysdk.mfa.EnrollableType
 import com.ibm.security.verifysdk.mfa.HashAlgorithmException
 import com.ibm.security.verifysdk.mfa.HashAlgorithmType
@@ -41,11 +39,9 @@ import io.ktor.client.request.setBody
 import io.ktor.client.request.url
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
-import io.ktor.http.HttpMethod
 import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import io.ktor.http.formUrlEncode
-import io.ktor.http.headers
 import io.ktor.http.isSuccess
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
@@ -60,6 +56,64 @@ import org.slf4j.LoggerFactory
 import java.net.URL
 import java.util.UUID
 
+/**
+ * Registration provider for IBM Verify Access (on-premise) multifactor authentication.
+ *
+ * This provider handles the registration flow for on-premise authenticators, including
+ * enrollment of biometric, user presence, and TOTP factors.
+ *
+ * ## SSL Certificate Bypass
+ *
+ * On-premise deployments may use self-signed certificates or certificates from private CAs.
+ * The QR code can include an `ignoreSSLCertificate` flag to indicate that SSL certificate
+ * validation should be bypassed for this specific authenticator.
+ *
+ * ### Two-Level Security Model
+ *
+ * SSL bypass requires **both** conditions to be met:
+ * 1. **QR Code Level**: `ignoreSSLCertificate=true` in the initialization data (indicates need)
+ * 2. **App Level**: [NetworkHelper.allowInsecureSSL] = `true` (grants permission)
+ *
+ * If the QR code requests SSL bypass but the app hasn't enabled it, [initiate] will throw
+ * an exception. This prevents accidental SSL bypass and gives the app control over security policy.
+ *
+ * ## HTTP Client Affinity
+ *
+ * **Important**: The HTTP client is bound during [initiate] based on the `ignoreSSLCertificate`
+ * flag. This client is stored internally and reused for all subsequent registration operations
+ * ([enrollBiometric], [enrollUserPresence], [enrollOneTimePasscode], [finalize]).
+ *
+ * All enrollment methods accept an optional `httpClient` parameter for API compatibility and
+ * testing flexibility, but **the parameter is ignored in favor of the stored client** to ensure
+ * SSL bypass settings are preserved throughout the registration flow.
+ *
+ * ### Usage Pattern
+ *
+ * ```kotlin
+ * // 1. Enable SSL bypass at app level (if needed)
+ * NetworkHelper.allowInsecureSSL = true
+ *
+ * // 2. Create provider from QR code
+ * val provider = OnPremiseRegistrationProvider(qrData)
+ *
+ * // 3. Initiate - creates appropriate HTTP client
+ * provider.initiate(accountName, pushToken).onSuccess {
+ *     // 4. Enroll factors - automatically uses correct client
+ *     provider.enrollBiometric()
+ *     provider.enrollUserPresence()
+ *
+ *     // 5. Finalize - uses same client
+ *     provider.finalize()
+ * }
+ * ```
+ *
+ * @param data JSON string containing initialization data from QR code scan, including
+ *             optional `ignoreSSLCertificate` flag
+ *
+ * @see MFARegistrationDescriptor
+ * @see NetworkHelper.allowInsecureSSL
+ * @see NetworkHelper.createInsecureClient
+ */
 class OnPremiseRegistrationProvider(data: String) :
     MFARegistrationDescriptor<MFAAuthenticatorDescriptor> {
 
@@ -148,7 +202,7 @@ class OnPremiseRegistrationProvider(data: String) :
             log.entering()
             this.accountName = accountName
             this.pushToken = pushToken.orEmpty()
-            
+
             // Create appropriate HTTP client based on SSL certificate flag
             // This implements the two-level security model:
             // 1. initializationInfo.ignoreSSLCertificate (from QR code) indicates need
@@ -162,7 +216,7 @@ class OnPremiseRegistrationProvider(data: String) :
                 // Use provided client (default secure client or custom)
                 httpClient
             }
-            
+
             val responseDetail = registrationHttpClient.get {
                 url(initializationInfo.uri)
             }
@@ -240,11 +294,18 @@ class OnPremiseRegistrationProvider(data: String) :
         }
     }
 
-    override suspend fun enrollBiometric(httpClient: HttpClient) {
+    override suspend fun enrollBiometric(httpClient: HttpClient?) {
+        val activeHttpClient: HttpClient = httpClient ?: registrationHttpClient
         if (canEnrollFingerprint) {
-            performSignatureEnrollment(type = EnrollableType.FINGERPRINT, httpClient = httpClient)
+            performSignatureEnrollment(
+                type = EnrollableType.FINGERPRINT,
+                activeHttpClient = activeHttpClient
+            )
         } else if (canEnrollFace) {
-            performSignatureEnrollment(type = EnrollableType.FACE, httpClient = httpClient)
+            performSignatureEnrollment(
+                type = EnrollableType.FACE,
+                activeHttpClient = activeHttpClient
+            )
         } else {
             throw MFARegistrationException.NoEnrollableFactors(EnrollableType.FINGERPRINT)
         }
@@ -320,14 +381,15 @@ class OnPremiseRegistrationProvider(data: String) :
      */
     override suspend fun enrollBiometric(
         cryptoObject: BiometricPrompt.CryptoObject,
-        httpClient: HttpClient
+        httpClient: HttpClient?
     ) {
         val pending = pendingBiometricEnrollment
             ?: throw MFARegistrationException.InvalidPendingEnrollment()
 
         pendingBiometricEnrollment = null
+        val activeHttpClient: HttpClient = httpClient ?: registrationHttpClient
 
-        // On-premise enrollment uses a SCIM PATCH with publicKey + keyHandle only.
+        // On-premise enrollment uses an SCIM PATCH with publicKey + keyHandle only.
         // The CryptoObject has already unlocked the key via biometric authentication;
         // no separate signedData field is required in the request body.
         enroll(
@@ -336,83 +398,87 @@ class OnPremiseRegistrationProvider(data: String) :
             pending.keyName,
             HashAlgorithmType.fromString(pending.algorithm),
             pending.publicKey,
-            httpClient
+            activeHttpClient
         )
     }
 
-    override suspend fun enrollUserPresence(httpClient: HttpClient) {
+    override suspend fun enrollUserPresence(httpClient: HttpClient?) {
         if (!canEnrollUserPresence)
             throw MFARegistrationException.NoEnrollableFactors(EnrollableType.USER_PRESENCE)
 
+        val activeHttpClient: HttpClient = httpClient ?: registrationHttpClient
         performSignatureEnrollment(
             type = EnrollableType.USER_PRESENCE,
-            httpClient = httpClient
+            activeHttpClient = activeHttpClient
         )
     }
 
-    override suspend fun enrollOneTimePasscode(httpClient: HttpClient): OTPAuthenticator {
+    override suspend fun enrollOneTimePasscode(httpClient: HttpClient?): OTPAuthenticator {
         log.entering()
-        
+
         require(::tokenInfo.isInitialized) { "TokenInfo must be initialized. Call initiate() first." }
         require(::metaData.isInitialized) { "MetaData must be initialized. Call initiate() first." }
         require(::authenticatorId.isInitialized) { "Authenticator ID must be initialized. Call initiate() first." }
-        
+
         if (!canEnrollOneTimePasscode) {
             throw MFARegistrationException.NoEnrollableFactors(EnrollableType.TOTP)
         }
-        
+
+        val activeHttpClient: HttpClient = httpClient ?: registrationHttpClient
+
         return try {
-            // Make GET request to TOTP shared secret endpoint
-            val response = httpClient.get {
+            val response = activeHttpClient.get {
                 url(metaData.totpUri)
                 accept(ContentType.Application.Json)
                 bearerAuth(tokenInfo.accessToken)
             }
-            
+
             if (!response.status.isSuccess()) {
                 throw MFARegistrationException.General(
                     "Failed to enroll TOTP: ${response.status.value} - ${response.bodyAsText()}"
                 )
             }
-            
+
             // Parse the JSON response
             // Response format: {"period":"30","secretKeyUrl":"otpauth://totp/...","secretKey":"...","digits":"6","username":"...","algorithm":"HmacSHA1"}
             val responseBody = response.bodyAsText()
             val jsonResponse = decoder.decodeFromString<JsonObject>(responseBody)
-            
+
             // Extract base URI (contains secret and issuer)
             val baseUri = jsonResponse["secretKeyUrl"]?.jsonPrimitive?.content
                 ?: throw MFARegistrationException.FailedToParse(
                     IllegalArgumentException("Missing 'secretKeyUrl' field in TOTP response")
                 )
-            
+
             // Extract additional parameters from JSON
             val digits = jsonResponse["digits"]?.jsonPrimitive?.content ?: "6"
             val period = jsonResponse["period"]?.jsonPrimitive?.content ?: "30"
             val algorithm = jsonResponse["algorithm"]?.jsonPrimitive?.content ?: "HmacSHA1"
-            
+
             // Convert algorithm from HmacSHA1 format to SHA1 format for otpauth URI
             val algorithmParam = when {
-                algorithm.startsWith("Hmac", ignoreCase = true) -> algorithm.substring(4).uppercase()
+                algorithm.startsWith("Hmac", ignoreCase = true) -> algorithm.substring(4)
+                    .uppercase()
+
                 else -> algorithm.uppercase()
             }
-            
+
             // Construct complete TOTP URI with all parameters
             val completeUri = if (baseUri.contains("?")) {
                 "$baseUri&digits=$digits&period=$period&algorithm=$algorithmParam"
             } else {
                 "$baseUri?digits=$digits&period=$period&algorithm=$algorithmParam"
             }
-            
+
             // Use OTPAuthenticator.fromQRScan to parse the complete otpauth:// URI
             val otpAuthenticator = OTPAuthenticator.fromQRScan(completeUri)
                 ?: throw MFARegistrationException.FailedToParse(
                     IllegalArgumentException("Invalid TOTP URI format: $completeUri")
                 )
-            
+
             log.exiting()
             otpAuthenticator
-            
+
         } catch (e: MFARegistrationException) {
             log.exiting()
             throw e
@@ -422,9 +488,10 @@ class OnPremiseRegistrationProvider(data: String) :
         }
     }
 
+
     private suspend fun performSignatureEnrollment(
         type: EnrollableType,
-        httpClient: HttpClient
+        activeHttpClient: HttpClient
     ) {
 
         require(::tokenInfo.isInitialized) { "TokenInfo must be initialized" }
@@ -472,7 +539,7 @@ class OnPremiseRegistrationProvider(data: String) :
             keyName,
             HashAlgorithmType.fromString(algorithm),
             publicKey,
-            httpClient
+            activeHttpClient
         )
     }
 
@@ -484,7 +551,7 @@ class OnPremiseRegistrationProvider(data: String) :
         keyName: String,
         algorithm: HashAlgorithmType,
         publicKey: String,
-        httpClient: HttpClient
+        activeHttpClient: HttpClient
     ) {
 
         try {
@@ -517,7 +584,7 @@ class OnPremiseRegistrationProvider(data: String) :
                 })
             }
 
-            val response = httpClient.patch {
+            val response = activeHttpClient.patch {
                 url(enrollmentUrl)
                 accept(ContentType.Application.Json)
                 bearerAuth(tokenInfo.accessToken)
@@ -574,9 +641,11 @@ class OnPremiseRegistrationProvider(data: String) :
     }
 
     @OptIn(InternalSerializationApi::class)
-    override suspend fun finalize(httpClient: HttpClient): Result<MFAAuthenticatorDescriptor> {
+    override suspend fun finalize(httpClient: HttpClient?): Result<MFAAuthenticatorDescriptor> {
         return try {
             log.entering()
+
+            val activeHttpClient: HttpClient = httpClient ?: registrationHttpClient
 
             // Save original additional data from initial token response
             // This preserves fields like display_name, authenticator_id, ISV_push_enabled, etc.
@@ -584,7 +653,7 @@ class OnPremiseRegistrationProvider(data: String) :
 
             log.debug("=== FINALIZE: Original token additionalData ===")
             originalAdditionalData.forEach { (key, value) ->
-                log.debug("  $key: $value")
+                log.debug("  {}: {}", key, value)
             }
 
             // Generate requestBody for token refresh based on OnPremiseAuthenticatorService.refreshToken
@@ -603,7 +672,7 @@ class OnPremiseRegistrationProvider(data: String) :
                 requestBody[key] = value.toString()
             }
 
-            val response = registrationHttpClient.post {
+            val response = activeHttpClient.post {
                 url(metaData.registrationUri.toString())
                 accept(ContentType.Application.Json)
                 contentType(ContentType.Application.FormUrlEncoded)
@@ -619,7 +688,7 @@ class OnPremiseRegistrationProvider(data: String) :
 
                     log.debug("=== FINALIZE: Refreshed token additionalData ===")
                     refreshedToken.additionalData.forEach { (key, value) ->
-                        log.debug("  $key: $value")
+                        log.debug("  {}: {}", key, value)
                     }
 
                     // Merge additional data: preserve original fields, allow refresh response to override
@@ -628,7 +697,7 @@ class OnPremiseRegistrationProvider(data: String) :
 
                     log.debug("=== FINALIZE: Merged additionalData (BEFORE storing) ===")
                     mergedAdditionalData.forEach { (key, value) ->
-                        log.debug("  $key: $value")
+                        log.debug("  {}: {}", key, value)
                     }
 
                     tokenInfo = refreshedToken.copy(
@@ -641,7 +710,7 @@ class OnPremiseRegistrationProvider(data: String) :
                     log.debug("  expiresIn: ${tokenInfo.expiresIn}")
                     log.debug("  additionalData:")
                     tokenInfo.additionalData.forEach { (key, value) ->
-                        log.debug("    $key: $value")
+                        log.debug("    {}: {}", key, value)
                     }
                 }
 
@@ -649,8 +718,8 @@ class OnPremiseRegistrationProvider(data: String) :
                 log.debug("  id (authenticatorId): $authenticatorId")
                 log.debug("  serviceName: ${metaData.serviceName}")
                 log.debug("  accountName: $accountName")
-                log.debug("  refreshUri: ${metaData.registrationUri}")
-                log.debug("  transactionUri: ${metaData.transactionUri}")
+                log.debug("  refreshUri: {}", metaData.registrationUri)
+                log.debug("  transactionUri: {}", metaData.transactionUri)
 
                 Result.success(
                     OnPremiseAuthenticator(
