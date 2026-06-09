@@ -1458,7 +1458,7 @@ class CloudRegistrationProviderTest {
             httpClient = httpClient
         )
 
-        // Perform enrollment with explicit keyName, publicKey, and signedData
+        // Perform enrollment with explicit httpClient parameter
         provider.enrollUserPresence(
             httpClient = httpClient
         )
