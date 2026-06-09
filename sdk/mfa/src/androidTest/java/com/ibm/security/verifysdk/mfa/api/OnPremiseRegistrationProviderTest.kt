@@ -7,6 +7,7 @@ package com.ibm.security.verifysdk.mfa.api
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.ibm.security.verifysdk.core.helper.ContextHelper
+import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.EnrollableType
 import com.ibm.security.verifysdk.mfa.MFARegistrationException
 import io.ktor.client.HttpClient
@@ -65,7 +66,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_authorization_code_001",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -102,7 +103,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_authorization_code_001",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -205,7 +206,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_code",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -288,7 +289,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_code",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -373,7 +374,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_code",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -485,7 +486,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_code",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -582,13 +583,13 @@ class OnPremiseRegistrationProviderTest {
     fun testFinalize_PreservesTenantIdAndServerAuthenticatorIdAcrossRegistrationAndRefresh() =
         runTest {
             val qrCodeJson = """
-        {
-            "code": "test_code",
-            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
-            "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
-        }
-        """.trimIndent()
+            {
+                "code": "test_code",
+                "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+                "client_id": "AuthenticatorClient",
+                "options": "ignoreSslCerts=false"
+            }
+            """.trimIndent()
 
             val serverAuthenticatorId = "uuidserver-authenticator-id-001"
             val tokenResponses = mutableListOf<String>()
@@ -712,7 +713,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_code",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -756,7 +757,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "invalid_code",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -826,7 +827,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_code",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -912,7 +913,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_code",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -995,7 +996,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_code",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -1077,7 +1078,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_authorization_code_002",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -1201,7 +1202,7 @@ class OnPremiseRegistrationProviderTest {
             "code": "test_authorization_code_003",
             "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
             "client_id": "AuthenticatorClient",
-            "ignoreSSLCertificate": false
+            "options": "ignoreSslCerts=false"
         }
         """.trimIndent()
 
@@ -1310,5 +1311,305 @@ class OnPremiseRegistrationProviderTest {
         }
 
         httpClient.close()
+    }
+
+    /**
+     * Test enrollment without metadata field in the payload.
+     *
+     * When the metadata field is completely omitted from the server response,
+     * the service name should default to the hostname.
+     */
+    @Test
+    fun testEnrollNoMetadataField_Success() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_authorization_code_003",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options": "ignoreSslCerts=false"
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                // Details endpoint without metadata field at all
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me?attributes=urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction:transactionsPending,urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction:attributesPending",
+                          "discovery_mechanisms": [
+                            "urn:ibm:security:authentication:asf:mechanism:mobile_user_approval:user_presence",
+                            "urn:ibm:security:authentication:asf:mechanism:mobile_user_approval:fingerprint"
+                          ],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                // Token endpoint
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "X9y8Z7W6",
+                          "refresh_token": "test_refresh_token_003",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "test-authenticator-id-003",
+                          "ISV_push_enabled": "true",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(
+                            HttpHeaders.ContentType,
+                            "application/json;charset=UTF-8"
+                        )
+                    )
+                }
+                // Enrollment endpoint
+                request.url.encodedPath.contains("/scim/Me") -> {
+                    respond(
+                        content = """
+                        {
+                          "id": "test-authenticator-id-003",
+                          "schemas": ["urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator"],
+                          "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator": {
+                            "enabled": true
+                          }
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+
+        // Initiate with account name
+        val initResult = provider.initiate(
+            accountName = "OnPremise account",
+            pushToken = "abc123",
+            additionalHeaders = null,
+            httpClient = httpClient
+        )
+
+        assertTrue("Initiate should succeed", initResult.isSuccess)
+        assertNotNull("Provider should not be null", provider)
+
+        // Finalize enrollment
+        val finalizeResult = provider.finalize(httpClient)
+
+        assertTrue("Finalize should succeed", finalizeResult.isSuccess)
+        finalizeResult.onSuccess { authenticator ->
+            assertNotNull("Authenticator should not be null", authenticator)
+            assertEquals("X9y8Z7W6", authenticator.token.accessToken)
+            // Service name should default to host when metadata field is completely omitted
+            assertEquals("test.example.com", authenticator.serviceName)
+            // No factors enrolled yet
+            assertFalse("User presence should not be enrolled", authenticator.userPresence != null)
+            assertFalse("Biometric should not be enrolled", authenticator.biometric != null)
+        }
+
+        httpClient.close()
+    }
+
+    /**
+     * Test: Verify ignoreSslCerts=true works when allowInsecureSSL=true.
+     *
+     * This test verifies the two-level security model allows SSL bypass when both conditions are met:
+     * 1. QR code requests it (ignoreSslCerts=true)
+     * 2. App permits it (NetworkHelper.allowInsecureSSL=true)
+     */
+    @Test
+    fun testIgnoreSslCerts_AllowedWhenPermitted() = runTest {
+        NetworkHelper.allowInsecureSSL = true
+
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://localhost:9443/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options":"ignoreSslCerts=true"
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when (request.url.toString()) {
+                "https://localhost:9443/mga/sps/mmfa/user/mgmt/details" -> {
+                    // First request: details endpoint
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://localhost:9443/scim/Me",
+                          "metadata": {
+                            "service_name": "Test Service"
+                          },
+                          "discovery_mechanisms": [
+                            "urn:ibm:security:authentication:asf:mechanism:mobile_user_approval:user_presence"
+                          ],
+                          "enrollment_endpoint": "https://localhost:9443/scim/Me",
+                          "qrlogin_endpoint": "https://localhost:9443/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://localhost:9443/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://localhost:9443/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://localhost:9443/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                "https://localhost:9443/token" -> {
+                    // Second request: OAuth token endpoint
+                    respond(
+                        content = """{"access_token":"test_token","token_type":"Bearer","expires_in":3600,"authenticator_id":"test_auth_id"}""",
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> error("Unexpected request: ${request.url}")
+            }
+        }
+
+        NetworkHelper.initialize(httpClientEngine = mockEngine)
+
+        try {
+            val provider = OnPremiseRegistrationProvider(qrCodeJson)
+            val result = provider.initiate("test@example.com", "push_token", null)
+            
+            result.onFailure { it.printStackTrace() }
+            assertTrue("Should succeed when SSL bypass is allowed", result.isSuccess)
+        } finally {
+            NetworkHelper.initialize()
+            NetworkHelper.allowInsecureSSL = false
+        }
+    }
+
+    /**
+     * Test: Verify ignoreSslCerts=false uses secure client.
+     *
+     * When ignoreSslCerts=false, the default secure client should be used.
+     */
+    @Test
+    fun testIgnoreSslCerts_UsesSecureClientWhenFalse() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://localhost:9443/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options":"ignoreSslCerts=false"
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when (request.url.toString()) {
+                "https://localhost:9443/mga/sps/mmfa/user/mgmt/details" -> {
+                    // First request: details endpoint
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://localhost:9443/scim/Me",
+                          "metadata": {
+                            "service_name": "Test Service"
+                          },
+                          "discovery_mechanisms": [
+                            "urn:ibm:security:authentication:asf:mechanism:mobile_user_approval:user_presence"
+                          ],
+                          "enrollment_endpoint": "https://localhost:9443/scim/Me",
+                          "qrlogin_endpoint": "https://localhost:9443/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://localhost:9443/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://localhost:9443/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://localhost:9443/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                "https://localhost:9443/token" -> {
+                    // Second request: OAuth token endpoint
+                    respond(
+                        content = """{"access_token":"test_token","token_type":"Bearer","expires_in":3600,"authenticator_id":"test_auth_id"}""",
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> error("Unexpected request: ${request.url}")
+            }
+        }
+
+        NetworkHelper.initialize(httpClientEngine = mockEngine)
+
+        try {
+            val provider = OnPremiseRegistrationProvider(qrCodeJson)
+            val result = provider.initiate("test@example.com", "push_token", null)
+            
+            result.onFailure { it.printStackTrace() }
+            assertTrue("Should succeed with secure client", result.isSuccess)
+        } finally {
+            NetworkHelper.initialize()
+        }
+    }
+
+    /**
+     * Security test: Verify SSL bypass is blocked when allowInsecureSSL = false.
+     *
+     * This test ensures the two-level security model prevents SSL bypass when:
+     * 1. QR code requests it (ignoreSslCerts=true)
+     * 2. App denies it (NetworkHelper.allowInsecureSSL=false)
+     *
+     * Expected: initiate() returns Result.failure with IllegalStateException
+     */
+    @Test
+    fun testIgnoreSslCerts_BlockedWhenNotAllowed() = runTest {
+        NetworkHelper.allowInsecureSSL = false
+
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://localhost:9443/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options":"ignoreSslCerts=true"
+        }
+        """.trimIndent()
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        val result = provider.initiate("test@example.com", "push_token", null)
+
+        assertTrue("Should fail when SSL bypass is requested but not allowed", result.isFailure)
+        
+        result.onFailure { exception ->
+            assertTrue(
+                "Should throw IllegalStateException about insecure SSL not being allowed",
+                exception is IllegalStateException &&
+                (exception.message?.contains("insecure", ignoreCase = true) == true ||
+                 exception.message?.contains("SSL", ignoreCase = true) == true ||
+                 exception.message?.contains("allowInsecureSSL", ignoreCase = true) == true)
+            )
+        }
     }
 }

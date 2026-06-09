@@ -138,8 +138,13 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      * }
      * ```
      *
+     * ## HTTP Client Parameter
+     *
      * @param httpClient Optional HTTP client instance for making network requests.
-     *                   Defaults to [NetworkHelper.getInstance].
+     *                   - **Cloud providers**: Defaults to [NetworkHelper.getInstance] (secure connections)
+     *                   - **OnPremise providers**: Defaults to the client configured during `initiate()`
+     *                     which may include SSL bypass settings if `ignoreSSLCertificate=true`
+     *                   - **Testing**: Can be overridden with a custom client (e.g., mock engine)
      *
      * @throws MFARegistrationException.BiometricAuthenticationRequired when
      *         [authenticationRequired] is `true` — the caller must show a [BiometricPrompt]
@@ -149,7 +154,7 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      *         invalid state, server rejection).
      */
     @Throws
-    suspend fun enrollBiometric(httpClient: HttpClient = NetworkHelper.getInstance)
+    suspend fun enrollBiometric(httpClient: HttpClient? = null)
 
     /**
      * Enrolls biometric verification using a hardware-unlocked [BiometricPrompt.CryptoObject]
@@ -162,14 +167,15 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      * without ever exposing the raw private key.
      *
      * @param cryptoObject The authenticated [BiometricPrompt.CryptoObject] from the biometric result.
-     * @param httpClient Optional HTTP client instance. Defaults to [NetworkHelper.getInstance].
+     * @param httpClient Optional HTTP client instance. If null, uses the implementation's default
+     *                   (see [enrollBiometric] for details on default behavior).
      *
      * @throws MFARegistrationException if enrollment fails.
      */
     @Throws
     suspend fun enrollBiometric(
         cryptoObject: BiometricPrompt.CryptoObject,
-        httpClient: HttpClient = NetworkHelper.getInstance
+        httpClient: HttpClient? = null
     )
 
     /**
@@ -210,7 +216,7 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      * @param promptInfo The [BiometricPrompt.PromptInfo] describing the dialog title, subtitle,
      *                   and button labels. Use [BiometricPrompt.PromptInfo.Builder] to configure
      *                   the title, subtitle, description, and negative button text shown to the user.
-     * @param httpClient Optional HTTP client instance. Defaults to [NetworkHelper.getInstance].
+     * @param httpClient Optional HTTP client instance. If null, uses the implementation's default.
      *
      * @return A [Result] containing:
      *         - [Result.success] with [Unit] if enrollment completed successfully.
@@ -223,7 +229,7 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
     suspend fun enrollBiometric(
         activity: FragmentActivity,
         promptInfo: BiometricPrompt.PromptInfo,
-        httpClient: HttpClient = NetworkHelper.getInstance
+        httpClient: HttpClient? = null
     ): Result<Unit> {
         return try {
             enrollBiometric(httpClient)
@@ -335,13 +341,16 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      * for lower-security scenarios or as a fallback when biometrics are unavailable.
      *
      * @param httpClient Optional HTTP client instance for making network requests.
-     *                   Defaults to [NetworkHelper.getInstance].
+     *                   - **Cloud providers**: Defaults to [NetworkHelper.getInstance]
+     *                   - **OnPremise providers**: Defaults to the client from `initiate()`
+     *                     (may include SSL bypass settings)
      *
+     * @throws MFARegistrationException.NoEnrollableFactors if user presence enrollment is not available.
      * @throws MFARegistrationException if enrollment fails due to network errors,
      *         invalid state, or server rejection.
      */
     @Throws
-    suspend fun enrollUserPresence(httpClient: HttpClient = NetworkHelper.getInstance)
+    suspend fun enrollUserPresence(httpClient: HttpClient? = null)
 
     /**
      * Enrolls TOTP (Time-based One-Time Password) as an authentication factor.
@@ -355,7 +364,9 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      * `totp_shared_secret_endpoint` in the discovery response.
      *
      * @param httpClient Optional HTTP client instance for making network requests.
-     *                   Defaults to [NetworkHelper.getInstance].
+     *                   - **Cloud providers**: Defaults to [NetworkHelper.getInstance]
+     *                   - **OnPremise providers**: Defaults to the client from `initiate()`
+     *                     (may include SSL bypass settings)
      *
      * @return An [OTPAuthenticator] containing the TOTP configuration including the
      *         shared secret, algorithm, digits, and period.
@@ -366,7 +377,7 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      *         invalid state, or server rejection.
      */
     @Throws
-    suspend fun enrollOneTimePasscode(httpClient: HttpClient = NetworkHelper.getInstance): OTPAuthenticator
+    suspend fun enrollOneTimePasscode(httpClient: HttpClient? = null): OTPAuthenticator
 
     /**
      * Finalizes the registration process and returns the registered authenticator.
@@ -377,7 +388,9 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      * operations.
      *
      * @param httpClient Optional HTTP client instance for making network requests.
-     *                   Defaults to [NetworkHelper.getInstance].
+     *                   - **Cloud providers**: Defaults to [NetworkHelper.getInstance]
+     *                   - **OnPremise providers**: Defaults to the client from `initiate()`
+     *                     (may include SSL bypass settings)
      *
      * @return A [Result] containing either:
      *         - Success: An [MFAAuthenticatorDescriptor] representing the registered authenticator
@@ -387,7 +400,7 @@ interface MFARegistrationDescriptor<out Authenticator : MFAAuthenticatorDescript
      *         incomplete enrollment, or server rejection.
      */
     @Throws
-    suspend fun finalize(httpClient: HttpClient = NetworkHelper.getInstance): Result<MFAAuthenticatorDescriptor>
+    suspend fun finalize(httpClient: HttpClient? = null): Result<MFAAuthenticatorDescriptor>
 }
 
 /**

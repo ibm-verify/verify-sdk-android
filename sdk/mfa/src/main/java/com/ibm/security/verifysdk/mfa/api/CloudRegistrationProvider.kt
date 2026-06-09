@@ -31,6 +31,7 @@ import com.ibm.security.verifysdk.mfa.generateKeys
 import com.ibm.security.verifysdk.mfa.model.cloud.CloudAuthenticator
 import com.ibm.security.verifysdk.mfa.model.cloud.CloudRegistration
 import com.ibm.security.verifysdk.mfa.model.cloud.CloudRegistrationProviderResultData
+import com.ibm.security.verifysdk.mfa.model.cloud.CloudTOTPEnrollableFactor
 import com.ibm.security.verifysdk.mfa.model.cloud.InitializationInfo
 import com.ibm.security.verifysdk.mfa.model.cloud.Metadata
 import com.ibm.security.verifysdk.mfa.sign
@@ -64,6 +65,16 @@ import java.util.UUID
  * This class handles the registration flow for cloud-based multi-factor authentication, supporting
  * both QR code-based registration and in-app registration flows. It manages the enrollment of
  * various authentication factors including TOTP, user presence, and biometric verification.
+ *
+ * ## SSL Certificate Handling
+ *
+ * **Cloud deployments use standard SSL certificate validation.** Unlike on-premise deployments,
+ * cloud registrations do not support SSL certificate bypass. All connections must use valid,
+ * trusted SSL certificates.
+ *
+ * The `httpClient` parameter in enrollment methods allows for custom HTTP client configuration
+ * (e.g., for testing with mock servers), but the default behavior always uses secure connections
+ * via [NetworkHelper.getInstance].
  *
  * ## Prerequisites
  *
@@ -130,6 +141,7 @@ import java.util.UUID
  * @see MFARegistrationDescriptor
  * @see MFAAuthenticatorDescriptor
  * @see com.ibm.security.verifysdk.core.helper.ContextHelper
+ * @see com.ibm.security.verifysdk.mfa.api.OnPremiseRegistrationProvider
  * @see inAppInitiate
  */
 class CloudRegistrationProvider(data: String) :
@@ -341,12 +353,12 @@ class CloudRegistrationProvider(data: String) :
         }
     }
 
-    override suspend fun enrollBiometric(httpClient: HttpClient) {
-
+    override suspend fun enrollBiometric(httpClient: HttpClient?) {
+        val activeHttpClient = httpClient ?: NetworkHelper.getInstance
         if (canEnrollFingerprint) {
-            performSignatureEnrollment(type = EnrollableType.FINGERPRINT, httpClient = httpClient)
+            performSignatureEnrollment(type = EnrollableType.FINGERPRINT, activeHttpClient = activeHttpClient)
         } else if (canEnrollFace) {
-            performSignatureEnrollment(type = EnrollableType.FACE, httpClient = httpClient)
+            performSignatureEnrollment(type = EnrollableType.FACE, activeHttpClient = activeHttpClient)
         } else {
             throw MFARegistrationException.NoEnrollableFactors(EnrollableType.FINGERPRINT)
         }
@@ -427,12 +439,14 @@ class CloudRegistrationProvider(data: String) :
      */
     override suspend fun enrollBiometric(
         cryptoObject: BiometricPrompt.CryptoObject,
-        httpClient: HttpClient
+        httpClient: HttpClient?
     ) {
         val pending = pendingBiometricEnrollment
             ?: throw MFARegistrationException.InvalidPendingEnrollment()
 
         pendingBiometricEnrollment = null
+
+        val activeHttpClient = httpClient ?: NetworkHelper.getInstance
 
         val signedData = sign(
             cryptoObject = cryptoObject,
@@ -446,22 +460,22 @@ class CloudRegistrationProvider(data: String) :
             HashAlgorithmType.fromString(pending.algorithm),
             pending.publicKey,
             signedData,
-            httpClient
+            activeHttpClient
         )
     }
 
-    override suspend fun enrollUserPresence(httpClient: HttpClient) {
-
+    override suspend fun enrollUserPresence(httpClient: HttpClient?) {
         if (!canEnrollUserPresence)
             throw MFARegistrationException.NoEnrollableFactors(EnrollableType.USER_PRESENCE)
 
+        val activeHttpClient = httpClient ?: NetworkHelper.getInstance
         performSignatureEnrollment(
             type = EnrollableType.USER_PRESENCE,
-            httpClient = httpClient
+            activeHttpClient = activeHttpClient
         )
     }
 
-    override suspend fun enrollOneTimePasscode(httpClient: HttpClient): OTPAuthenticator {
+    override suspend fun enrollOneTimePasscode(httpClient: HttpClient?): OTPAuthenticator {
         require(::tokenInfo.isInitialized) { "TokenInfo must be initialized. Call initiate() first." }
         require(::metaData.isInitialized) { "MetaData must be initialized. Call initiate() first." }
         
@@ -471,7 +485,7 @@ class CloudRegistrationProvider(data: String) :
         
         // Find the TOTP factor in available factors
         val totpFactor = metaData.availableFactors
-            .firstOrNull { it.type == EnrollableType.TOTP } as? com.ibm.security.verifysdk.mfa.model.cloud.CloudTOTPEnrollableFactor
+            .firstOrNull { it.type == EnrollableType.TOTP } as? CloudTOTPEnrollableFactor
             ?: throw MFARegistrationException.NoEnrollableFactors(EnrollableType.TOTP)
         
         // Build otpauth:// URI using the existing CloudTOTPEnrollableFactor fields
@@ -503,7 +517,7 @@ class CloudRegistrationProvider(data: String) :
 
     private suspend fun performSignatureEnrollment(
         type: EnrollableType,
-        httpClient: HttpClient
+        activeHttpClient: HttpClient
     ) {
 
         require(::tokenInfo.isInitialized) { "TokenInfo must be initialized" }
@@ -555,7 +569,7 @@ class CloudRegistrationProvider(data: String) :
             HashAlgorithmType.fromString(algorithm),
             publicKey,
             signedData,
-            httpClient
+            activeHttpClient
         )
     }
 
@@ -566,7 +580,7 @@ class CloudRegistrationProvider(data: String) :
         algorithm: HashAlgorithmType,
         publicKey: String,
         signedData: String,
-        httpClient: HttpClient
+        activeHttpClient: HttpClient
     ) {
         val isBiometric = signatureEnrollableFactor.type == EnrollableType.FACE ||
                          signatureEnrollableFactor.type == EnrollableType.FINGERPRINT
@@ -590,7 +604,7 @@ class CloudRegistrationProvider(data: String) :
             }
         }
 
-        val response = httpClient.post {
+        val response = activeHttpClient.post {
             url(signatureEnrollableFactor.uri.toString())
             accept(ContentType.Application.Json)
             bearerAuth(tokenInfo.accessToken)
@@ -642,7 +656,7 @@ class CloudRegistrationProvider(data: String) :
 
 
     @OptIn(InternalSerializationApi::class)
-    override suspend fun finalize(httpClient: HttpClient): Result<MFAAuthenticatorDescriptor> {
+    override suspend fun finalize(httpClient: HttpClient?): Result<MFAAuthenticatorDescriptor> {
 
         return try {
 
@@ -650,11 +664,13 @@ class CloudRegistrationProvider(data: String) :
             // This preserves fields like display_name, authenticator_id, ISV_push_enabled, etc.
             val originalAdditionalData = tokenInfo.additionalData
 
+            val activeHttpClient: HttpClient = httpClient ?: NetworkHelper.getInstance
+
             val registrationUrl =
                 URL("${initializationInfo.uri}?metadataInResponse=false")
 
             // Refresh the token, which sets the authenticator state from ENROLLING to ACTIVE.
-            val response = httpClient.post {
+            val response = activeHttpClient.post {
                 url(registrationUrl.toString())
                 accept(ContentType.Application.Json)
                 setBody(

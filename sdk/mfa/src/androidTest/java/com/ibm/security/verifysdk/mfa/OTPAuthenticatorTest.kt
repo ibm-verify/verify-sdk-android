@@ -7,6 +7,8 @@ package com.ibm.security.verifysdk.mfa
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -399,5 +401,110 @@ class OTPAuthenticatorTest {
 
         // Then
         assertTrue(result.contains("OTPAuthenticator"))
+    }
+
+    @Test
+    fun fromQRScan_withBOIUATData_shouldCreateAuthenticator() {
+        // Given - Real-world data from BOI_UAT system with escaped slashes as received
+        val jsonData = """
+        {
+           "period":"30",
+           "secretKeyUrl":"otpauth:\/\/totp\/BOI_UAT:rs1005312neu?secret=LLKDX636FQCGIH3OOK646YEGYP6AB6ZH&issuer=BOI_UAT",
+           "secretKey":"LLKDX636FQCGIH3OOK646YEGYP6AB6ZH",
+           "digits":"6",
+           "username":"rs1005312neu",
+           "algorithm":"HmacSHA1"
+        }
+        """.trimIndent()
+        
+        // Parse JSON to extract values
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonObject = json.parseToJsonElement(jsonData).jsonObject
+        val secretKeyUrl = jsonObject["secretKeyUrl"]?.jsonPrimitive?.content ?: ""
+        val expectedSecret = jsonObject["secretKey"]?.jsonPrimitive?.content ?: ""
+        val expectedDigits = jsonObject["digits"]?.jsonPrimitive?.content?.toIntOrNull() ?: 6
+        val expectedPeriod = jsonObject["period"]?.jsonPrimitive?.content?.toIntOrNull() ?: 30
+        val expectedUsername = jsonObject["username"]?.jsonPrimitive?.content ?: ""
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(secretKeyUrl)
+
+        // Then
+        assertNotNull("Authenticator should be created from BOI_UAT data", authenticator)
+        assertEquals("BOI_UAT", authenticator?.serviceName)
+        assertEquals(expectedUsername, authenticator?.accountName)
+        assertNotNull("TOTP factor should be present", authenticator?.totp)
+        assertNull("HOTP factor should not be present", authenticator?.hotp)
+        
+        // Verify TOTP configuration matches JSON data
+        authenticator?.totp?.let { totp ->
+            assertEquals(expectedSecret, totp.secret)
+            assertEquals(expectedDigits, totp.digits)
+            assertEquals(expectedPeriod, totp.period)
+            assertEquals(HashAlgorithmType.SHA1, totp.algorithm)
+            
+            // Verify that a passcode can be generated
+            val passcode = totp.generatePasscode()
+            assertNotNull("Passcode should be generated", passcode)
+            assertEquals(expectedDigits, passcode.length)
+            assertTrue("Passcode should contain only digits", passcode.all { it.isDigit() })
+        }
+    }
+
+    @Test
+    fun constructor_withBOIUATData_shouldCreateAuthenticator() {
+        // Given - Real-world data from BOI_UAT system
+        val jsonData = """
+        {
+           "period":"30",
+           "secretKeyUrl":"otpauth:\/\/totp\/BOI_UAT:rs1005312neu?secret=LLKDX636FQCGIH3OOK646YEGYP6AB6ZH&issuer=BOI_UAT",
+           "secretKey":"LLKDX636FQCGIH3OOK646YEGYP6AB6ZH",
+           "digits":"6",
+           "username":"rs1005312neu",
+           "algorithm":"HmacSHA1"
+        }
+        """.trimIndent()
+        
+        // Parse JSON to extract values
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonObject = json.parseToJsonElement(jsonData).jsonObject
+        val secret = jsonObject["secretKey"]?.jsonPrimitive?.content ?: ""
+        val digits = jsonObject["digits"]?.jsonPrimitive?.content?.toIntOrNull() ?: 6
+        val period = jsonObject["period"]?.jsonPrimitive?.content?.toIntOrNull() ?: 30
+        val username = jsonObject["username"]?.jsonPrimitive?.content ?: ""
+        
+        // Create authenticator directly from parsed JSON data
+        val totp = TOTPFactorInfo(
+            secret = secret,
+            algorithm = HashAlgorithmType.SHA1,
+            digits = digits,
+            period = period
+        )
+
+        // When
+        val authenticator = OTPAuthenticator(
+            serviceName = "BOI_UAT",
+            accountName = username,
+            totp = totp
+        )
+
+        // Then
+        assertNotNull(authenticator.id)
+        assertEquals("BOI_UAT", authenticator.serviceName)
+        assertEquals(username, authenticator.accountName)
+        assertNotNull(authenticator.totp)
+        assertNull(authenticator.hotp)
+        
+        // Verify TOTP configuration matches JSON data
+        assertEquals(secret, authenticator.totp?.secret)
+        assertEquals(digits, authenticator.totp?.digits)
+        assertEquals(period, authenticator.totp?.period)
+        assertEquals(HashAlgorithmType.SHA1, authenticator.totp?.algorithm)
+        
+        // Verify that a passcode can be generated
+        val passcode = authenticator.totp?.generatePasscode()
+        assertNotNull("Passcode should be generated", passcode)
+        assertEquals(digits, passcode?.length)
+        assertTrue("Passcode should contain only digits", passcode?.all { it.isDigit() } == true)
     }
 }
