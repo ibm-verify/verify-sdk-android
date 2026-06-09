@@ -25,7 +25,17 @@ The project is divided into SDK modules and example applications:
 - **`:examples:dpop_demo`**: Demonstrates Demonstrating Proof-of-Possession (DPoP) at the Application Layer.
 - **`:examples:fido2_demo`**: Showcases FIDO2 registration and authentication.
 
-## Recent Changes (Release 3.2.4)
+## Recent Changes (Release 3.2.5)
+
+- **Simplified HTTP Client Parameters**: Changed registration method signatures to use nullable `HttpClient?` parameters with `null` as default, making the API more intuitive and consistent with Kotlin conventions.
+- **Enhanced SSL Bypass Documentation**: Added comprehensive KDoc comments throughout `NetworkHelper`, `OnPremiseRegistrationProvider`, and `CloudRegistrationProvider` explaining SSL bypass behavior, security model, and usage patterns.
+- **SSL Certificate Bypass Guide**: Created dedicated [`docs/SSL_CERTIFICATE_BYPASS.md`](IBMVerifyApp/v3/verify-sdk-android/docs/SSL_CERTIFICATE_BYPASS.md) documentation covering two-level security model, implementation details, usage examples, and best practices.
+- **Expanded SSL Bypass Test Coverage**: Added three new test cases validating SSL bypass activation, secure client usage, and security model enforcement in `OnPremiseRegistrationProviderTest`.
+- **Code Quality Improvements**: Replaced string concatenation with parameterized logging, made `metadataService` nullable in `DetailsData`, and improved code formatting consistency.
+- **HTTP Client Affinity**: Clarified that on-premise providers store and reuse the HTTP client configured during `initiate()`, ensuring SSL settings are preserved throughout registration.
+- **Release Documentation**: Added comprehensive [`3.2.5` release note](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.5.md) documenting all improvements and providing upgrade guidance.
+
+### Previous Changes (Release 3.2.4)
 
 - **Controlled SSL Bypass Support**: Added a guarded insecure-client path for on-premise authenticators with self-signed certificates through [`NetworkHelper.allowInsecureSSL`](IBMVerifyApp/v3/verify-sdk-android/sdk/core/src/main/java/com/ibm/security/verifysdk/core/helper/NetworkHelper.kt) and [`NetworkHelper.createInsecureClient()`](IBMVerifyApp/v3/verify-sdk-android/sdk/core/src/main/java/com/ibm/security/verifysdk/core/helper/NetworkHelper.kt).
 - **On-Premise Identifier Separation Fix**: Corrected the distinction between client-side `tenant_id` / authenticator identifier and server-side `authenticator_id`, preventing incorrect persistence and transaction ownership checks.
@@ -106,14 +116,14 @@ The project uses a Version Catalog (`gradle/libs.versions.toml`) for managing de
 - **CloudAuthenticatorService**: Immutable service instance for cloud-based MFA operations. Must be recreated when token is refreshed.
 - **OnPremiseAuthenticatorService**: Immutable service instance for on-premise MFA operations.
 - **TokenPersistenceCallback**: Interface for blocking token persistence to ensure data integrity.
-- **NetworkHelper**: Singleton providing HTTP client with optional Certificate Transparency verification.
+- **NetworkHelper**: Singleton providing HTTP client with optional Certificate Transparency verification and controlled SSL bypass for on-premise deployments.
 - **COSEKey**: FIDO2 COSE key representation with lazy CBOR serialization for improved performance.
 
 ## Versioning
 
-Current Version: `3.2.4` (Code: `122`)
+Current Version: `3.2.5` (Code: `123`)
 
-**Release Notes:** [`docs/releases/3.2.4.md`](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.4.md)
+**Release Notes:** [`docs/releases/3.2.5.md`](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.5.md)
 Minimum Android SDK: 29 (Android 10.0)
 Target Android SDK: 36 (Android 16)
 
