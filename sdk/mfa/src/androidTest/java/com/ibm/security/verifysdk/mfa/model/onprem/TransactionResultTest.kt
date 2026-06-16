@@ -670,6 +670,7 @@ class TransactionResultTest {
         // Then
         assertNotNull(jsonElement["denyReasonEnabled"])
         assertEquals("true", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
 
     @Test
     fun attributeInfo_withLegacySingleQuotedJSON_booleanFalse_shouldParseCorrectly() {
@@ -751,7 +752,6 @@ class TransactionResultTest {
         // Then
         assertNotNull(jsonElement["denyReasonEnabled"])
         assertEquals("false", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
-    }
     }
 }
 

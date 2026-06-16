@@ -24,6 +24,7 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -1611,6 +1612,7 @@ class OnPremiseRegistrationProviderTest {
                  exception.message?.contains("allowInsecureSSL", ignoreCase = true) == true)
             )
         }
+    }
 
     /**
      * Test TOTP enrollment with secretKeyUrl containing no existing parameters.
@@ -2227,6 +2229,5 @@ class OnPremiseRegistrationProviderTest {
         }
 
         httpClient.close()
-    }
     }
 }
