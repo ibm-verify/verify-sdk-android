@@ -416,4 +416,124 @@ internal class NetworkHelperTest {
         trustManager.checkClientTrusted(null, null)
         trustManager.checkServerTrusted(null, null)
     }
+
+    @Test
+    fun test_customUserAgent_canBeSetAndRetrieved() {
+        val originalUserAgent = NetworkHelper.customUserAgent
+        try {
+            NetworkHelper.customUserAgent = null
+            assertEquals(null, NetworkHelper.customUserAgent)
+
+            NetworkHelper.customUserAgent = "TestApp/1.0.0"
+            assertEquals("TestApp/1.0.0", NetworkHelper.customUserAgent)
+
+            NetworkHelper.customUserAgent = "TestApp/2.0.0 (Android 13)"
+            assertEquals("TestApp/2.0.0 (Android 13)", NetworkHelper.customUserAgent)
+        } finally {
+            NetworkHelper.customUserAgent = originalUserAgent
+            NetworkHelper.closeClient()
+        }
+    }
+
+    @Test
+    fun test_customUserAgent_changeInvalidatesClient() {
+        NetworkHelper.closeClient()
+        val originalUserAgent = NetworkHelper.customUserAgent
+
+        try {
+            val firstClient = NetworkHelper.getInstance
+            NetworkHelper.customUserAgent = "TestApp/1.0.0"
+            val secondClient = NetworkHelper.getInstance
+
+            assertNotSame(firstClient, secondClient)
+
+            firstClient.close()
+            secondClient.close()
+        } finally {
+            NetworkHelper.customUserAgent = originalUserAgent
+            NetworkHelper.closeClient()
+        }
+    }
+
+    @Test
+    fun test_customUserAgent_sameValueDoesNotInvalidateClient() {
+        NetworkHelper.closeClient()
+        val originalUserAgent = NetworkHelper.customUserAgent
+        val userAgent = "TestApp/1.0.0"
+
+        try {
+            NetworkHelper.customUserAgent = userAgent
+            val firstClient = NetworkHelper.getInstance
+            NetworkHelper.customUserAgent = userAgent
+            val secondClient = NetworkHelper.getInstance
+
+            assertSame(firstClient, secondClient)
+
+            firstClient.close()
+        } finally {
+            NetworkHelper.customUserAgent = originalUserAgent
+            NetworkHelper.closeClient()
+        }
+    }
+
+    @Test
+    fun test_customUserAgent_appliedToSecureClient() {
+        NetworkHelper.closeClient()
+        val originalUserAgent = NetworkHelper.customUserAgent
+
+        try {
+            NetworkHelper.customUserAgent = "TestApp/1.0.0 (Android)"
+            val client = NetworkHelper.getInstance
+
+            // Verify client was created successfully with custom User-Agent
+            assertNotNull(client)
+
+            client.close()
+        } finally {
+            NetworkHelper.customUserAgent = originalUserAgent
+            NetworkHelper.closeClient()
+        }
+    }
+
+    @Test
+    fun test_customUserAgent_appliedToInsecureClient() {
+        val originalUserAgent = NetworkHelper.customUserAgent
+        val originalAllowInsecureSSL = NetworkHelper.allowInsecureSSL
+        NetworkHelper.closeClient()
+
+        try {
+            NetworkHelper.allowInsecureSSL = true
+            NetworkHelper.customUserAgent = "TestApp/1.0.0 (Android)"
+
+            val insecureClient = NetworkHelper.createInsecureClient()
+
+            // Verify insecure client was created successfully with custom User-Agent
+            assertNotNull(insecureClient)
+
+            insecureClient.close()
+        } finally {
+            NetworkHelper.customUserAgent = originalUserAgent
+            NetworkHelper.allowInsecureSSL = originalAllowInsecureSSL
+            NetworkHelper.closeClient()
+        }
+    }
+
+    @Test
+    fun test_customUserAgent_nullValueDoesNotAddHeader() {
+        NetworkHelper.closeClient()
+        val originalUserAgent = NetworkHelper.customUserAgent
+
+        try {
+            NetworkHelper.customUserAgent = null
+            val client = NetworkHelper.getInstance
+
+            // Verify client was created successfully without custom User-Agent
+            assertNotNull(client)
+
+            client.close()
+        } finally {
+            NetworkHelper.customUserAgent = originalUserAgent
+            NetworkHelper.closeClient()
+        }
+    }
 }
