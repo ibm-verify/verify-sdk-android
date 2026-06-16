@@ -4,6 +4,7 @@
 
 package com.ibm.security.verifysdk.mfa.api
 
+import android.net.Uri
 import androidx.biometric.BiometricPrompt
 import com.ibm.security.verifysdk.authentication.api.OAuthProvider
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
@@ -55,6 +56,7 @@ import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
 import java.net.URL
 import java.util.UUID
+import androidx.core.net.toUri
 
 /**
  * Registration provider for IBM Verify Access (on-premise) multifactor authentication.
@@ -463,12 +465,38 @@ class OnPremiseRegistrationProvider(data: String) :
                 else -> algorithm.uppercase()
             }
 
-            // Construct complete TOTP URI with all parameters
-            val completeUri = if (baseUri.contains("?")) {
-                "$baseUri&digits=$digits&period=$period&algorithm=$algorithmParam"
-            } else {
-                "$baseUri?digits=$digits&period=$period&algorithm=$algorithmParam"
-            }
+            // Parse the base URI to check for existing parameters
+            val uri = baseUri.toUri()
+            val existingDigits = uri.getQueryParameter("digits")
+            val existingPeriod = uri.getQueryParameter("period")
+            val existingAlgorithm = uri.getQueryParameter("algorithm")
+
+            // Build URI with parameters, only adding if they don't already exist
+            val completeUri = buildString {
+                append(baseUri)
+                
+                // Add separator if needed
+                if (!baseUri.contains("?")) {
+                    append("?")
+                } else if (!baseUri.endsWith("&") && !baseUri.endsWith("?")) {
+                    append("&")
+                }
+                
+                val params = mutableListOf<String>()
+                
+                // Only add parameters if they don't already exist in the URI
+                if (existingDigits == null) {
+                    params.add("digits=$digits")
+                }
+                if (existingPeriod == null) {
+                    params.add("period=$period")
+                }
+                if (existingAlgorithm == null) {
+                    params.add("algorithm=$algorithmParam")
+                }
+                
+                append(params.joinToString("&"))
+            }.trimEnd('?', '&')  // Clean up trailing separators if no params were added
 
             // Use OTPAuthenticator.fromQRScan to parse the complete otpauth:// URI
             val otpAuthenticator = OTPAuthenticator.fromQRScan(completeUri)
