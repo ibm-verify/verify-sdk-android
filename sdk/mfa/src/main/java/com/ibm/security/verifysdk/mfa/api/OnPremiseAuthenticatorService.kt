@@ -812,7 +812,10 @@ class OnPremiseAuthenticatorService(
                 ) {
                     try {
                         val jsonString = attributeInfo.values.first()
-                        val jsonElement = Json.parseToJsonElement(jsonString).jsonObject
+                        // Handle malformed JSON with single quotes by replacing them with double quotes
+                        // This is a workaround for servers that send invalid JSON format
+                        val normalizedJsonString = jsonString.replace('\'', '"')
+                        val jsonElement = Json.parseToJsonElement(normalizedJsonString).jsonObject
 
                         // Extract and handle correlationEnabled (can be Boolean or String)
                         var isCorrelationEnabled = false

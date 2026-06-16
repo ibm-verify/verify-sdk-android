@@ -198,6 +198,67 @@ object NetworkHelper {
         }
 
     /**
+     * Custom User-Agent header to be included in all HTTP requests made by the SDK.
+     *
+     * When set, this User-Agent string will be added to all HTTP requests made by the SDK,
+     * replacing the default User-Agent provided by the underlying HTTP client (OkHttp/Ktor).
+     *
+     * ## Use Cases
+     * - Identify your application in server logs
+     * - Include app version and platform information
+     * - Meet compliance or analytics requirements
+     * - Debug and troubleshoot API issues
+     *
+     * ## Example
+     * ```kotlin
+     * class MyApplication : Application() {
+     *     override fun onCreate() {
+     *         super.onCreate()
+     *
+     *         // Set custom User-Agent for all SDK requests
+     *         NetworkHelper.customUserAgent = "MyApp/1.0.0 (Android ${Build.VERSION.RELEASE})"
+     *     }
+     * }
+     * ```
+     *
+     * ## Format Recommendations
+     * Follow the standard User-Agent format:
+     * ```
+     * AppName/Version (Platform Details) [Optional Additional Info]
+     * ```
+     *
+     * Examples:
+     * - `"MyBankApp/2.1.0 (Android 13)"`
+     * - `"MyApp/1.0.0 (Android 13; Build 42)"`
+     * - `"CorporateApp/3.0 (Android 12; Model SM-G998B)"`
+     *
+     * ## Thread Safety
+     * This property is thread-safe. Changing it will invalidate and recreate the HTTP client,
+     * ensuring all subsequent requests use the new User-Agent.
+     *
+     * ## Advanced Use Cases
+     * For dynamic or per-request User-Agent logic, use [customInterceptor] instead:
+     * ```kotlin
+     * NetworkHelper.customInterceptor = Interceptor { chain ->
+     *     val userAgent = calculateDynamicUserAgent()
+     *     chain.proceed(chain.request().newBuilder()
+     *         .header("User-Agent", userAgent)
+     *         .build())
+     * }
+     * ```
+     *
+     * @see customInterceptor
+     * @since 3.2.6
+     */
+    var customUserAgent: String? = null
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidateClient()
+            }
+        }
+
+    /**
      * Returns the singleton HttpClient instance.
      *
      * Uses lazy initialization for better performance - the client is only created
@@ -353,6 +414,7 @@ object NetworkHelper {
             readTimeout(readTimeOutMillis, TimeUnit.MILLISECONDS)
             certificatePinner?.let { certificatePinner(it) }
             certificateTransparencyInterceptor?.let { addNetworkInterceptor(it) }
+            createUserAgentInterceptor()?.let { addInterceptor(it) }
             sslContext?.let { sslContext ->
                 trustManager?.let {
                     sslSocketFactory(sslContext.socketFactory, it)
@@ -361,6 +423,25 @@ object NetworkHelper {
             hostnameVerifier?.let { hostnameVerifier(it) }
             customDnsResolver?.let { dns(it) }
         }.build()
+    }
+
+    /**
+     * Creates an OkHttp interceptor that adds a custom User-Agent header to all requests.
+     *
+     * This internal helper method is used by both [createOkHttpClient] and [createInsecureClient]
+     * to ensure consistent User-Agent header injection across all HTTP clients created by the SDK.
+     *
+     * @return An [Interceptor] that adds the User-Agent header, or null if [customUserAgent] is not set
+     */
+    private fun createUserAgentInterceptor(): Interceptor? {
+        return customUserAgent?.let { userAgent ->
+            Interceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("User-Agent", userAgent)
+                    .build()
+                chain.proceed(request)
+            }
+        }
     }
 
     /**
@@ -468,6 +549,7 @@ object NetworkHelper {
                 followSslRedirects(followSslRedirects)
                 customInterceptor?.let { addInterceptor(it) }
                 customLoggingInterceptor?.let { addInterceptor(it) }
+                createUserAgentInterceptor()?.let { addInterceptor(it) }
             }.build()
 
             HttpClient(OkHttp) {

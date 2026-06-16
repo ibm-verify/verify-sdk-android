@@ -628,6 +628,131 @@ class TransactionResultTest {
         assertEquals("99", jsonElement["correlationValue"]?.jsonPrimitive?.content)
         assertEquals("true", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
     }
+
+    @Test
+    fun attributeInfo_withLegacySingleQuotedJSON_shouldParseCorrectly() {
+        // Given - Legacy format with single quotes (from previous version)
+        // This format is seen in real-world BOI_UAT data
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{'denyReasonEnabled':'false'}"),
+            uri = "mmfa:request:extras",
+            transactionId = "9661f686-89de-45a2-9500-83abe6d27db0"
+        )
+
+        // When - Normalize single quotes to double quotes before parsing
+        val jsonString = attribute.values.first()
+        val normalizedJsonString = jsonString.replace('\'', '"')
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(normalizedJsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["denyReasonEnabled"])
+        assertEquals("false", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun attributeInfo_withLegacySingleQuotedJSON_denyReasonTrue_shouldParseCorrectly() {
+        // Given - Legacy format with single quotes and denyReasonEnabled = true
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{'denyReasonEnabled':'true'}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-id"
+        )
+
+        // When - Normalize single quotes to double quotes before parsing
+        val jsonString = attribute.values.first()
+        val normalizedJsonString = jsonString.replace('\'', '"')
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(normalizedJsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["denyReasonEnabled"])
+        assertEquals("true", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun attributeInfo_withLegacySingleQuotedJSON_booleanFalse_shouldParseCorrectly() {
+        // Given - Legacy format with single quotes and boolean false (not string)
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{'denyReasonEnabled':false}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-id"
+        )
+
+        // When - Normalize single quotes to double quotes before parsing
+        val jsonString = attribute.values.first()
+        val normalizedJsonString = jsonString.replace('\'', '"')
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(normalizedJsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["denyReasonEnabled"])
+        assertEquals("false", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun attributeInfo_withLegacySingleQuotedJSON_booleanTrue_shouldParseCorrectly() {
+        // Given - Legacy format with single quotes and boolean true (not string)
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{'denyReasonEnabled':true}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-id"
+        )
+
+        // When - Normalize single quotes to double quotes before parsing
+        val jsonString = attribute.values.first()
+        val normalizedJsonString = jsonString.replace('\'', '"')
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(normalizedJsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["denyReasonEnabled"])
+        assertEquals("true", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun attributeInfo_withDenyReasonEnabledBooleanFalse_shouldParseCorrectly() {
+        // Given - denyReasonEnabled as boolean false
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{\"denyReasonEnabled\":false}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-id"
+        )
+
+        // When
+        val jsonString = attribute.values.first()
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(jsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["denyReasonEnabled"])
+        assertEquals("false", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun attributeInfo_withDenyReasonEnabledStringFalse_shouldParseCorrectly() {
+        // Given - denyReasonEnabled as string "false"
+        val attribute = TransactionResult.AttributeInfo(
+            dataType = "String",
+            values = listOf("{\"denyReasonEnabled\":\"false\"}"),
+            uri = "mmfa:request:extras",
+            transactionId = "test-id"
+        )
+
+        // When
+        val jsonString = attribute.values.first()
+        val json = Json { ignoreUnknownKeys = true }
+        val jsonElement = json.parseToJsonElement(jsonString).jsonObject
+
+        // Then
+        assertNotNull(jsonElement["denyReasonEnabled"])
+        assertEquals("false", jsonElement["denyReasonEnabled"]?.jsonPrimitive?.content)
+    }
 }
 
 

@@ -507,4 +507,159 @@ class OTPAuthenticatorTest {
         assertEquals(digits, passcode?.length)
         assertTrue("Passcode should contain only digits", passcode?.all { it.isDigit() } == true)
     }
+
+    // ========================================
+    // HMAC Algorithm Tests with QR Code URIs
+    // ========================================
+
+    @Test
+    fun fromQRScan_withTOTPAndHmacSHA1_shouldCreateAuthenticator() {
+        // Given
+        val qrCode = "otpauth://totp/TestService:user@example.com?secret=JBSWY3DPEHPK3PXP&algorithm=HmacSHA1&digits=6&period=30"
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(qrCode)
+
+        // Then
+        assertNotNull("Authenticator should be created", authenticator)
+        assertNotNull("TOTP should be present", authenticator?.totp)
+        assertEquals("HmacSHA1", authenticator?.totp?.algorithm.toString())
+        
+        // Verify passcode generation works
+        val passcode = authenticator?.totp?.generatePasscode()
+        assertNotNull("Passcode should be generated", passcode)
+        assertEquals(6, passcode?.length)
+        assertTrue("Passcode should contain only digits", passcode?.all { it.isDigit() } == true)
+    }
+
+    @Test
+    fun fromQRScan_withTOTPAndHmacSHA256_shouldCreateAuthenticator() {
+        // Given
+        val qrCode = "otpauth://totp/TestService:user@example.com?secret=JBSWY3DPEHPK3PXP&algorithm=HmacSHA256&digits=6&period=30"
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(qrCode)
+
+        // Then
+        assertNotNull("Authenticator should be created", authenticator)
+        assertNotNull("TOTP should be present", authenticator?.totp)
+        assertEquals("HmacSHA256", authenticator?.totp?.algorithm.toString())
+        
+        // Verify passcode generation works
+        val passcode = authenticator?.totp?.generatePasscode()
+        assertNotNull("Passcode should be generated", passcode)
+        assertEquals(6, passcode?.length)
+        assertTrue("Passcode should contain only digits", passcode?.all { it.isDigit() } == true)
+    }
+
+    @Test
+    fun fromQRScan_withTOTPAndHmacSHA512_shouldCreateAuthenticator() {
+        // Given
+        val qrCode = "otpauth://totp/TestService:user@example.com?secret=JBSWY3DPEHPK3PXP&algorithm=HmacSHA512&digits=6&period=30"
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(qrCode)
+
+        // Then
+        assertNotNull("Authenticator should be created", authenticator)
+        assertNotNull("TOTP should be present", authenticator?.totp)
+        assertEquals("HmacSHA512", authenticator?.totp?.algorithm.toString())
+        
+        // Verify passcode generation works
+        val passcode = authenticator?.totp?.generatePasscode()
+        assertNotNull("Passcode should be generated", passcode)
+        assertEquals(6, passcode?.length)
+        assertTrue("Passcode should contain only digits", passcode?.all { it.isDigit() } == true)
+    }
+
+    @Test
+    fun fromQRScan_withHOTPAndHmacSHA1_shouldCreateAuthenticator() {
+        // Given
+        val qrCode = "otpauth://hotp/TestService:user@example.com?secret=ON6MJUIM4MXYVLN3&algorithm=HmacSHA1&digits=6&counter=0"
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(qrCode)
+
+        // Then
+        assertNotNull("Authenticator should be created", authenticator)
+        assertNotNull("HOTP should be present", authenticator?.hotp)
+        assertEquals("HmacSHA1", authenticator?.hotp?.algorithm.toString())
+        
+        // Verify passcode generation works
+        val passcode = authenticator?.hotp?.generatePasscode(incrementCounter = false)
+        assertNotNull("Passcode should be generated", passcode)
+        assertEquals(6, passcode?.length)
+        assertTrue("Passcode should contain only digits", passcode?.all { it.isDigit() } == true)
+    }
+
+    @Test
+    fun fromQRScan_withHOTPAndHmacSHA256_shouldCreateAuthenticator() {
+        // Given
+        val qrCode = "otpauth://hotp/TestService:user@example.com?secret=ON6MJUIM4MXYVLN3&algorithm=HmacSHA256&digits=6&counter=0"
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(qrCode)
+
+        // Then
+        assertNotNull("Authenticator should be created", authenticator)
+        assertNotNull("HOTP should be present", authenticator?.hotp)
+        assertEquals("HmacSHA256", authenticator?.hotp?.algorithm.toString())
+        
+        // Verify passcode generation works
+        val passcode = authenticator?.hotp?.generatePasscode(incrementCounter = false)
+        assertNotNull("Passcode should be generated", passcode)
+        assertEquals(6, passcode?.length)
+        assertTrue("Passcode should contain only digits", passcode?.all { it.isDigit() } == true)
+    }
+
+    @Test
+    fun fromQRScan_withHOTPAndHmacSHA512_shouldCreateAuthenticator() {
+        // Given
+        val qrCode = "otpauth://hotp/TestService:user@example.com?secret=ON6MJUIM4MXYVLN3&algorithm=HmacSHA512&digits=6&counter=0"
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(qrCode)
+
+        // Then
+        assertNotNull("Authenticator should be created", authenticator)
+        assertNotNull("HOTP should be present", authenticator?.hotp)
+        assertEquals("HmacSHA512", authenticator?.hotp?.algorithm.toString())
+        
+        // Verify passcode generation works
+        val passcode = authenticator?.hotp?.generatePasscode(incrementCounter = false)
+        assertNotNull("Passcode should be generated", passcode)
+        assertEquals(6, passcode?.length)
+        assertTrue("Passcode should contain only digits", passcode?.all { it.isDigit() } == true)
+    }
+
+
+    @Test
+    fun fromQRScan_withBOIUATDataAndHmacSHA512InURL_shouldCreateAuthenticatorWith8Digits() {
+        // Given - BOI_UAT data with algorithm and digits in the QR code URL
+        val qrCode = "otpauth://totp/BOI_UAT:rs1005312neu?secret=LLKDX636FQCGIH3OOK646YEGYP6AB6ZH&issuer=BOI_UAT&algorithm=HmacSHA512&digits=8&period=30"
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(qrCode)
+
+        // Then
+        assertNotNull("Authenticator should be created", authenticator)
+        assertEquals("BOI_UAT", authenticator?.serviceName)
+        assertEquals("rs1005312neu", authenticator?.accountName)
+        assertNotNull("TOTP factor should be present", authenticator?.totp)
+        assertNull("HOTP factor should not be present", authenticator?.hotp)
+
+        // Verify TOTP configuration matches the QR code parameters
+        authenticator?.totp?.let { totp ->
+            assertEquals("Secret should match", "LLKDX636FQCGIH3OOK646YEGYP6AB6ZH", totp.secret)
+            assertEquals("Algorithm should be HmacSHA512", "HmacSHA512", totp.algorithm.toString())
+            assertEquals("Digits should be 8", 8, totp.digits)
+            assertEquals("Period should be 30", 30, totp.period)
+
+            // Verify that a passcode can be generated
+            val passcode = totp.generatePasscode()
+            assertNotNull("Passcode should be generated", passcode)
+            assertEquals("Passcode length should be 8 digits", 8, passcode.length)
+            assertTrue("Passcode should contain only digits", passcode.all { it.isDigit() })
+        }
+    }
 }

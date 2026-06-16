@@ -860,6 +860,134 @@ class OnPremiseAuthenticatorIntegrationTest {
         }
 
         httpClient.close()
+
+    /**
+     * Test Case: Fetch Pending Transaction with Legacy Single-Quoted JSON Format
+     * 
+     * This test verifies that the SDK correctly handles the legacy format where
+     * mmfa.request.extras contains single-quoted JSON (from previous versions).
+     * 
+     * Real-world example from BOI_UAT system:
+     * {"values":["{'denyReasonEnabled':'false'}"],"uri":"mmfa:request:extras"}
+     */
+    @Test
+    fun testFetchPendingTransaction_withLegacySingleQuotedJSON_shouldParseDenyReasonEnabled(): Unit = runBlocking {
+        val now = kotlin.time.Clock.System.now()
+        val creationTime = now.toString()
+        val lastActivityTime = now.toString()
+        
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/scim/Me") -> {
+                    respond(
+                        content = """
+                        {
+                          "meta": {
+                            "location": "https://mmfa-mobile.securitypoc.com/scim/Users/chageman@au1.ibm.com",
+                            "resourceType": "User"
+                          },
+                          "schemas": [
+                            "urn:ietf:params:scim:schemas:core:2.0:User",
+                            "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction"
+                          ],
+                          "id": "chageman@au1.ibm.com",
+                          "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction": {
+                            "attributesPending": [
+                              {
+                                "dataType": "String",
+                                "values": ["Please log me in: chageman@au1.ibm.com"],
+                                "name": "mmfa.request.context.message",
+                                "uri": "mmfa:request:context:message",
+                                "transactionId": "9661f686-89de-45a2-9500-83abe6d27db0"
+                              },
+                              {
+                                "dataType": "String",
+                                "values": ["Please log me in: chageman@au1.ibm.com"],
+                                "name": "mmfa.request.push.message",
+                                "uri": "mmfa:request:push:message",
+                                "transactionId": "9661f686-89de-45a2-9500-83abe6d27db0"
+                              },
+                              {
+                                "dataType": "String",
+                                "values": ["{'denyReasonEnabled':'false'}"],
+                                "name": "mmfa.request.extras",
+                                "uri": "mmfa:request:extras",
+                                "transactionId": "9661f686-89de-45a2-9500-83abe6d27db0"
+                              },
+                              {
+                                "dataType": "String",
+                                "values": ["false"],
+                                "name": "mmfa.request.push.notification.sent",
+                                "uri": "mmfa:request:push:notification:sent",
+                                "transactionId": "9661f686-89de-45a2-9500-83abe6d27db0"
+                              },
+                              {
+                                "dataType": "String",
+                                "values": ["uuid014f78f2-c1fd-4b17-93f2-a808f09215bc"],
+                                "name": "mmfa.request.authenticator.id",
+                                "uri": "mmfa:request:authenticator:id",
+                                "transactionId": "9661f686-89de-45a2-9500-83abe6d27db0"
+                              }
+                            ],
+                            "transactionsPending": [{
+                              "authnPolicyAction": "POST",
+                              "txnStatus": "PENDING",
+                              "creationTime": "$creationTime",
+                              "requestUrl": "https://mmfa-mobile.securitypoc.com:443/mga/sps/apiauthsvc?MmfaTransactionId=9661F686-89DE-45A2-9500-83ABE6D27DB0",
+                              "authnPolicyURI": "urn:ibm:security:authentication:asf:mmfa_response_userpresence",
+                              "lastActivityTime": "$lastActivityTime",
+                              "transactionId": "9661f686-89de-45a2-9500-83abe6d27db0"
+                            }]
+                          },
+                          "userName": "chageman@au1.ibm.com"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(
+                            HttpHeaders.ContentType to listOf("application/scim+json"),
+                            HttpHeaders.CacheControl to listOf("private, max-age=0, no-cache")
+                        )
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine)
+        val service = OnPremiseAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://mmfa-mobile.securitypoc.com/mga/sps/oauth/oauth20/token"),
+            _transactionUri = URL("https://mmfa-mobile.securitypoc.com/scim/Me?attributes=urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction:transactionsPending,urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Transaction:attributesPending"),
+            _clientId = "AuthenticatorClient",
+            _authenticatorId = "client-id",
+            _serverAuthenticatorId = "uuid014f78f2-c1fd-4b17-93f2-a808f09215bc",
+            httpClient = httpClient
+        )
+
+        val result = service.nextTransaction()
+
+        result.onFailure { error ->
+            throw AssertionError("Fetch pending transaction with legacy format failed: ${error.message}", error)
+        }
+
+        assertTrue("Fetch pending transaction should succeed", result.isSuccess)
+        result.onSuccess { (transactions, count) ->
+            assertEquals("Should have 1 transaction in total count", 1, count)
+            assertEquals("Should return 1 transaction in list", 1, transactions.size)
+
+            val transaction = transactions.first()
+            assertEquals("9661f686-89de-45a2-9500-83abe6d27db0", transaction.id)
+            assertEquals("Please log me in: chageman@au1.ibm.com", transaction.message)
+
+            // Verify denyReasonEnabled was correctly parsed from legacy single-quoted JSON
+            val attributes = transaction.additionalData
+            assertNotNull("Transaction attributes should not be null", attributes)
+            assertTrue("Should have deny reason attribute", attributes.containsKey(TransactionAttribute.DenyReason))
+            assertEquals("false", attributes[TransactionAttribute.DenyReason])
+        }
+
+        httpClient.close()
+    }
     }
 }
 
