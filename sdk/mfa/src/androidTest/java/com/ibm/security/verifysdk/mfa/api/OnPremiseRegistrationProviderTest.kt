@@ -1611,5 +1611,622 @@ class OnPremiseRegistrationProviderTest {
                  exception.message?.contains("allowInsecureSSL", ignoreCase = true) == true)
             )
         }
+
+    /**
+     * Test TOTP enrollment with secretKeyUrl containing no existing parameters.
+     * 
+     * Verifies that digits, period, and algorithm are added to the URI.
+     */
+    @Test
+    fun testEnrollOneTimePasscode_WithNoExistingParameters() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options": "ignoreSslCerts=false"
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {"service_name": "Test Service"},
+                          "discovery_mechanisms": ["urn:ibm:security:authentication:asf:mechanism:totp"],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "test_access_token",
+                          "refresh_token": "test_refresh_token",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "test-auth-id",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/otp/totp") -> {
+                    respond(
+                        content = """
+                        {
+                          "period": "30",
+                          "secretKeyUrl": "otpauth://totp/TestService:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=TestService",
+                          "secretKey": "JBSWY3DPEHPK3PXP",
+                          "digits": "6",
+                          "username": "user@example.com",
+                          "algorithm": "HmacSHA1"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        val initiateResult = provider.initiate("testuser@example.com", "test_push_token", null, httpClient)
+        
+        assertTrue("Initiate should succeed", initiateResult.isSuccess)
+        assertTrue("Should be able to enroll TOTP", provider.canEnrollOneTimePasscode)
+
+        val otpAuthenticator = provider.enrollOneTimePasscode(httpClient)
+        
+        assertNotNull("OTP authenticator should be created", otpAuthenticator)
+        assertNotNull("TOTP should be present", otpAuthenticator.totp)
+        assertEquals("JBSWY3DPEHPK3PXP", otpAuthenticator.totp?.secret)
+        assertEquals(6, otpAuthenticator.totp?.digits)
+        assertEquals(30, otpAuthenticator.totp?.period)
+
+        httpClient.close()
+    }
+
+    /**
+     * Test TOTP enrollment with secretKeyUrl already containing digits parameter.
+     * 
+     * Verifies that existing digits parameter is preserved and not duplicated.
+     */
+    @Test
+    fun testEnrollOneTimePasscode_WithExistingDigitsParameter() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options": "ignoreSslCerts=false"
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {"service_name": "Test Service"},
+                          "discovery_mechanisms": ["urn:ibm:security:authentication:asf:mechanism:totp"],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "test_access_token",
+                          "refresh_token": "test_refresh_token",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "test-auth-id",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/otp/totp") -> {
+                    respond(
+                        content = """
+                        {
+                          "period": "30",
+                          "secretKeyUrl": "otpauth://totp/TestService:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=TestService&digits=8",
+                          "secretKey": "JBSWY3DPEHPK3PXP",
+                          "digits": "6",
+                          "username": "user@example.com",
+                          "algorithm": "HmacSHA1"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        val initiateResult = provider.initiate("testuser@example.com", "test_push_token", null, httpClient)
+        
+        assertTrue("Initiate should succeed", initiateResult.isSuccess)
+
+        val otpAuthenticator = provider.enrollOneTimePasscode(httpClient)
+        
+        assertNotNull("OTP authenticator should be created", otpAuthenticator)
+        assertNotNull("TOTP should be present", otpAuthenticator.totp)
+        // Should use the digits from secretKeyUrl (8), not from separate field (6)
+        assertEquals(8, otpAuthenticator.totp?.digits)
+        assertEquals(30, otpAuthenticator.totp?.period)
+
+        httpClient.close()
+    }
+
+    /**
+     * Test TOTP enrollment with secretKeyUrl already containing period parameter.
+     * 
+     * Verifies that existing period parameter is preserved and not duplicated.
+     */
+    @Test
+    fun testEnrollOneTimePasscode_WithExistingPeriodParameter() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options": "ignoreSslCerts=false"
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {"service_name": "Test Service"},
+                          "discovery_mechanisms": ["urn:ibm:security:authentication:asf:mechanism:totp"],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "test_access_token",
+                          "refresh_token": "test_refresh_token",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "test-auth-id",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/otp/totp") -> {
+                    respond(
+                        content = """
+                        {
+                          "period": "30",
+                          "secretKeyUrl": "otpauth://totp/TestService:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=TestService&period=60",
+                          "secretKey": "JBSWY3DPEHPK3PXP",
+                          "digits": "6",
+                          "username": "user@example.com",
+                          "algorithm": "HmacSHA1"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        val initiateResult = provider.initiate("testuser@example.com", "test_push_token", null, httpClient)
+        
+        assertTrue("Initiate should succeed", initiateResult.isSuccess)
+
+        val otpAuthenticator = provider.enrollOneTimePasscode(httpClient)
+        
+        assertNotNull("OTP authenticator should be created", otpAuthenticator)
+        assertNotNull("TOTP should be present", otpAuthenticator.totp)
+        assertEquals(6, otpAuthenticator.totp?.digits)
+        // Should use the period from secretKeyUrl (60), not from separate field (30)
+        assertEquals(60, otpAuthenticator.totp?.period)
+
+        httpClient.close()
+    }
+
+    /**
+     * Test TOTP enrollment with secretKeyUrl already containing algorithm parameter.
+     * 
+     * Verifies that existing algorithm parameter is preserved and not duplicated.
+     */
+    @Test
+    fun testEnrollOneTimePasscode_WithExistingAlgorithmParameter() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options": "ignoreSslCerts=false"
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {"service_name": "Test Service"},
+                          "discovery_mechanisms": ["urn:ibm:security:authentication:asf:mechanism:totp"],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "test_access_token",
+                          "refresh_token": "test_refresh_token",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "test-auth-id",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/otp/totp") -> {
+                    respond(
+                        content = """
+                        {
+                          "period": "30",
+                          "secretKeyUrl": "otpauth://totp/TestService:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=TestService&algorithm=SHA256",
+                          "secretKey": "JBSWY3DPEHPK3PXP",
+                          "digits": "6",
+                          "username": "user@example.com",
+                          "algorithm": "HmacSHA1"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        val initiateResult = provider.initiate("testuser@example.com", "test_push_token", null, httpClient)
+        
+        assertTrue("Initiate should succeed", initiateResult.isSuccess)
+
+        val otpAuthenticator = provider.enrollOneTimePasscode(httpClient)
+        
+        assertNotNull("OTP authenticator should be created", otpAuthenticator)
+        assertNotNull("TOTP should be present", otpAuthenticator.totp)
+        assertEquals(6, otpAuthenticator.totp?.digits)
+        assertEquals(30, otpAuthenticator.totp?.period)
+        // Should use the algorithm from secretKeyUrl (SHA256), not from separate field (HmacSHA1)
+        assertEquals(com.ibm.security.verifysdk.mfa.HashAlgorithmType.SHA256, otpAuthenticator.totp?.algorithm)
+
+        httpClient.close()
+    }
+
+    /**
+     * Test TOTP enrollment with secretKeyUrl already containing all parameters.
+     * 
+     * Verifies that all existing parameters are preserved and none are duplicated.
+     */
+    @Test
+    fun testEnrollOneTimePasscode_WithAllExistingParameters() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options": "ignoreSslCerts=false"
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {"service_name": "Test Service"},
+                          "discovery_mechanisms": ["urn:ibm:security:authentication:asf:mechanism:totp"],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "test_access_token",
+                          "refresh_token": "test_refresh_token",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "test-auth-id",
+                          "token_type": "bearer",
+                          "display_name": "testuser@example.com",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/otp/totp") -> {
+                    respond(
+                        content = """
+                        {
+                          "period": "30",
+                          "secretKeyUrl": "otpauth://totp/TestService:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=TestService&digits=8&period=60&algorithm=SHA512",
+                          "secretKey": "JBSWY3DPEHPK3PXP",
+                          "digits": "6",
+                          "username": "user@example.com",
+                          "algorithm": "HmacSHA1"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        val initiateResult = provider.initiate("testuser@example.com", "test_push_token", null, httpClient)
+        
+        assertTrue("Initiate should succeed", initiateResult.isSuccess)
+
+        val otpAuthenticator = provider.enrollOneTimePasscode(httpClient)
+        
+        assertNotNull("OTP authenticator should be created", otpAuthenticator)
+        assertNotNull("TOTP should be present", otpAuthenticator.totp)
+        // All values should come from secretKeyUrl, not separate fields
+        assertEquals(8, otpAuthenticator.totp?.digits)
+        assertEquals(60, otpAuthenticator.totp?.period)
+        assertEquals(com.ibm.security.verifysdk.mfa.HashAlgorithmType.SHA512, otpAuthenticator.totp?.algorithm)
+
+        httpClient.close()
+    }
+
+    /**
+     * Test TOTP enrollment with BOI_UAT data containing HmacSHA512 and 8 digits.
+     *
+     * This test verifies that when the server returns a TOTP enrollment response
+     * with algorithm and digits specified in the JSON (not in the URL), the
+     * OTPAuthenticator is created correctly by parsing the secretKeyUrl.
+     *
+     * Based on real-world BOI_UAT system data.
+     */
+    @Test
+    fun testEnrollOneTimePasscode_WithBOIUATDataAndHmacSHA512_shouldCreateAuthenticatorWith8Digits() = runTest {
+        val qrCodeJson = """
+        {
+            "code": "test_code",
+            "details_url": "https://test.example.com/mga/sps/mmfa/user/mgmt/details",
+            "client_id": "AuthenticatorClient",
+            "options": "ignoreSslCerts=false"
+        }
+        """.trimIndent()
+
+        val mockEngine = MockEngine { request ->
+            when {
+                request.url.encodedPath.contains("/details") -> {
+                    respond(
+                        content = """
+                        {
+                          "authntrxn_endpoint": "https://test.example.com/scim/Me",
+                          "metadata": {"service_name": "BOI_UAT"},
+                          "discovery_mechanisms": ["urn:ibm:security:authentication:asf:mechanism:totp"],
+                          "enrollment_endpoint": "https://test.example.com/scim/Me",
+                          "qrlogin_endpoint": "https://test.example.com/mga/sps/apiauthsvc/policy/qrcode_response",
+                          "hotp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/hotp",
+                          "totp_shared_secret_endpoint": "https://test.example.com/mga/sps/mga/user/mgmt/otp/totp",
+                          "version": "11.0.1.0",
+                          "token_endpoint": "https://test.example.com/mga/sps/oauth/oauth20/token"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/oauth20/token") -> {
+                    respond(
+                        content = """
+                        {
+                          "access_token": "test_access_token",
+                          "refresh_token": "test_refresh_token",
+                          "scope": "mmfaAuthn",
+                          "authenticator_id": "test-auth-id",
+                          "token_type": "bearer",
+                          "display_name": "rs1005312neu",
+                          "expires_in": 3599
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                request.url.encodedPath.contains("/otp/totp") -> {
+                    // Real-world BOI_UAT response with HmacSHA512 and 8 digits
+                    respond(
+                        content = """
+                        {
+                           "period":"30",
+                           "secretKeyUrl":"otpauth://totp/BOI_UAT:rs1005312neu?secret=LLKDX636FQCGIH3OOK646YEGYP6AB6ZH&issuer=BOI_UAT&algorithm=SHA512&digits=8",
+                           "secretKey":"LLKDX636FQCGIH3OOK646YEGYP6AB6ZH",
+                           "digits":"8",
+                           "username":"rs1005312neu",
+                           "algorithm":"HmacSHA512"
+                        }
+                        """.trimIndent(),
+                        status = HttpStatusCode.OK,
+                        headers = headersOf(HttpHeaders.ContentType, "application/json")
+                    )
+                }
+                else -> respond("", HttpStatusCode.NotFound)
+            }
+        }
+
+        val httpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                })
+            }
+        }
+
+        val provider = OnPremiseRegistrationProvider(qrCodeJson)
+        val initiateResult = provider.initiate("rs1005312neu", "test_push_token", null, httpClient)
+        
+        assertTrue("Initiate should succeed", initiateResult.isSuccess)
+        assertTrue("Should be able to enroll TOTP", provider.canEnrollOneTimePasscode)
+
+        val otpAuthenticator = provider.enrollOneTimePasscode(httpClient)
+        
+        assertNotNull("OTP authenticator should be created", otpAuthenticator)
+        assertEquals("BOI_UAT", otpAuthenticator.serviceName)
+        assertEquals("rs1005312neu", otpAuthenticator.accountName)
+        assertNotNull("TOTP should be present", otpAuthenticator.totp)
+        assertNull("HOTP should not be present", otpAuthenticator.hotp)
+        
+        // Verify TOTP configuration from secretKeyUrl (which includes algorithm and digits)
+        otpAuthenticator.totp?.let { totp ->
+            assertEquals("LLKDX636FQCGIH3OOK646YEGYP6AB6ZH", totp.secret)
+            assertEquals(8, totp.digits)
+            assertEquals(30, totp.period)
+            assertEquals(com.ibm.security.verifysdk.mfa.HashAlgorithmType.SHA512, totp.algorithm)
+            
+            // Verify that a passcode can be generated
+            val passcode = totp.generatePasscode()
+            assertNotNull("Passcode should be generated", passcode)
+            assertEquals(8, passcode.length)
+            assertTrue("Passcode should contain only digits", passcode.all { it.isDigit() })
+        }
+
+        httpClient.close()
+    }
     }
 }
