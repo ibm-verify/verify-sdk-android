@@ -15,8 +15,8 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.5"
-extra["versionCode"] = "123"
+extra["versionName"] = "3.2.6"
+extra["versionCode"] = "124"
 
 dependencies {
     add("implementation", enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.15.3"))
