@@ -15,12 +15,8 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.6"
-extra["versionCode"] = "124"
-
-dependencies {
-    add("implementation", enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.15.3"))
-}
+extra["versionName"] = "3.2.7"
+extra["versionCode"] = "125"
 
 allprojects {
     configurations.configureEach {
@@ -41,12 +37,12 @@ allprojects {
     }
 
     val jacksonModules = listOf(
-        "com.fasterxml.jackson.core:jackson-core:2.21.2",
-        "com.fasterxml.jackson.core:jackson-databind:2.21.2",
-        "com.fasterxml.jackson.core:jackson-annotations:2.21",
-        "com.fasterxml.jackson.module:jackson-module-kotlin:2.21.2",
-        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.21.2",
-        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.21.2"
+        "com.fasterxml.jackson.core:jackson-core:2.22.1",
+        "com.fasterxml.jackson.core:jackson-databind:2.22.1",
+        "com.fasterxml.jackson.core:jackson-annotations:2.22",
+        "com.fasterxml.jackson.module:jackson-module-kotlin:2.22.1",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.1",
+        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.22.1"
     )
 
     configurations.matching { it.name.contains("dokka", ignoreCase = true) }.all {
