@@ -25,27 +25,48 @@ The project is divided into SDK modules and example applications:
 - **`:examples:dpop_demo`**: Demonstrates Demonstrating Proof-of-Possession (DPoP) at the Application Layer.
 - **`:examples:fido2_demo`**: Showcases FIDO2 registration and authentication.
 
-## Recent Changes (Release 3.2.5)
+## Recent Changes (Release 3.2.8)
 
-- **Simplified HTTP Client Parameters**: Changed registration method signatures to use nullable `HttpClient?` parameters with `null` as default, making the API more intuitive and consistent with Kotlin conventions.
+- **Double-Slash URL Fix in `authorizeWithBrowser()`**: `java.net.URL.getPath()` returns a leading `/`; `Uri.Builder.appendEncodedPath()` adds another, producing `https://host//path`. Fixed with `.appendEncodedPath(url.path.trimStart('/'))`.
+- **`buildAuthorizeUri()` Helper Extracted**: URI construction logic moved to `internal fun buildAuthorizeUri()` so it is independently testable without a live `ComponentActivity`.
+- **Authorization URI Test Coverage**: Six new instrumented tests in `OAuthProviderTest` cover the double-slash regression, deep paths, required query parameters, PKCE, state, and automatic `openid` scope injection.
+- **Netty Security Update**: Force-pinned `io.netty:netty-codec-http2`, `netty-codec-compression`, and `netty-handler-proxy` to `4.2.15.Final` (from `4.2.5.Final`) in `build.gradle.kts`.
+- **Mend SAST Scan Refinements**: Extended `.mendsastcli-config.json` with `configurationExclusions` to exclude Android test configurations from scanning, and added `suppressions` for known false-positive vulnerability types (`External URL Access`, `Intent Manipulation`, `WebView Usage`, `URL Redirection`, `Log Messages Information Leak`) and `Log.d(` call patterns.
+- **WhiteSource/Mend Path Exclusions**: Updated `whitesource.config` and `.whitesource` to use glob-aware patterns (`**/src/androidTest/**`, `**/src/test/**`) so test sources are consistently excluded from dependency scanning across all submodules.
+
+### Previous Changes (Release 3.2.7)
+
+- **TokenInfoSerializer Null Safety Fix**: `TokenInfoSerializer.serialize()` no longer throws `JsonEncodingException` when `additionalData` contains `null` values or deeply nested maps/lists. The fix delegates to the existing `Any?.toJsonElement()` extension from the Core SDK for correct recursive serialization.
+- **Jackson Update to 2.22.1**: All Jackson modules updated to 2.22.1, bringing the latest bug fixes and security patches.
+- **jackson-bom Removal**: Removed the stale `enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.15.3")` block from `build.gradle.kts`; it was superseded by the per-module force-resolution constraints introduced in 3.2.6.
+- **Release Documentation**: Added [`3.2.7` release note](docs/releases/3.2.7.md).
+
+### Previous Changes (Release 3.2.6)
+
+- **Custom User-Agent Support**: Added `NetworkHelper.customUserAgent` property to set a custom `User-Agent` header included in all SDK HTTP requests. Changing the value automatically invalidates and recreates the HTTP client.
+- **Malformed JSON Handling**: `OnPremiseAuthenticatorService.createPendingTransactions()` now normalizes single-quoted JSON strings from legacy IBM Verify Access deployments before parsing.
+- **TOTP URI Deduplication**: `OnPremiseRegistrationProvider.enrollOneTimePasscode()` now checks for existing `digits`, `period`, and `algorithm` query parameters before appending them, preventing malformed duplicate-parameter URIs.
+- **Enhanced HTTP Client Architecture**: Centralized `createUserAgentInterceptor()` helper ensures consistent User-Agent application across both secure and insecure HTTP clients.
+- **Release Documentation**: Added [`3.2.6` release note](docs/releases/3.2.6.md).
+
+### Previous Changes (Release 3.2.5)
+
+- **Simplified HTTP Client Parameters**: Changed registration method signatures to use nullable `HttpClient?` parameters with `null` as default.
 - **Enhanced SSL Bypass Documentation**: Added comprehensive KDoc comments throughout `NetworkHelper`, `OnPremiseRegistrationProvider`, and `CloudRegistrationProvider` explaining SSL bypass behavior, security model, and usage patterns.
-- **SSL Certificate Bypass Guide**: Created dedicated [`docs/SSL_CERTIFICATE_BYPASS.md`](IBMVerifyApp/v3/verify-sdk-android/docs/SSL_CERTIFICATE_BYPASS.md) documentation covering two-level security model, implementation details, usage examples, and best practices.
+- **SSL Certificate Bypass Guide**: Created dedicated [`docs/SSL_CERTIFICATE_BYPASS.md`](docs/SSL_CERTIFICATE_BYPASS.md).
 - **Expanded SSL Bypass Test Coverage**: Added three new test cases validating SSL bypass activation, secure client usage, and security model enforcement in `OnPremiseRegistrationProviderTest`.
-- **Code Quality Improvements**: Replaced string concatenation with parameterized logging, made `metadataService` nullable in `DetailsData`, and improved code formatting consistency.
-- **HTTP Client Affinity**: Clarified that on-premise providers store and reuse the HTTP client configured during `initiate()`, ensuring SSL settings are preserved throughout registration.
-- **Release Documentation**: Added comprehensive [`3.2.5` release note](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.5.md) documenting all improvements and providing upgrade guidance.
+- **HTTP Client Affinity**: On-premise providers store and reuse the HTTP client configured during `initiate()`, ensuring SSL settings are preserved throughout registration.
 
 ### Previous Changes (Release 3.2.4)
 
-- **Controlled SSL Bypass Support**: Added a guarded insecure-client path for on-premise authenticators with self-signed certificates through [`NetworkHelper.allowInsecureSSL`](IBMVerifyApp/v3/verify-sdk-android/sdk/core/src/main/java/com/ibm/security/verifysdk/core/helper/NetworkHelper.kt) and [`NetworkHelper.createInsecureClient()`](IBMVerifyApp/v3/verify-sdk-android/sdk/core/src/main/java/com/ibm/security/verifysdk/core/helper/NetworkHelper.kt).
+- **Controlled SSL Bypass Support**: Added a guarded insecure-client path for on-premise authenticators with self-signed certificates through `NetworkHelper.allowInsecureSSL` and `NetworkHelper.createInsecureClient()`.
 - **On-Premise Identifier Separation Fix**: Corrected the distinction between client-side `tenant_id` / authenticator identifier and server-side `authenticator_id`, preventing incorrect persistence and transaction ownership checks.
 - **Transaction Ownership Filtering Improvements**: Updated on-premise transaction filtering to match transactions using the server-side `authenticator_id` while preserving tenant-id-based local persistence semantics.
 - **QR Code Options Parsing**: Added support for parsing the QR-code `options` field so flags such as `ignoreSslCerts=true` are preserved and applied during authenticator initialization.
 - **Persistence Semantics Hardening**: Ensured registration and token refresh flows preserve required identifier data across response processing and persistence callbacks.
-- **Expanded Regression Coverage**: Added broader Cloud and On-Prem integration coverage for multi-transaction ownership, token refresh persistence, identifier separation, and SSL client selection behavior.
-- **Release Documentation Refresh**: Added a comprehensive [`3.2.4` release note](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.4.md) and updated SDK guidance for identifier handling.
+- **Release Documentation**: Added [`3.2.4` release note](docs/releases/3.2.4.md).
 
-### Previous Major Changes (Release 3.2.0-3.2.3)
+### Previous Major Changes (Release 3.2.0–3.2.3)
 
 - **Exception-Based Error Handling**: Replaced error classes with exceptions (`MFARegistrationException`, `MFAServiceException`) for better error chaining.
 - **Biometric Factor Consolidation**: Unified face and fingerprint factors into a single `FactorType.Biometric`.
@@ -60,7 +81,7 @@ The project is divided into SDK modules and example applications:
 - **Test Coverage Improvements**: Added comprehensive test cases for TokenPersistenceCallback, TransactionData, KeystoreHelper, and other core components.
 - **Test Utils Module Removal**: Eliminated the `:sdk:test_utils` module by moving test utilities to module-specific test sources for better encapsulation.
 - **Integration Test Suite**: Added `CloudAuthenticatorIntegrationTest` based on real network traces to validate complete MFA flows.
-- **Deprecation Fixes**: Replaced deprecated Ktor Base64 utilities with Kotlin stdlib `Base64.Default.decode()` in FIDO2 demo; migrated from deprecated `LifecycleObserver` with `@OnLifecycleEvent` to `DefaultLifecycleObserver` in Adaptive SDK for better type safety and compile-time checking.
+- **Deprecation Fixes**: Replaced deprecated Ktor Base64 utilities with Kotlin stdlib `Base64.Default.decode()` in FIDO2 demo; migrated from deprecated `LifecycleObserver` with `@OnLifecycleEvent` to `DefaultLifecycleObserver` in Adaptive SDK.
 - **QR Code Login**: Added passwordless login support for both cloud (3.2.2) and on-premise (3.2.3) authenticators.
 - **Token Data Preservation**: Fixed token metadata loss during registration finalization (3.2.3).
 
@@ -116,14 +137,14 @@ The project uses a Version Catalog (`gradle/libs.versions.toml`) for managing de
 - **CloudAuthenticatorService**: Immutable service instance for cloud-based MFA operations. Must be recreated when token is refreshed.
 - **OnPremiseAuthenticatorService**: Immutable service instance for on-premise MFA operations.
 - **TokenPersistenceCallback**: Interface for blocking token persistence to ensure data integrity.
-- **NetworkHelper**: Singleton providing HTTP client with optional Certificate Transparency verification and controlled SSL bypass for on-premise deployments.
+- **NetworkHelper**: Singleton providing HTTP client with optional Certificate Transparency verification, controlled SSL bypass for on-premise deployments, and configurable `customUserAgent` header.
 - **COSEKey**: FIDO2 COSE key representation with lazy CBOR serialization for improved performance.
 
 ## Versioning
 
-Current Version: `3.2.5` (Code: `123`)
+Current Version: `3.2.8` (Code: `126`)
 
-**Release Notes:** [`docs/releases/3.2.5.md`](IBMVerifyApp/v3/verify-sdk-android/docs/releases/3.2.5.md)
+**Release Notes:** [`docs/releases/3.2.8.md`](docs/releases/3.2.8.md)
 Minimum Android SDK: 29 (Android 10.0)
 Target Android SDK: 36 (Android 16)
 
@@ -397,7 +418,7 @@ class MainActivity {
 2. **Set via property**: `NetworkHelper.certificateTransparencyInterceptor`
 3. **Scoped to SDK**: Won't conflict with client app's CT configuration
 4. **Optional**: Disabled by default for backward compatibility
-5. **See documentation**: `docs/CERTIFICATE_TRANSPARENCY_GUIDE.md`
+5. **See documentation**: [`docs/SSL_CERTIFICATE_BYPASS.md`](docs/SSL_CERTIFICATE_BYPASS.md)
 
 ### Performance Optimization
 1. **Use lazy initialization** for expensive operations (e.g., COSEKey.toCBOR)
