@@ -15,8 +15,8 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.7"
-extra["versionCode"] = "125"
+extra["versionName"] = "3.2.8"
+extra["versionCode"] = "126"
 
 allprojects {
     configurations.configureEach {
@@ -30,9 +30,9 @@ allprojects {
             force("com.google.protobuf:protobuf-java:4.29.3")
             force("com.google.protobuf:protobuf-javalite:4.29.3")
             force("commons-io:commons-io:2.14.0")
-            force("io.netty:netty-codec-http2:4.2.5.Final")
-            force("io.netty:netty-codec-compression:4.2.5.Final")
-            force("io.netty:netty-handler-proxy:4.2.5.Final")
+            force("io.netty:netty-codec-http2:4.2.15.Final")
+            force("io.netty:netty-codec-compression:4.2.15.Final")
+            force("io.netty:netty-handler-proxy:4.2.15.Final")
         }
     }
 
