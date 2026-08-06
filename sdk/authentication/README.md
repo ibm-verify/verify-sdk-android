@@ -1,6 +1,6 @@
 # IBM Verify Authentication SDK for Android
 
-![SDK Version](https://img.shields.io/badge/IBM%20Security%20Verify%20Authentication%20SDK-3.2.0-blue.svg)
+![SDK Version](https://img.shields.io/badge/IBM%20Security%20Verify%20Authentication%20SDK-3.2.8-blue.svg)
 ![Android Version](https://img.shields.io/badge/Android-10+-green.svg)
 ![Android Version](https://img.shields.io/badge/Android%20API-29+-green.svg)
 
@@ -18,18 +18,21 @@ The IBM Verify Authentication SDK for Android is a comprehensive implementation 
 - **Browser-based Authentication** - Secure authentication via system browser using Android App Links
 - **Custom Tab Support** - Enhanced user experience with Chrome Custom Tabs
 
-## Recent Improvements (v3.2.0)
+## Recent Improvements (v3.2.8)
 
-- **Performance Optimizations**: Lazy logging reduces memory allocations in production builds
-- **Platform Independence**: Explicit UTF-8 charset usage in PKCE for reliable cross-platform behavior
-- **Improved DPoP**: Enhanced logging and error handling in DPoP proof generation
-- **Modern APIs**: Updated to use current coroutine continuation APIs
+- **Double-Slash URL Fix**: `authorizeWithBrowser()` no longer produces `https://host//path` URLs. `java.net.URL.getPath()` returns a leading `/`; `Uri.Builder.appendEncodedPath()` now strips it via `.trimStart('/')` before appending.
+- **`buildAuthorizeUri()` Helper**: URI construction logic extracted to `internal fun buildAuthorizeUri()` for independent testability without a live `ComponentActivity`.
+- **Authorization URI Test Coverage**: Six new instrumented regression tests in `OAuthProviderTest` covering the double-slash fix, deep paths, required query parameters, PKCE, state, and automatic `openid` scope injection.
+- **Performance Optimizations**: Lazy logging reduces memory allocations in production builds.
+- **Platform Independence**: Explicit UTF-8 charset usage in PKCE for reliable cross-platform behavior.
+- **Improved DPoP**: Enhanced logging and error handling in DPoP proof generation.
+- **Modern APIs**: Updated to use current coroutine continuation APIs.
 
 ## Getting started
 
 ### Prerequisites
 
-- Android API Level 23 (Marshmallow) or higher
+- Android API Level 29 (Android 10.0) or higher
 - IBM Verify tenant or IBM Verify Identity Access server
 - OAuth 2.0 / OIDC configured application
 
@@ -306,8 +309,8 @@ data class TokenInfo(
 
 ## Requirements
 
-- Android API Level 23 (Marshmallow) or higher
-- Kotlin 1.9 or higher
+- Android API Level 29 (Android 10.0) or higher
+- Kotlin 2.1.0 or higher
 - AndroidX libraries
 
 ## Dependencies

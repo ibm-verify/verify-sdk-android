@@ -650,6 +650,80 @@ internal class OAuthProviderTest {
         assertEquals("clientSecret", oAuthProvider.clientSecret)
     }
 
+    // -------------------------------------------------------------------------
+    // buildAuthorizeUri — double-slash regression tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun buildAuthorizeUri_pathWithLeadingSlash_shouldNotProduceDoubleSlash() {
+        // java.net.URL.getPath() always returns a leading '/' (e.g. "/authorize").
+        // Uri.Builder.appendEncodedPath() inserts a '/' separator, so naively passing
+        // url.path produced "https://host//authorize". trimStart('/') fixes this.
+        val url = URL("https://auth.example.com/authorize")
+        val uri = oAuthProvider.buildAuthorizeUri(url, "myapp://callback")
+        val uriString = uri.toString()
+
+        // indexOf("//", 7) skips the "https://" at position 0-7
+        assertTrue("URI must not contain '//' after the scheme", uriString.indexOf("//", 7) == -1)
+        assertTrue("URI must start with 'https://auth.example.com'", uriString.startsWith("https://auth.example.com"))
+        assertTrue("URI must contain '/authorize'", uriString.contains("/authorize"))
+    }
+
+    @Test
+    fun buildAuthorizeUri_deepPath_shouldNotProduceDoubleSlash() {
+        val url = URL("https://example.com/oauth2/authorize")
+        val uri = oAuthProvider.buildAuthorizeUri(url, "myapp://callback")
+        val uriString = uri.toString()
+
+        assertTrue("URI must not contain '//' after the scheme", uriString.indexOf("//", 7) == -1)
+        assertTrue("path must be '/oauth2/authorize'", uriString.contains("/oauth2/authorize"))
+    }
+
+    @Test
+    fun buildAuthorizeUri_requiredQueryParams_shouldBePresent() {
+        val url = URL("https://example.com/authorize")
+        val uri = oAuthProvider.buildAuthorizeUri(url, "myapp://callback")
+        val uriString = uri.toString()
+
+        assertTrue(uriString.contains("response_type=code"))
+        assertTrue(uriString.contains("client_id=clientId"))
+        assertTrue(uriString.contains("redirect_uri=myapp%3A%2F%2Fcallback"))
+        assertTrue(uriString.contains("scope=openid"))
+    }
+
+    @Test
+    fun buildAuthorizeUri_withCodeChallenge_shouldIncludePkceParams() {
+        val url = URL("https://example.com/authorize")
+        val uri = oAuthProvider.buildAuthorizeUri(
+            url,
+            "myapp://callback",
+            codeChallenge = "abc123",
+            method = CodeChallengeMethod.S256
+        )
+        val uriString = uri.toString()
+
+        assertTrue(uriString.contains("code_challenge=abc123"))
+        assertTrue(uriString.contains("code_challenge_method=S256"))
+    }
+
+    @Test
+    fun buildAuthorizeUri_withState_shouldIncludeStateParam() {
+        val url = URL("https://example.com/authorize")
+        val uri = oAuthProvider.buildAuthorizeUri(url, "myapp://callback", state = "randomState42")
+        assertTrue(uri.toString().contains("state=randomState42"))
+    }
+
+    @Test
+    fun buildAuthorizeUri_scopeWithoutOpenid_shouldAppendOpenid() {
+        val url = URL("https://example.com/authorize")
+        val uri = oAuthProvider.buildAuthorizeUri(url, "myapp://callback", scope = arrayOf("profile", "email"))
+        val uriString = uri.toString()
+
+        assertTrue("scope must contain 'openid'", uriString.contains("openid"))
+        assertTrue("scope must contain 'profile'", uriString.contains("profile"))
+        assertTrue("scope must contain 'email'", uriString.contains("email"))
+    }
+
     private val responseDiscoveryOk = """
         {
            "request_parameter_supported":true,
