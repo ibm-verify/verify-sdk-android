@@ -177,33 +177,10 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
     ): Result<String> {
 
         return try {
-            val uriBuilder = Uri.Builder()
-            var myScope = scope ?: arrayOf("openid")
-
-            uriBuilder.scheme((url.protocol))
-                .encodedAuthority(url.authority)
-                .appendEncodedPath(url.path)
-                .appendQueryParameter("response_type", "code")
-                .appendQueryParameter("client_id", clientId)
-                .appendQueryParameter("redirect_uri", redirectUrl)
-
-            codeChallenge?.let {
-                uriBuilder.appendQueryParameter("code_challenge", codeChallenge)
-                uriBuilder.appendQueryParameter("code_challenge_method", method.name)
-            }
-
-            if (myScope.contains("openid").not()) {
-                myScope = myScope.plus("openid")
-            }
-            uriBuilder.appendQueryParameter("scope", myScope.joinToString(" "))
-
-            state?.let { uriBuilder.appendQueryParameter("state", it) }
-            additionalParameters.forEach {
-                uriBuilder.appendQueryParameter(it.key, it.value)
-            }
+            val authorizeUri = buildAuthorizeUri(url, redirectUrl, codeChallenge, method, scope, state)
 
             val intent = Intent(activity, AuthenticationActivity::class.java)
-            intent.putExtra("url", uriBuilder.build().toString())
+            intent.putExtra("url", authorizeUri.toString())
 
             suspendCancellableCoroutine { continuation ->
                 val getCode = activity.activityResultRegistry.register(
@@ -245,6 +222,48 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
         } catch (e: Throwable) {
             Result.failure(e)
         }
+    }
+
+    /**
+     * Builds the authorization [Uri] for the browser-based authorization code flow.
+     *
+     * Extracted from [authorizeWithBrowser] so that URL construction can be tested without
+     * requiring a live [ComponentActivity].
+     */
+    internal fun buildAuthorizeUri(
+        url: URL,
+        redirectUrl: String,
+        codeChallenge: String? = null,
+        method: CodeChallengeMethod = CodeChallengeMethod.PLAIN,
+        scope: Array<String>? = null,
+        state: String? = null
+    ): Uri {
+        val uriBuilder = Uri.Builder()
+        var myScope = scope ?: arrayOf("openid")
+
+        uriBuilder.scheme(url.protocol)
+            .encodedAuthority(url.authority)
+            .appendEncodedPath(url.path.trimStart('/'))
+            .appendQueryParameter("response_type", "code")
+            .appendQueryParameter("client_id", clientId)
+            .appendQueryParameter("redirect_uri", redirectUrl)
+
+        codeChallenge?.let {
+            uriBuilder.appendQueryParameter("code_challenge", codeChallenge)
+            uriBuilder.appendQueryParameter("code_challenge_method", method.name)
+        }
+
+        if (!myScope.contains("openid")) {
+            myScope = myScope.plus("openid")
+        }
+        uriBuilder.appendQueryParameter("scope", myScope.joinToString(" "))
+
+        state?.let { uriBuilder.appendQueryParameter("state", it) }
+        additionalParameters.forEach {
+            uriBuilder.appendQueryParameter(it.key, it.value)
+        }
+
+        return uriBuilder.build()
     }
 
     /**

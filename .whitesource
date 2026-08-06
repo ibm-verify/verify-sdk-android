@@ -19,6 +19,10 @@
     "incrementalScan": false,
     "baseBranches": [
       "main", "develop"
+    ],
+    "excludedPaths": [
+      "**/src/androidTest/**",
+      "**/src/test/**"
     ]
   }
 }
