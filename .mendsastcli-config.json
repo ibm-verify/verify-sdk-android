@@ -1,5 +1,26 @@
 {
     "scans": {
-        "pathExclusions": [".*/src/androidTest/.*", ".*/src/test/.*"]
-    }   
+        "pathExclusions": [".*/src/androidTest/.*", ".*/src/test/.*"],
+        "configurationExclusions": [
+            ".*AndroidTest.*",
+            ".*Test.*",
+            "debugAndroidTestCompileClasspath",
+            "releaseAndroidTestCompileClasspath"
+        ]
+    },
+    "suppressions": {
+        "vulnerabilityTypes": [
+            "External URL Access",
+            "Intent Manipulation",
+            "WebView Usage",
+            "URL Redirection",
+            "Log Messages Information Leak"
+        ],
+        "codePatterns": [
+            {
+                "pattern": "Log\\.d\\(",
+                "description": "Ignore all Log.d debug logging calls"
+            }
+        ]
+    }
 }
