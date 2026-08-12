@@ -12,7 +12,6 @@ import com.ibm.security.verifysdk.core.extension.exiting
 import com.ibm.security.verifysdk.core.extension.logError
 import com.ibm.security.verifysdk.core.extension.logInfo
 import com.ibm.security.verifysdk.core.helper.ContextHelper
-import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.MFAAttributeInfo
 import com.ibm.security.verifysdk.mfa.MFAServiceDescriptor
 import com.ibm.security.verifysdk.mfa.MFAServiceException
@@ -454,7 +453,7 @@ class OnPremiseAuthenticatorService(
     }
 
 
-    suspend fun remove(httpClient: HttpClient = NetworkHelper.getInstance): Result<Unit> {
+    suspend fun remove(): Result<Unit> {
 
         return try {
             log.entering()
