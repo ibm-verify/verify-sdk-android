@@ -12,7 +12,6 @@ import com.ibm.security.verifysdk.core.extension.exiting
 import com.ibm.security.verifysdk.core.extension.logError
 import com.ibm.security.verifysdk.core.extension.logInfo
 import com.ibm.security.verifysdk.core.helper.ContextHelper
-import com.ibm.security.verifysdk.core.helper.NetworkHelper
 import com.ibm.security.verifysdk.mfa.MFAAttributeInfo
 import com.ibm.security.verifysdk.mfa.MFAServiceDescriptor
 import com.ibm.security.verifysdk.mfa.MFAServiceException
@@ -454,7 +453,7 @@ class OnPremiseAuthenticatorService(
     }
 
 
-    suspend fun remove(httpClient: HttpClient = NetworkHelper.getInstance): Result<Unit> {
+    suspend fun remove(): Result<Unit> {
 
         return try {
             log.entering()
@@ -713,7 +712,7 @@ class OnPremiseAuthenticatorService(
         return URL(
             Uri.Builder().scheme((transactionRequestUrl.protocol))
                 .encodedAuthority(transactionRequestUrl.authority)
-                .appendEncodedPath(verificationInfoLocation)
+                .appendEncodedPath(verificationInfoLocation.trimStart('/'))
                 .build()
                 .toString()
         )
@@ -725,7 +724,7 @@ class OnPremiseAuthenticatorService(
         return URL(
             Uri.Builder().scheme((transactionUri.protocol))
                 .encodedAuthority(transactionUri.authority)
-                .appendEncodedPath(transactionUri.path)
+                .appendEncodedPath(transactionUri.path.trimStart('/'))
                 .appendQueryParameter(
                     "attributes",
                     "urn:ietf:params:scim:schemas:extension:isam:1.0:MMFA:Authenticator:authenticators"
@@ -734,31 +733,6 @@ class OnPremiseAuthenticatorService(
                 .toString()
         )
     }
-
-//    {
-//        "dataType":"String",
-//        "values":[
-//        "PM: Please verify login to mmfa.securitypoc.com"
-//        ],
-//        "name":"mmfa.request.push.message",
-//        "uri":"mmfa:request:push:message",
-//        "transactionId":"c15e351e-b2c1-493f-9a08-b03ee51b5ad8"
-//    },
-
-//    @Serializable
-//    data class AttributeInfo(
-//        val dataType: String,
-//        val values: List<String>,
-//        val uri: String,
-//        val transactionId: String
-//    )
-
-//    IPAddress("ipAddress"),
-//    Location("location"),
-//    Image("image"),
-//    UserAgent("userAgent"),
-//    Type("type"),
-//    Custom("custom")
 
     /**
      * Calculates a correlation value from a transaction ID.
@@ -876,7 +850,5 @@ class OnPremiseAuthenticatorService(
         } finally {
             log.exiting()
         }
-
-
     }
 }
