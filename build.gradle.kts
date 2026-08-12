@@ -15,8 +15,8 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.8"
-extra["versionCode"] = "126"
+extra["versionName"] = "3.2.9"
+extra["versionCode"] = "127"
 
 allprojects {
     configurations.configureEach {
