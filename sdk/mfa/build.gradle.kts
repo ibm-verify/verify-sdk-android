@@ -35,7 +35,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.kotlinx.coroutines.test)
-    androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.ktor.client.mock)
     androidTestImplementation(libs.mockito.kotlin) {
         // Fix issue with byte-buddy and instrumentation tests
