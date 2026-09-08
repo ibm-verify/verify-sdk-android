@@ -22,6 +22,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.formUrlEncode
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.slf4j.LoggerFactory
 import java.net.MalformedURLException
@@ -80,6 +81,21 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
             }
             NetworkHelper.initialize()
         }
+
+    /**
+     * If set to `true`, Chrome Custom Tabs will be launched in ephemeral (private/incognito)
+     * browsing mode when [authorizeWithBrowser] is called.
+     *
+     * An ephemeral session prevents the browser from reusing existing session cookies, ensuring
+     * the user is always presented with a fresh login screen. This is the Android equivalent of
+     * the iOS `prefersEphemeralWebBrowserSession` flag and is implemented via
+     * [CustomTabsIntent.Builder.setEphemeralBrowsingEnabled].
+     *
+     * Requires `androidx.browser` 1.8.0+. Defaults to `false`.
+     *
+     * @since 3.2.10
+     */
+    var ephemeralSession: Boolean = false
 
     /**
      * If set to `true`, DPoP (Demonstrating Proof-of-Possession) headers will be included
@@ -152,6 +168,11 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
      * Launches Chrome Custom Tabs to initiate the authorization code (AZN) flow using optional
      * Proof Key for Code Exchange (PKCE).
      *
+     * The browser session behaviour is controlled by the [ephemeralSession] property. When set to
+     * `true` on this provider instance, Chrome Custom Tabs are opened in ephemeral (incognito)
+     * mode, preventing reuse of existing session cookies and ensuring the user always sees a fresh
+     * login screen.
+     *
      * @param   url   The `URL` to the authorize endpoint for the OpenID Connect service provider
      *                  issuer.
      * @param   redirectUrl  The redirect `URL` that is registered with the OpenID Connect service provider.
@@ -181,6 +202,7 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
 
             val intent = Intent(activity, AuthenticationActivity::class.java)
             intent.putExtra("url", authorizeUri.toString())
+            intent.putExtra("ephemeralSession", ephemeralSession)
 
             suspendCancellableCoroutine { continuation ->
                 val getCode = activity.activityResultRegistry.register(
@@ -330,6 +352,9 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
                 contentType = ContentType.Application.FormUrlEncoded,
                 body = (formData.toList() + additionalParameters.toList()).formUrlEncode()
             )
+        } catch (e: CancellationException) {
+            // Re-throw so structured concurrency is not broken — same pattern as refresh().
+            throw e
         } catch (e: Throwable) {
             Result.failure(e)
         }
@@ -394,6 +419,9 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
                 contentType = ContentType.Application.FormUrlEncoded,
                 body = (formData.toList() + additionalParameters.toList()).formUrlEncode()
             )
+        } catch (e: CancellationException) {
+            // Re-throw so structured concurrency is not broken — same pattern as refresh().
+            throw e
         } catch (e: Throwable) {
             Result.failure(e)
         }
@@ -457,6 +485,8 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
                 contentType = ContentType.Application.FormUrlEncoded,
                 body = (formData.toList() + additionalParameters.toList()).formUrlEncode()
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             Result.failure(e)
         }
