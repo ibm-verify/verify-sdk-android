@@ -20,6 +20,10 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.MissingFieldException
@@ -105,6 +109,37 @@ internal class OAuthProviderTest {
             assertEquals("A7y0nh0aaDpz8g0aTcVVBnr6veTocbYLpH7K8Jqn", token.accessToken)
             assertEquals(7200, token.expiresIn)
         }
+    }
+
+    @Test
+    fun refresh_cancellationDuringRequest_shouldRethrowCancellationException() = runTest {
+        val requestStarted = CompletableDeferred<Unit>()
+        val client = HttpClient(MockEngine {
+            requestStarted.complete(Unit)
+            awaitCancellation()
+        })
+        var result: Result<*>? = null
+        var cancellation: CancellationException? = null
+
+        val job = launch {
+            try {
+                result = oAuthProvider.refresh(
+                    httpClient = client,
+                    url = URL("http://localhost/v1.0/authenticators/registration"),
+                    refreshToken = "abc123def"
+                )
+            } catch (e: CancellationException) {
+                cancellation = e
+            }
+        }
+
+        requestStarted.await()
+        job.cancel()
+        job.join()
+        client.close()
+
+        assertTrue("refresh must rethrow cancellation", cancellation != null)
+        assertTrue("refresh must not return a failure result for cancellation", result == null)
     }
 
     @Test
@@ -722,6 +757,139 @@ internal class OAuthProviderTest {
         assertTrue("scope must contain 'openid'", uriString.contains("openid"))
         assertTrue("scope must contain 'profile'", uriString.contains("profile"))
         assertTrue("scope must contain 'email'", uriString.contains("email"))
+    }
+
+    // -------------------------------------------------------------------------
+    // ephemeralSession property
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun ephemeralSession_defaultsToFalse() {
+        val provider = OAuthProvider("clientId")
+        assertEquals(false, provider.ephemeralSession)
+    }
+
+    @Test
+    fun ephemeralSession_canBeSetToTrue() {
+        val provider = OAuthProvider("clientId")
+        provider.ephemeralSession = true
+        assertEquals(true, provider.ephemeralSession)
+    }
+
+    @Test
+    fun ephemeralSession_doesNotAffectAuthorizeUri() {
+        // ephemeralSession is forwarded to AuthenticationActivity via an Intent extra and
+        // applied to CustomTabsIntent.Builder.setEphemeralBrowsingEnabled(). It must not
+        // alter the authorize URI itself.
+        val url = URL("https://example.com/authorize")
+
+        val providerDefault = OAuthProvider("clientId")
+        val uriDefault = providerDefault.buildAuthorizeUri(url, "myapp://callback")
+
+        val providerEphemeral = OAuthProvider("clientId")
+        providerEphemeral.ephemeralSession = true
+        val uriEphemeral = providerEphemeral.buildAuthorizeUri(url, "myapp://callback")
+
+        assertEquals(
+            "Authorize URI must be identical regardless of ephemeralSession value",
+            uriDefault.toString(),
+            uriEphemeral.toString()
+        )
+    }
+
+    @Test
+    fun ephemeralSession_requiredOAuthParamsStillPresent() {
+        // Smoke test: all required OAuth parameters remain present when ephemeralSession is true.
+        val url = URL("https://example.com/authorize")
+        val provider = OAuthProvider("clientId")
+        provider.ephemeralSession = true
+        val uriString = provider.buildAuthorizeUri(url, "myapp://callback").toString()
+
+        assertTrue(uriString.contains("response_type=code"))
+        assertTrue(uriString.contains("client_id=clientId"))
+        assertTrue(uriString.contains("redirect_uri=myapp%3A%2F%2Fcallback"))
+        assertTrue(uriString.contains("scope=openid"))
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // authorize() cancellation tests
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Verifies that [CancellationException] is **thrown** from
+     * [OAuthProvider.authorize] (authorization-code overload), not returned as [Result.failure].
+     *
+     * Before the fix, `authorize` had a broad `catch (e: Throwable)` with no CE guard,
+     * so a scope cancellation mid-POST would silently break structured concurrency.
+     */
+    @Test
+    fun authorize_codeFlow_cancellationDuringRequest_shouldRethrowCancellationException() = runTest {
+        val requestStarted = CompletableDeferred<Unit>()
+        val client = HttpClient(MockEngine {
+            requestStarted.complete(Unit)
+            awaitCancellation()
+        })
+        var result: Result<*>? = null
+        var cancellation: CancellationException? = null
+
+        val job = launch {
+            try {
+                result = oAuthProvider.authorize(
+                    httpClient = client,
+                    url = URL("https://example.com/oauth2/token"),
+                    redirectUrl = "myapp://callback",
+                    authorizationCode = "authCode123",
+                    codeVerifier = "verifier123"
+                )
+            } catch (e: CancellationException) {
+                cancellation = e
+            }
+        }
+
+        requestStarted.await()
+        job.cancel()
+        job.join()
+        client.close()
+
+        assertTrue("authorize (code flow) must rethrow cancellation", cancellation != null)
+        assertTrue("authorize (code flow) must not return a failure result for cancellation", result == null)
+    }
+
+    /**
+     * Verifies that [CancellationException] is **thrown** from
+     * [OAuthProvider.authorize] (resource-owner password-credentials overload), not returned as
+     * [Result.failure].
+     */
+    @Test
+    fun authorize_passwordFlow_cancellationDuringRequest_shouldRethrowCancellationException() = runTest {
+        val requestStarted = CompletableDeferred<Unit>()
+        val client = HttpClient(MockEngine {
+            requestStarted.complete(Unit)
+            awaitCancellation()
+        })
+        var result: Result<*>? = null
+        var cancellation: CancellationException? = null
+
+        val job = launch {
+            try {
+                result = oAuthProvider.authorize(
+                    httpClient = client,
+                    url = URL("https://example.com/oauth2/token"),
+                    username = "testuser@example.com",
+                    password = "secret"
+                )
+            } catch (e: CancellationException) {
+                cancellation = e
+            }
+        }
+
+        requestStarted.await()
+        job.cancel()
+        job.join()
+        client.close()
+
+        assertTrue("authorize (password flow) must rethrow cancellation", cancellation != null)
+        assertTrue("authorize (password flow) must not return a failure result for cancellation", result == null)
     }
 
     private val responseDiscoveryOk = """
