@@ -4,7 +4,6 @@
 
 package com.ibm.security.verifysdk.mfa
 
-import android.annotation.SuppressLint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.ibm.security.verifysdk.core.helper.ContextHelper
@@ -12,10 +11,16 @@ import com.ibm.security.verifysdk.mfa.api.CloudAuthenticatorService
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -40,21 +45,29 @@ class RefreshTokenSerializationTest {
         ContextHelper.init(appContext)
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testRefreshTokenWithMixedTypesSucceeds() {
+    fun testRefreshTokenWithMixedTypesSucceeds() = runTest {
         // This test verifies that refreshToken can now handle mixed types
         // by using buildJsonObject instead of Map<String, Any> serialization
         
         val mockEngine = MockEngine { request ->
-            // Verify the request body contains the expected JSON structure
-            val requestBody = when (val body = request.body) {
-                is io.ktor.http.content.TextContent -> body.text
-                else -> body.toString()
-            }
-            assertTrue("Request should contain refreshToken, got: $requestBody", requestBody.contains("refreshToken"))
-            assertTrue("Request should contain attributes, got: $requestBody", requestBody.contains("attributes"))
-            
+            assertEquals("metadataInResponse must be requested", "true", request.url.parameters["metadataInResponse"])
+            assertTrue("Refresh request must use a JSON body", request.body is TextContent)
+
+            val body = request.body as TextContent
+            assertEquals(ContentType.Application.Json, body.contentType)
+
+            val requestJson = Json.parseToJsonElement(body.text).jsonObject
+            assertEquals("test_refresh_token", requestJson["refreshToken"]?.jsonPrimitive?.content)
+
+            val attributes = requestJson["attributes"]?.jsonObject
+            assertEquals("test@example.com", attributes?.get("accountName")?.jsonPrimitive?.content)
+            assertEquals("test_push_token", attributes?.get("pushToken")?.jsonPrimitive?.content)
+            assertTrue(
+                "deviceInsecure must be encoded as a JSON boolean",
+                attributes?.get("deviceInsecure")?.jsonPrimitive?.booleanOrNull != null
+            )
+
             respond(
                 content = """{"access_token":"new_access_token","refresh_token":"new_refresh_token","token_type":"Bearer","expires_in":3600}""",
                 status = HttpStatusCode.OK,
@@ -73,7 +86,6 @@ class RefreshTokenSerializationTest {
         )
 
         // Call refreshToken with mixed-type attributes
-        runBlocking {
             val result = service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -94,8 +106,6 @@ class RefreshTokenSerializationTest {
                 assertEquals("new_access_token", tokenInfo.accessToken)
                 assertEquals("new_refresh_token", tokenInfo.refreshToken)
             }
-        }
-
         httpClient.close()
     }
 

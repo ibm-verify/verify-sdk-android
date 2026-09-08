@@ -4,7 +4,6 @@
 
 package com.ibm.security.verifysdk.mfa.api
 
-import android.annotation.SuppressLint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
@@ -16,7 +15,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -46,9 +45,8 @@ class OnPremiseAuthenticatorServiceTest {
         ContextHelper.init(InstrumentationRegistry.getInstrumentation().targetContext)
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testHttpClientConstructorInjection() {
+    fun testHttpClientConstructorInjection() = runTest {
         val mockEngine = MockEngine { request ->
             respond(
                 content = """
@@ -77,7 +75,6 @@ class OnPremiseAuthenticatorServiceTest {
             httpClient = httpClient
         )
 
-        runBlocking {
             val result = service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -85,14 +82,11 @@ class OnPremiseAuthenticatorServiceTest {
                 additionalData = null
             )
             assertTrue("refreshToken should succeed", result.isSuccess)
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testTokenPersistenceCallbackBlocking() {
+    fun testTokenPersistenceCallbackBlocking() = runTest {
         var callbackInvoked = false
         var persistedToken: TokenInfo? = null
 
@@ -135,7 +129,6 @@ class OnPremiseAuthenticatorServiceTest {
             persistenceCallback = callback
         )
 
-        runBlocking {
             val result = service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -146,14 +139,11 @@ class OnPremiseAuthenticatorServiceTest {
             assertTrue("Callback should be invoked", callbackInvoked)
             assertEquals("persisted_token", persistedToken?.accessToken)
             assertEquals("persisted_refresh", persistedToken?.refreshToken)
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testTokenPersistenceFailureCausesRefreshFailure() {
+    fun testTokenPersistenceFailureCausesRefreshFailure() = runTest {
         val callback = object : TokenPersistenceCallback {
             override suspend fun onTokenRefreshed(
                 authenticatorId: String,
@@ -189,7 +179,6 @@ class OnPremiseAuthenticatorServiceTest {
             persistenceCallback = callback
         )
 
-        runBlocking {
             val result = service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -203,14 +192,11 @@ class OnPremiseAuthenticatorServiceTest {
                     error.message?.contains("persistence failed") == true
                 )
             }
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testImmutableServiceDesign() {
+    fun testImmutableServiceDesign() = runTest {
         val httpClient = HttpClient(MockEngine { request ->
             respond(
                 content = """
@@ -239,7 +225,6 @@ class OnPremiseAuthenticatorServiceTest {
 
         assertEquals("original_token", service.accessToken)
 
-        runBlocking {
             service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -247,8 +232,6 @@ class OnPremiseAuthenticatorServiceTest {
                 additionalData = null
             )
             assertEquals("original_token", service.accessToken)
-        }
-
         httpClient.close()
     }
 
@@ -317,9 +300,8 @@ class OnPremiseAuthenticatorServiceTest {
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testTokenRefreshWithAdditionalData() {
+    fun testTokenRefreshWithAdditionalData() = runTest {
         var requestBody: String? = null
 
         val httpClient = HttpClient(MockEngine { request ->
@@ -353,7 +335,6 @@ class OnPremiseAuthenticatorServiceTest {
             httpClient = httpClient
         )
 
-        runBlocking {
             val result = service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -370,14 +351,11 @@ class OnPremiseAuthenticatorServiceTest {
                 "Request should include platform_type",
                 requestBody?.contains("platform_type") == true
             )
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testTokenRefresh_PersistsTenantIdSeparatelyFromServerAuthenticatorId() {
+    fun testTokenRefresh_PersistsTenantIdSeparatelyFromServerAuthenticatorId() = runTest {
         var callbackAuthenticatorId: String? = null
         var persistedToken: TokenInfo? = null
 
@@ -420,7 +398,6 @@ class OnPremiseAuthenticatorServiceTest {
             persistenceCallback = callback
         )
 
-        runBlocking {
             val result = service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -434,14 +411,11 @@ class OnPremiseAuthenticatorServiceTest {
                 "uuidserver-authenticator-id-001",
                 persistedToken?.additionalData?.get("authenticator_id")
             )
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testNextTransaction_shouldReturnEmptyWhenServerAuthenticatorIdMissing() {
+    fun testNextTransaction_shouldReturnEmptyWhenServerAuthenticatorIdMissing() = runTest {
         val now = kotlin.time.Clock.System.now()
 
         val httpClient = HttpClient(MockEngine { request ->
@@ -480,7 +454,6 @@ class OnPremiseAuthenticatorServiceTest {
             httpClient = httpClient
         )
 
-        runBlocking {
             val result = service.nextTransaction()
             assertTrue("nextTransaction should succeed", result.isSuccess)
             result.onSuccess { (transactions, count) ->
@@ -490,14 +463,11 @@ class OnPremiseAuthenticatorServiceTest {
                     transactions.isEmpty()
                 )
             }
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testNextTransaction_byIdentifier_shouldReturnEmptyWhenOwnershipDoesNotMatch() {
+    fun testNextTransaction_byIdentifier_shouldReturnEmptyWhenOwnershipDoesNotMatch() = runTest {
         val now = kotlin.time.Clock.System.now()
 
         val httpClient = HttpClient(MockEngine { request ->
@@ -536,7 +506,6 @@ class OnPremiseAuthenticatorServiceTest {
             httpClient = httpClient
         )
 
-        runBlocking {
             val result = service.nextTransaction("transaction-b-001")
             assertTrue("nextTransaction should succeed", result.isSuccess)
             result.onSuccess { (transactions, count) ->
@@ -546,8 +515,6 @@ class OnPremiseAuthenticatorServiceTest {
                     transactions.isEmpty()
                 )
             }
-        }
-
         httpClient.close()
     }
 }
