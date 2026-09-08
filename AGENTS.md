@@ -25,7 +25,12 @@ The project is divided into SDK modules and example applications:
 - **`:examples:dpop_demo`**: Demonstrates Demonstrating Proof-of-Possession (DPoP) at the Application Layer.
 - **`:examples:fido2_demo`**: Showcases FIDO2 registration and authentication.
 
-## Recent Changes (Release 3.2.10)
+## Recent Changes (Release 3.2.11)
+
+- **Browser Compatibility Documentation**: Clarified that the Custom Tabs redirect contract is verified for Google Chrome, Mozilla Firefox, and Microsoft Edge only. Added a Troubleshooting entry for `ActivityNotFoundException` when a non-compliant browser is the device default. Updated `AuthenticationActivity` KDoc and `sdk/authentication/README.md`. No production code changed.
+- **Release Documentation**: Added [`3.2.11` release note](docs/releases/3.2.11.md).
+
+### Previous Changes (Release 3.2.10)
 
 - **Ephemeral Browser Session** (`OAuthProvider.ephemeralSession`): New property (default `false`). When `true`, `authorizeWithBrowser` forwards the flag to `AuthenticationActivity` via an intent extra, which calls `CustomTabsIntent.Builder.setEphemeralBrowsingEnabled(true)` to open Chrome Custom Tabs in incognito mode. The previously reused `CustomTabsIntent.Builder` instance field in `AuthenticationActivity` was replaced with a per-call builder so the flag applies correctly on every invocation.
 - **`AuthenticationActivity` KDoc**: Full rewrite documenting the intent-extra contract (`url`, `ephemeralSession`), the `RESULT_OK` / `RESULT_CANCELED` result codes, and the link to `OAuthProvider.authorizeWithBrowser`.
@@ -36,6 +41,7 @@ The project is divided into SDK modules and example applications:
 - **`KeystoreHelperTest` New Tests**: 7 new tests covering all combinations of the new `createKeyPair` parameters (RSA + EC, various API-level guards). `createKeyPair_happyPathOverwriteDefaultsCase2of4` and `createKeyPair_happyPathOverwriteDefaultsCase4of4` remain `@Ignore`d — both use `authenticationRequired = true` with `userAuthenticationTimeout = 0` (per-use), which requires enrolled biometrics; CI emulators have none.
 - **Test Hygiene (`runBlocking` → `runTest`)**: Removed all `@SuppressLint("DenyListedBlockingApi")` / `runBlocking` patterns across `CloudAuthenticatorServiceTest` (8 methods), `OnPremiseAuthenticatorServiceTest` (8 methods), `RemoveUsesCreateUpdateUrlTest` (5 methods), and `RefreshTokenSerializationTest` (1 method + strengthened mock assertions). Removed duplicate `androidTestImplementation(libs.kotlinx.coroutines.test)` from `sdk/mfa/build.gradle.kts`.
 - **Jackson Update to 2.22.2**: All Jackson modules updated from 2.22.1 to 2.22.2.
+- **Jackson `force()` Scope Fix**: Jackson version constraints moved into `configurations.configureEach` so they apply to every Gradle configuration, not just Dokka. Eliminates `jackson-databind:2.22.1` from Mend SCA reports.
 - **Release Documentation**: Added [`3.2.10` release note](docs/releases/3.2.10.md).
 
 ### Previous Changes (Release 3.2.9)
@@ -161,9 +167,9 @@ The project uses a Version Catalog (`gradle/libs.versions.toml`) for managing de
 
 ## Versioning
 
-Current Version: `3.2.10` (Code: `128`)
+Current Version: `3.2.11` (Code: `129`)
 
-**Release Notes:** [`docs/releases/3.2.10.md`](docs/releases/3.2.10.md)
+**Release Notes:** [`docs/releases/3.2.11.md`](docs/releases/3.2.11.md)
 Minimum Android SDK: 29 (Android 10.0)
 Target Android SDK: 36 (Android 16)
 
