@@ -6,9 +6,12 @@ package com.ibm.security.verifysdk.core
 
 import android.os.Build
 import android.security.keystore.KeyProperties
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
+import androidx.test.platform.app.InstrumentationRegistry
 import com.ibm.security.verifysdk.core.helper.KeystoreHelper
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -17,8 +20,8 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.slf4j.Logger
@@ -135,6 +138,10 @@ internal class KeystoreHelperTest {
 
     @Test
     fun createKeyPair_happyPathOverwriteDefaultsCase2of4_shouldReturnPublicKey() {
+        assumeTrue(
+            "Skipped: requires at least one enrolled biometric",
+            isBiometricEnrolled()
+        )
 
         val authenticationRequired = true
         val invalidatedByBiometricEnrollment = true
@@ -175,6 +182,10 @@ internal class KeystoreHelperTest {
 
     @Test
     fun createKeyPair_happyPathOverwriteDefaultsCase4of4_shouldReturnPublicKey() {
+        assumeTrue(
+            "Skipped: requires at least one enrolled biometric",
+            isBiometricEnrolled()
+        )
 
         val authenticationRequired = true
         val invalidatedByBiometricEnrollment = false
@@ -1083,6 +1094,25 @@ internal class KeystoreHelperTest {
         )
         assertNotNull("Public key should not be null", publicKey)
         assertEquals("EC", publicKey.algorithm)
+    }
+
+    // ========================================
+    // Test helpers
+    // ========================================
+
+    /**
+     * Returns true when at least one strong biometric (fingerprint, face, iris) is enrolled on
+     * the device. Used with [assumeTrue] to skip tests that require per-use authentication on
+     * emulators and devices without enrolled biometrics.
+     *
+     * Requires API 29+; always returns false on older devices (which can't use
+     * [BiometricManager]).
+     */
+    private fun isBiometricEnrolled(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val manager = context.getSystemService(BiometricManager::class.java) ?: return false
+        return manager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
     }
 }
 
