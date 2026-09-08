@@ -14,24 +14,30 @@ import androidx.core.net.toUri
 /**
  * Proxy activity that manages the browser-based authorization code flow.
  *
- * Started by [OAuthProvider.authorizeWithBrowser], this activity launches Chrome Custom Tabs (CCT)
+ * Started by [OAuthProvider.authorizeWithBrowser], this activity launches a Custom Tabs session
  * to perform the OAuth 2.0 authorization code flow, optionally with Proof Key for Code Exchange
- * (PKCE). It acts as the redirect target for the CCT session and extracts the authorization code
- * from the callback URI before returning control to the caller.
+ * (PKCE). It acts as the redirect target for the Custom Tabs session and extracts the
+ * authorization code from the callback URI before returning control to the caller.
+ *
+ * The Custom Tabs protocol is supported by Google Chrome, Mozilla Firefox, and Microsoft Edge.
+ * The device's default browser is used if it supports Custom Tabs; otherwise the user is prompted
+ * to choose. Not all browsers that support Custom Tabs implement the redirect contract required
+ * to return control to the app; only the browsers listed above are verified to work correctly.
  *
  * ## Intent extras (input)
- * | Key                | Type      | Description                                                       |
- * |--------------------|-----------|-------------------------------------------------------------------|
- * | `url`              | `String`  | The fully-built authorization URI to open in Chrome Custom Tabs.  |
- * | `ephemeralSession` | `Boolean` | When `true`, opens CCT in ephemeral (incognito) mode via          |
- * |                    |           | [CustomTabsIntent.Builder.setEphemeralBrowsingEnabled], preventing |
- * |                    |           | reuse of existing browser session cookies. Defaults to `false`.   |
+ * | Key                | Type      | Description                                                            |
+ * |--------------------|-----------|------------------------------------------------------------------------|
+ * | `url`              | `String`  | The fully-built authorization URI to open in a Custom Tabs session.    |
+ * | `ephemeralSession` | `Boolean` | When `true`, passes `setEphemeralBrowsingEnabled(true)` to             |
+ * |                    |           | [CustomTabsIntent.Builder], opening the session in private/incognito   |
+ * |                    |           | mode and preventing reuse of existing cookies. Defaults to `false`.    |
+ * |                    |           | Note: this is a Chrome-specific API; other providers may ignore it.    |
  *
  * ## Result
  * - **`RESULT_OK`** — authorization succeeded; the `code` string extra contains the authorization
  *   code to exchange for tokens via [OAuthProvider.authorize].
- * - **`RESULT_CANCELED`** — the user dismissed CCT or the redirect did not carry a `code`
- *   parameter.
+ * - **`RESULT_CANCELED`** — the user dismissed the browser session or the redirect did not carry
+ *   a `code` parameter.
  *
  * @since 3.0.0
  */
