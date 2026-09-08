@@ -219,6 +219,12 @@ class OnPremiseAuthenticatorService(
                     }
                 }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Re-throw CancellationException so the coroutine framework's structured
+            // concurrency is not broken. Without this, a scope cancellation arriving
+            // mid-refresh is silently wrapped in Result.failure — the caller logs
+            // "refresh failed" and leaves a consumed refresh token in storage.
+            throw e
         } catch (e: Throwable) {
             Result.failure(e)
         } finally {
@@ -289,6 +295,10 @@ class OnPremiseAuthenticatorService(
                 log.error("nextTransaction - HTTP request failed with status: ${response.status}")
                 Result.failure(MFAServiceException.InvalidDataResponse())
             }
+        } catch (e: CancellationException) {
+            // Re-throw so structured concurrency is not broken — same pattern as refreshToken.
+            // Without this, a scope cancellation mid-GET is silently wrapped in Result.failure.
+            throw e
         } catch (e: Throwable) {
             log.error("nextTransaction - Exception caught: ${e.message}", e)
             Result.failure(e)
@@ -493,6 +503,9 @@ class OnPremiseAuthenticatorService(
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            // Re-throw so structured concurrency is not broken — same pattern as refreshToken.
+            throw e
         } finally {
             log.exiting()
         }
