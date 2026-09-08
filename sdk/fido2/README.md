@@ -1,6 +1,6 @@
 # IBM Verify FIDO2™ SDK for Android
 
-**Version:** 3.2.10
+**Version:** 3.2.11
 **Package:** `com.ibm.security.verifysdk.fido2`
 
 The IBM Verify FIDO2™ SDK for Android is a native implementation of FIDO attestation and
@@ -66,8 +66,8 @@ dependencyResolutionManagement {
 
 ```gradle
 dependencies {
-    implementation("com.ibm.security.verifysdk:core:3.2.10")
-    implementation("com.ibm.security.verifysdk:fido2:3.2.10")
+    implementation("com.ibm.security.verifysdk:core:3.2.11")
+    implementation("com.ibm.security.verifysdk:fido2:3.2.11")
     ...
 }
 ```

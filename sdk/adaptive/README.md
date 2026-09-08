@@ -1,6 +1,6 @@
 # IBM Verify Adaptive SDK for Android
 
-**Version:** 3.2.10
+**Version:** 3.2.11
 **Package:** `com.ibm.security.verifysdk.adaptive`
 **Minimum API:** 29 (Android 10.0)
 **Target API:** 36 (Android 16)

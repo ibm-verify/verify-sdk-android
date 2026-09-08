@@ -1,6 +1,6 @@
 # IBM Verify SDK - MFA Module
 
-**Version:** 3.2.10
+**Version:** 3.2.11
 **Package:** `com.ibm.security.verifysdk.mfa`
 
 ## Overview
@@ -401,6 +401,6 @@ Debug logs currently use `log.error()` for visibility during development. These 
 
 ---
 
-**Module Version:** 3.2.10
+**Module Version:** 3.2.11
 **Minimum Android SDK:** 29
 **Target Android SDK:** 36
