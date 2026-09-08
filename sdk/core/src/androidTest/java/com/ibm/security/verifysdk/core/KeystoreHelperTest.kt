@@ -1105,14 +1105,20 @@ internal class KeystoreHelperTest {
      * the device. Used with [assumeTrue] to skip tests that require per-use authentication on
      * emulators and devices without enrolled biometrics.
      *
-     * Requires API 29+; always returns false on older devices (which can't use
-     * [BiometricManager]).
+     * [BiometricManager.canAuthenticate(Int)] requires API 30+. On API 29 the no-arg overload is
+     * used instead. Always returns false below API 29.
      */
+    @Suppress("DEPRECATION")
     private fun isBiometricEnrolled(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val manager = context.getSystemService(BiometricManager::class.java) ?: return false
-        return manager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            manager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+        } else {
+            @Suppress("DEPRECATION")
+            manager.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS
+        }
     }
 }
 
