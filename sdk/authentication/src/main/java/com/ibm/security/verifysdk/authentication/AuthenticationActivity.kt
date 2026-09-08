@@ -12,27 +12,41 @@ import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.net.toUri
 
 /**
- * 'Proxy' activity to handle the attempt to get an authorization code. The activity
- * is started by [OAuthProvider] and launches Chrome Custom Tabs (CCT) to initiate the authorization
- * code (AZN) flow using Proof Key for Code Exchange (PKCE).
+ * Proxy activity that manages the browser-based authorization code flow.
  *
- * Upon successful user authentication, the authorization code is extracted from the redirect and
- * returned to the calling activity. In case of an error or when the user has dismissed CCT, an
- * exception is returned.
+ * Started by [OAuthProvider.authorizeWithBrowser], this activity launches Chrome Custom Tabs (CCT)
+ * to perform the OAuth 2.0 authorization code flow, optionally with Proof Key for Code Exchange
+ * (PKCE). It acts as the redirect target for the CCT session and extracts the authorization code
+ * from the callback URI before returning control to the caller.
+ *
+ * ## Intent extras (input)
+ * | Key                | Type      | Description                                                       |
+ * |--------------------|-----------|-------------------------------------------------------------------|
+ * | `url`              | `String`  | The fully-built authorization URI to open in Chrome Custom Tabs.  |
+ * | `ephemeralSession` | `Boolean` | When `true`, opens CCT in ephemeral (incognito) mode via          |
+ * |                    |           | [CustomTabsIntent.Builder.setEphemeralBrowsingEnabled], preventing |
+ * |                    |           | reuse of existing browser session cookies. Defaults to `false`.   |
+ *
+ * ## Result
+ * - **`RESULT_OK`** — authorization succeeded; the `code` string extra contains the authorization
+ *   code to exchange for tokens via [OAuthProvider.authorize].
+ * - **`RESULT_CANCELED`** — the user dismissed CCT or the redirect did not carry a `code`
+ *   parameter.
  *
  * @since 3.0.0
  */
 class AuthenticationActivity : ComponentActivity() {
 
-    private val builder = CustomTabsIntent.Builder()
     private var url: String = ""
     private var code: String = ""
+    private var ephemeralSession: Boolean = false
     private var hasAuthenticationStarted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         url = intent.getStringExtra("url") ?: ""
+        ephemeralSession = intent.getBooleanExtra("ephemeralSession", false)
         hasAuthenticationStarted = false
         code = ""
     }
@@ -57,11 +71,13 @@ class AuthenticationActivity : ComponentActivity() {
     }
 
     private fun launchCustomTab() {
-        val intent = builder.build().intent.apply {
-            data = url.toUri()
-            putExtra(Intent.EXTRA_REFERRER, ("android-app://${packageName}").toUri())
-        }
-        startActivity(intent)
+        val customTabsIntent = CustomTabsIntent.Builder()
+            .setEphemeralBrowsingEnabled(ephemeralSession)
+            .build()
+        val launchIntent: Intent = customTabsIntent.intent
+        launchIntent.data = url.toUri()
+        launchIntent.putExtra(Intent.EXTRA_REFERRER, Uri.parse("android-app://${packageName}"))
+        startActivity(launchIntent)
     }
 
     override fun onNewIntent(intent: Intent) {

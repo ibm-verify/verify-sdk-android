@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ibm.security.verifysdk.authcodeflow.demoapp.ui.theme.AuthCodeFlowDemoTheme
 import com.ibm.security.verifysdk.authentication.CodeChallengeMethod
@@ -67,8 +68,8 @@ class MainActivity : ComponentActivity() {
                     host = host,
                     clientId = clientId,
                     redirect = redirect,
-                    onAuthenticate = { usePKCE, onCodeReceived ->
-                        authenticateWithBrowser(usePKCE, onCodeReceived)
+                    onAuthenticate = { usePKCE, useEphemeralSession, onCodeReceived ->
+                        authenticateWithBrowser(usePKCE, useEphemeralSession, onCodeReceived)
                     }
                 )
             }
@@ -122,12 +123,20 @@ class MainActivity : ComponentActivity() {
      * @param usePKCE Whether to use PKCE (Proof Key for Code Exchange) for enhanced security
      * @param onCodeReceived Callback function invoked when the authorization code is received
      */
-    private fun authenticateWithBrowser(usePKCE: Boolean, onCodeReceived: (String) -> Unit) {
+    private fun authenticateWithBrowser(
+        usePKCE: Boolean,
+        useEphemeralSession: Boolean,
+        onCodeReceived: (String) -> Unit
+    ) {
         coroutineScope.launch {
             val authorizeEndpoint = "https://$host/oauth2/authorize"
             val tokenEndpoint = "https://$host/oauth2/token"
 
             oAuthProvider = OAuthProvider(clientId = clientId)
+            oAuthProvider.ephemeralSession = useEphemeralSession
+            if (useEphemeralSession) {
+                oAuthProvider.additionalParameters["prompt"] = "login"
+            }
 
             val codeVerifier = if (usePKCE) PKCEHelper.generateCodeVerifier() else null
             val codeChallenge = codeVerifier?.let { PKCEHelper.generateCodeChallenge(it) }
@@ -173,14 +182,18 @@ class MainActivity : ComponentActivity() {
  * This screen provides:
  * - Configuration display (host, client ID, redirect URI)
  * - PKCE toggle switch
+ * - Ephemeral Session toggle switch
  * - Authentication button to initiate the OAuth flow
  * - Authorization code display field
  *
  * @param host The OAuth server hostname
  * @param clientId The OAuth client identifier
  * @param redirect The redirect URI for OAuth callbacks
+ * @param versionName App version name shown in the top bar; defaults to the running package info
+ * @param versionCode App version code shown in the top bar; defaults to the running package info
  * @param onAuthenticate Callback function to initiate authentication, receives:
  *                       - usePKCE: Boolean indicating whether to use PKCE
+ *                       - useEphemeralSession: Boolean indicating whether to use an ephemeral browser session
  *                       - onCodeReceived: Callback to handle the received authorization code
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -189,15 +202,19 @@ fun AuthCodeFlowScreen(
     host: String,
     clientId: String,
     redirect: String,
-    onAuthenticate: (Boolean, (String) -> Unit) -> Unit
+    versionName: String? = null,
+    versionCode: Int? = null,
+    onAuthenticate: (Boolean, Boolean, (String) -> Unit) -> Unit
 ) {
     var usePKCE by remember { mutableStateOf(true) }
+    var useEphemeralSession by remember { mutableStateOf(false) }
     var authorizationCode by remember { mutableStateOf("") }
 
     val context = androidx.compose.ui.platform.LocalContext.current
-    val versionName = context.packageManager.getPackageInfo(context.packageName, 0).versionName
-    val versionCode =
-        context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
+    val resolvedVersionName = versionName
+        ?: context.packageManager.getPackageInfo(context.packageName, 0).versionName
+    val resolvedVersionCode = versionCode
+        ?: context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
 
     Scaffold(
         topBar = {
@@ -206,7 +223,7 @@ fun AuthCodeFlowScreen(
                     Column {
                         Text("IBM Verify SDK Auth Code Flow Demo")
                         Text(
-                            text = "$versionName ($versionCode)",
+                            text = "$resolvedVersionName ($resolvedVersionCode)",
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
@@ -222,9 +239,9 @@ fun AuthCodeFlowScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Configuration Card
             Card(
@@ -235,11 +252,11 @@ fun AuthCodeFlowScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = "Configuration",
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleMedium
                     )
 
                     OutlinedTextField(
@@ -280,11 +297,11 @@ fun AuthCodeFlowScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = "Settings",
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleMedium
                     )
 
                     Row(
@@ -294,11 +311,33 @@ fun AuthCodeFlowScreen(
                     ) {
                         Text(
                             text = "Use PKCE",
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyMedium
                         )
                         Switch(
                             checked = usePKCE,
                             onCheckedChange = { usePKCE = it }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Force login",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "No shared cookies or history",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = useEphemeralSession,
+                            onCheckedChange = { useEphemeralSession = it }
                         )
                     }
                 }
@@ -307,7 +346,7 @@ fun AuthCodeFlowScreen(
             // Authenticate button
             Button(
                 onClick = {
-                    onAuthenticate(usePKCE) { code ->
+                    onAuthenticate(usePKCE, useEphemeralSession) { code ->
                         authorizationCode = code
                     }
                 },
@@ -327,11 +366,11 @@ fun AuthCodeFlowScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = "Authorization Code",
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleMedium
                     )
 
                     OutlinedTextField(
@@ -340,12 +379,64 @@ fun AuthCodeFlowScreen(
                         label = { Text("Authorization Code") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = false,
-                        minLines = 3,
-                        maxLines = 5
+                        minLines = 2,
+                        maxLines = 3
                     )
                 }
             }
         }
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Compose Previews
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Preview of [AuthCodeFlowScreen] using the light theme with all toggles off and
+ * an empty authorization code field — the default state when the app first opens.
+ */
+@Preview(
+    name = "Auth Code Flow – Light",
+    showBackground = true,
+    showSystemUi = true,
+    device = "spec:width=411dp,height=891dp,dpi=420"
+)
+@Composable
+private fun AuthCodeFlowScreenPreviewLight() {
+    AuthCodeFlowDemoTheme(darkTheme = false) {
+        AuthCodeFlowScreen(
+            host = "sdk.verify.ibm.com",
+            clientId = "abc123clientId",
+            redirect = "verifydemo://callback",
+            versionName = "1.0.0",
+            versionCode = 1,
+            onAuthenticate = { _, _, _ -> }
+        )
+    }
+}
+
+/**
+ * Preview of [AuthCodeFlowScreen] using the dark theme with PKCE on, ephemeral
+ * session on, and a sample authorization code already populated.
+ */
+@Preview(
+    name = "Auth Code Flow – Dark (PKCE + Ephemeral + code)",
+    showBackground = true,
+    showSystemUi = true,
+    device = "spec:width=411dp,height=891dp,dpi=420"
+)
+@Composable
+private fun AuthCodeFlowScreenPreviewDark() {
+    AuthCodeFlowDemoTheme(darkTheme = true) {
+        AuthCodeFlowScreen(
+            host = "sdk.verify.ibm.com",
+            clientId = "abc123clientId",
+            redirect = "verifydemo://callback",
+            versionName = "1.0.0",
+            versionCode = 1,
+            onAuthenticate = { _, _, _ -> }
+        )
     }
 }
 

@@ -25,7 +25,26 @@ The project is divided into SDK modules and example applications:
 - **`:examples:dpop_demo`**: Demonstrates Demonstrating Proof-of-Possession (DPoP) at the Application Layer.
 - **`:examples:fido2_demo`**: Showcases FIDO2 registration and authentication.
 
-## Recent Changes (Release 3.2.8)
+## Recent Changes (Release 3.2.10)
+
+- **Ephemeral Browser Session** (`OAuthProvider.ephemeralSession`): New property (default `false`). When `true`, `authorizeWithBrowser` forwards the flag to `AuthenticationActivity` via an intent extra, which calls `CustomTabsIntent.Builder.setEphemeralBrowsingEnabled(true)` to open Chrome Custom Tabs in incognito mode. The previously reused `CustomTabsIntent.Builder` instance field in `AuthenticationActivity` was replaced with a per-call builder so the flag applies correctly on every invocation.
+- **`AuthenticationActivity` KDoc**: Full rewrite documenting the intent-extra contract (`url`, `ephemeralSession`), the `RESULT_OK` / `RESULT_CANCELED` result codes, and the link to `OAuthProvider.authorizeWithBrowser`.
+- **Force Login Demo Toggle**: Added **Force login** toggle to the Authorization Code Flow demo combining `ephemeralSession = true` with `prompt=login` in `additionalParameters`.
+- **`KeystoreHelper.createKeyPair` New Parameters**: Three new optional parameters — `userAuthenticationTimeout: Int` (`0` = per-use, default; forwarded to `setUserAuthenticationParameters` on API 30+), `userAuthenticationTypes: Int` (authenticator bitmask; default `AUTH_BIOMETRIC_STRONG or AUTH_DEVICE_CREDENTIAL`; API 30+), `unlockedDeviceRequired: Boolean` (`setUnlockedDeviceRequired`; API 28+; ignored on older versions). Whitespace-only cleanup in `encryptAndStorePrivateKey` / `decryptPrivateKey`.
+- **`CancellationException` Propagation Hardening**: Added `catch (e: CancellationException) { throw e }` guards in `OAuthProvider` (`authorize` code-flow, `authorize` password-flow, `refresh`), `CloudAuthenticatorService` (`nextTransaction`, `completeTransaction`), and `OnPremiseAuthenticatorService` (`refreshToken`, `nextTransaction`, `remove`). Methods that already had the guard (`CloudAuthenticatorService.refreshToken`/`login`, `OnPremiseAuthenticatorService.completeTransaction`/`login`) were not changed.
+- **New Cancellation Tests**: `CloudAuthenticatorServiceCancellationTest` (6 tests — `nextTransaction`, `completeTransaction`, `login`) and `OnPremiseAuthenticatorServiceCancellationTest` (8 tests — `refreshToken`, `nextTransaction`, `completeTransaction`, `remove`, + CE from `TokenPersistenceCallback`). `CloudAuthenticatorServiceTest` gained 2 additional CE tests for `refreshToken` (mid-request cancel + persistence-callback cancel). `OAuthProviderTest` gained 3 CE tests (`refresh`, both `authorize` overloads) and 4 `ephemeralSession` property tests.
+- **`KeystoreHelperTest` New Tests**: 7 new tests covering all combinations of the new `createKeyPair` parameters (RSA + EC, various API-level guards). `createKeyPair_happyPathOverwriteDefaultsCase2of4` and `createKeyPair_happyPathOverwriteDefaultsCase4of4` remain `@Ignore`d — both use `authenticationRequired = true` with `userAuthenticationTimeout = 0` (per-use), which requires enrolled biometrics; CI emulators have none.
+- **Test Hygiene (`runBlocking` → `runTest`)**: Removed all `@SuppressLint("DenyListedBlockingApi")` / `runBlocking` patterns across `CloudAuthenticatorServiceTest` (8 methods), `OnPremiseAuthenticatorServiceTest` (8 methods), `RemoveUsesCreateUpdateUrlTest` (5 methods), and `RefreshTokenSerializationTest` (1 method + strengthened mock assertions). Removed duplicate `androidTestImplementation(libs.kotlinx.coroutines.test)` from `sdk/mfa/build.gradle.kts`.
+- **Jackson Update to 2.22.2**: All Jackson modules updated from 2.22.1 to 2.22.2.
+- **Release Documentation**: Added [`3.2.10` release note](docs/releases/3.2.10.md).
+
+### Previous Changes (Release 3.2.9)
+
+- **Double-Slash Fix in `createPostBackUrl()`**: `OnPremiseAuthenticatorService.createPostBackUrl()` now calls `.appendEncodedPath(verificationInfoLocation.trimStart('/'))`, preventing double-slash postback URLs (`https://host//mga/…`) when the server returns a `location` with a leading `/`. All on-premise `completeTransaction()` calls were silently rejected before this fix.
+- **New URL-building test classes**: Extracted three standalone `@RunWith(AndroidJUnit4::class)` test classes from the previously non-functional Suite declaration — `CreatePostBackUrlTest` (17 tests), `CreateUpdateUrlTest` (10 tests), and `RemoveUsesCreateUpdateUrlTest` (5 tests) — covering scheme/host/port/path preservation, the double-slash regression, and `remove()` end-to-end behaviour.
+- **Release Documentation**: Added [`3.2.9` release note](docs/releases/3.2.9.md).
+
+### Previous Changes (Release 3.2.8)
 
 - **Double-Slash URL Fix in `authorizeWithBrowser()`**: `java.net.URL.getPath()` returns a leading `/`; `Uri.Builder.appendEncodedPath()` adds another, producing `https://host//path`. Fixed with `.appendEncodedPath(url.path.trimStart('/'))`.
 - **`buildAuthorizeUri()` Helper Extracted**: URI construction logic moved to `internal fun buildAuthorizeUri()` so it is independently testable without a live `ComponentActivity`.
@@ -142,9 +161,9 @@ The project uses a Version Catalog (`gradle/libs.versions.toml`) for managing de
 
 ## Versioning
 
-Current Version: `3.2.8` (Code: `126`)
+Current Version: `3.2.10` (Code: `128`)
 
-**Release Notes:** [`docs/releases/3.2.8.md`](docs/releases/3.2.8.md)
+**Release Notes:** [`docs/releases/3.2.10.md`](docs/releases/3.2.10.md)
 Minimum Android SDK: 29 (Android 10.0)
 Target Android SDK: 36 (Android 16)
 

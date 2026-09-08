@@ -121,6 +121,22 @@ object KeystoreHelper {
      * @param invalidatedByBiometricEnrollment  indicates whether the key should be invalidated on biometric enrollment.
      *                                          This is only supported since API level 24 (Nougat). For further details please
      *                                          see <a href="https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder#setInvalidatedByBiometricEnrollment(boolean)">setInvalidatedByBiometricEnrollment</a>
+     * @param userAuthenticationTimeout  duration in seconds for which the key is authorised after a
+     *                                   successful authentication. A value of `0` (the default)
+     *                                   means the key requires fresh authentication on every use.
+     *                                   Only applied when [authenticationRequired] is `true` and
+     *                                   the device is running Android 11+ (API 30+). Ignored on
+     *                                   older platforms.
+     * @param userAuthenticationTypes  bitmask of allowed authenticator types used with
+     *                                 [KeyGenParameterSpec.Builder.setUserAuthenticationParameters].
+     *                                 Defaults to
+     *                                 `KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL`.
+     *                                 Only applied when [authenticationRequired] is `true` and the
+     *                                 device is running Android 11+ (API 30+). Ignored on older
+     *                                 platforms.
+     * @param unlockedDeviceRequired  when `true`, the key can only be used while the device is
+     *                                unlocked (requires API 28+). See
+     *                                [KeyGenParameterSpec.Builder.setUnlockedDeviceRequired].
      *
      * @throws KeyStoreException  if the key could not be generated
      * @throws UnsupportedOperationException  if the `algorithm` is not supported
@@ -131,7 +147,10 @@ object KeystoreHelper {
         algorithm: String,
         purpose: Int,
         authenticationRequired: Boolean = false,
-        invalidatedByBiometricEnrollment: Boolean = false
+        invalidatedByBiometricEnrollment: Boolean = false,
+        userAuthenticationTimeout: Int = 0,
+        userAuthenticationTypes: Int = KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL,
+        unlockedDeviceRequired: Boolean = false
     ): PublicKey {
 
         lateinit var digest: String
@@ -191,17 +210,21 @@ object KeystoreHelper {
             // Configure authentication requirements when authenticationRequired is true
             if (authenticationRequired) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    // Android 11+ (API 30+): Allow both biometric and device credential
-                    // This enables users to authenticate with fingerprint, face, or device PIN/pattern/password
+                    // Android 11+ (API 30+): use caller-supplied timeout and authenticator types
                     keyGenParameterBuilder.setUserAuthenticationParameters(
-                        0,  // Timeout of 0 means auth required for every use
-                        KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+                        userAuthenticationTimeout,
+                        userAuthenticationTypes
                     )
                 } else {
-                    // Android 10 and below: Use deprecated API
+                    // Android 10 and below: use deprecated validity-duration API
                     @Suppress("deprecation")
                     keyGenParameterBuilder.setUserAuthenticationValidityDurationSeconds(-1)
                 }
+            }
+
+            // Require the device to be unlocked before the key can be used (API 28+)
+            if (unlockedDeviceRequired && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                keyGenParameterBuilder.setUnlockedDeviceRequired(true)
             }
 
             KeyPairGenerator.getInstance(
@@ -228,13 +251,13 @@ object KeystoreHelper {
      */
     fun encryptAndStorePrivateKey(alias: String, privateKeyBytes: ByteArray): Pair<String, String> {
         val keyStore = KeyStore.getInstance(keystoreType).apply { load(null) }
-        
+
         val entry = keyStore.getEntry(alias, null)
             ?: throw IllegalStateException("Key with alias '$alias' not found in KeyStore")
-        
+
         val secretKey = (entry as? KeyStore.SecretKeyEntry)?.secretKey
             ?: throw IllegalStateException("Key with alias '$alias' is not a SecretKey (found ${entry.javaClass.simpleName})")
-        
+
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey)
         val iv = cipher.iv
@@ -255,13 +278,13 @@ object KeystoreHelper {
      */
     fun decryptPrivateKey(alias: String, encryptedBase64: String, ivBase64: String): ByteArray {
         val keyStore = KeyStore.getInstance(keystoreType).apply { load(null) }
-        
+
         val entry = keyStore.getEntry(alias, null)
             ?: throw IllegalStateException("Key with alias '$alias' not found in KeyStore")
-        
+
         val secretKey = (entry as? KeyStore.SecretKeyEntry)?.secretKey
             ?: throw IllegalStateException("Key with alias '$alias' is not a SecretKey (found ${entry.javaClass.simpleName})")
-        
+
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         val iv = Base64.decode(ivBase64, Base64.NO_WRAP)
         val spec = GCMParameterSpec(128, iv)

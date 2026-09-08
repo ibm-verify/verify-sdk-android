@@ -6,9 +6,12 @@ package com.ibm.security.verifysdk.core
 
 import android.os.Build
 import android.security.keystore.KeyProperties
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
+import androidx.test.platform.app.InstrumentationRegistry
 import com.ibm.security.verifysdk.core.helper.KeystoreHelper
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -17,8 +20,8 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.slf4j.Logger
@@ -134,8 +137,11 @@ internal class KeystoreHelperTest {
     }
 
     @Test
-    @Ignore("Fails - fix build first")
     fun createKeyPair_happyPathOverwriteDefaultsCase2of4_shouldReturnPublicKey() {
+        assumeTrue(
+            "Skipped: requires at least one enrolled biometric",
+            isBiometricEnrolled()
+        )
 
         val authenticationRequired = true
         val invalidatedByBiometricEnrollment = true
@@ -175,8 +181,11 @@ internal class KeystoreHelperTest {
     }
 
     @Test
-    @Ignore("Fails - fix build first")
     fun createKeyPair_happyPathOverwriteDefaultsCase4of4_shouldReturnPublicKey() {
+        assumeTrue(
+            "Skipped: requires at least one enrolled biometric",
+            isBiometricEnrolled()
+        )
 
         val authenticationRequired = true
         val invalidatedByBiometricEnrollment = false
@@ -943,4 +952,173 @@ internal class KeystoreHelperTest {
             KeystoreHelper.signData(keyAlias, algorithm, "dataToSign", Base64.URL_SAFE)
         assertNull("Signed data should be null for unknown key", signedData)
     }
+
+
+    // ========================================
+    // userAuthenticationTimeout / userAuthenticationTypes / unlockedDeviceRequired tests
+    // ========================================
+
+    /**
+     * Default values (authenticationRequired = false) still produce a usable key when all three new
+     * parameters are left at their defaults.
+     */
+    @Test
+    fun createKeyPair_defaultNewParams_shouldReturnPublicKey() {
+        val keyAlias = generateTestKeyAlias("new-params-defaults")
+        val publicKey = KeystoreHelper.createKeyPair(
+            keyAlias,
+            "SHA256withRSA",
+            KeyProperties.PURPOSE_SIGN
+        )
+        assertNotNull("Public key should not be null", publicKey)
+        assertEquals("X.509", publicKey.format)
+    }
+
+    /**
+     * When authenticationRequired = true and the device is API 30+,
+     * userAuthenticationTimeout = 30 and AUTH_BIOMETRIC_STRONG should produce a valid key.
+     */
+    @Test
+    fun createKeyPair_authRequiredWithTimeout_shouldReturnPublicKey() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return // API 30 required for this path
+
+        val keyAlias = generateTestKeyAlias("auth-timeout")
+        val publicKey = KeystoreHelper.createKeyPair(
+            keyName = keyAlias,
+            algorithm = "SHA256withRSA",
+            purpose = KeyProperties.PURPOSE_SIGN,
+            authenticationRequired = true,
+            invalidatedByBiometricEnrollment = false,
+            userAuthenticationTimeout = 30,
+            userAuthenticationTypes = KeyProperties.AUTH_BIOMETRIC_STRONG
+        )
+        assertNotNull("Public key should not be null", publicKey)
+        assertEquals("X.509", publicKey.format)
+    }
+
+    /**
+     * AUTH_DEVICE_CREDENTIAL alone as userAuthenticationTypes should produce a valid key.
+     */
+    @Test
+    fun createKeyPair_authTypesDeviceCredentialOnly_shouldReturnPublicKey() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return // API 30 required for this path
+
+        val keyAlias = generateTestKeyAlias("auth-device-cred")
+        val publicKey = KeystoreHelper.createKeyPair(
+            keyName = keyAlias,
+            algorithm = "SHA256withRSA",
+            purpose = KeyProperties.PURPOSE_SIGN,
+            authenticationRequired = true,
+            userAuthenticationTimeout = 60,
+            userAuthenticationTypes = KeyProperties.AUTH_DEVICE_CREDENTIAL
+        )
+        assertNotNull("Public key should not be null", publicKey)
+        assertEquals("X.509", publicKey.format)
+    }
+
+    /**
+     * Combined AUTH_BIOMETRIC_STRONG | AUTH_DEVICE_CREDENTIAL (the default bitmask) with a
+     * non-zero timeout should produce a valid key.
+     */
+    @Test
+    fun createKeyPair_authTypesCombinedWithTimeout_shouldReturnPublicKey() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return // API 30 required for this path
+
+        val keyAlias = generateTestKeyAlias("auth-combined")
+        val publicKey = KeystoreHelper.createKeyPair(
+            keyName = keyAlias,
+            algorithm = "SHA256withRSA",
+            purpose = KeyProperties.PURPOSE_SIGN,
+            authenticationRequired = true,
+            userAuthenticationTimeout = 10,
+            userAuthenticationTypes = KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+        )
+        assertNotNull("Public key should not be null", publicKey)
+        assertEquals("X.509", publicKey.format)
+    }
+
+    /**
+     * unlockedDeviceRequired = true should produce a valid key on API 28+.
+     */
+    @Test
+    fun createKeyPair_unlockedDeviceRequired_shouldReturnPublicKey() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return // API 28 required
+
+        val keyAlias = generateTestKeyAlias("unlocked-device")
+        val publicKey = KeystoreHelper.createKeyPair(
+            keyName = keyAlias,
+            algorithm = "SHA256withRSA",
+            purpose = KeyProperties.PURPOSE_SIGN,
+            unlockedDeviceRequired = true
+        )
+        assertNotNull("Public key should not be null", publicKey)
+        assertEquals("X.509", publicKey.format)
+    }
+
+    /**
+     * Combining authenticationRequired, a timeout, specific types, and unlockedDeviceRequired
+     * should all apply without conflict.
+     */
+    @Test
+    fun createKeyPair_allNewParams_shouldReturnPublicKey() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return // API 30 required for auth params
+
+        val keyAlias = generateTestKeyAlias("all-new-params")
+        val publicKey = KeystoreHelper.createKeyPair(
+            keyName = keyAlias,
+            algorithm = "SHA256withRSA",
+            purpose = KeyProperties.PURPOSE_SIGN,
+            authenticationRequired = true,
+            invalidatedByBiometricEnrollment = true,
+            userAuthenticationTimeout = 5,
+            userAuthenticationTypes = KeyProperties.AUTH_BIOMETRIC_STRONG,
+            unlockedDeviceRequired = true
+        )
+        assertNotNull("Public key should not be null", publicKey)
+        assertEquals("X.509", publicKey.format)
+    }
+
+    /**
+     * EC key variant: unlockedDeviceRequired = true should be accepted on API 28+.
+     */
+    @Test
+    fun createKeyPair_ecKey_unlockedDeviceRequired_shouldReturnPublicKey() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return // API 28 required
+
+        val keyAlias = generateTestKeyAlias("ec-unlocked")
+        val publicKey = KeystoreHelper.createKeyPair(
+            keyName = keyAlias,
+            algorithm = "EC",
+            purpose = KeyProperties.PURPOSE_SIGN,
+            unlockedDeviceRequired = true
+        )
+        assertNotNull("Public key should not be null", publicKey)
+        assertEquals("EC", publicKey.algorithm)
+    }
+
+    // ========================================
+    // Test helpers
+    // ========================================
+
+    /**
+     * Returns true when at least one strong biometric (fingerprint, face, iris) is enrolled on
+     * the device. Used with [assumeTrue] to skip tests that require per-use authentication on
+     * emulators and devices without enrolled biometrics.
+     *
+     * [BiometricManager.canAuthenticate(Int)] requires API 30+. On API 29 the no-arg overload is
+     * used instead. Always returns false below API 29.
+     */
+    @Suppress("DEPRECATION")
+    private fun isBiometricEnrolled(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val manager = context.getSystemService(BiometricManager::class.java) ?: return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            manager.canAuthenticate(BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+        } else {
+            @Suppress("DEPRECATION")
+            manager.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS
+        }
+    }
 }
+

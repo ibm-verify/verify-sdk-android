@@ -4,7 +4,6 @@
 
 package com.ibm.security.verifysdk.mfa.api
 
-import android.annotation.SuppressLint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.ibm.security.verifysdk.core.helper.ContextHelper
@@ -13,7 +12,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -38,9 +37,8 @@ class RemoveUsesCreateUpdateUrlTest {
         ContextHelper.init(InstrumentationRegistry.getInstrumentation().targetContext)
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testRemove_sendsRequestToUpdateUrl() {
+    fun testRemove_sendsRequestToUpdateUrl() = runTest {
         var capturedUrl: String? = null
 
         val service = OnPremiseAuthenticatorService(
@@ -55,7 +53,7 @@ class RemoveUsesCreateUpdateUrlTest {
             })
         )
 
-        runBlocking { service.remove() }
+        service.remove()
 
         assertNotNull("PATCH request must have been sent", capturedUrl)
         val url = capturedUrl!!
@@ -77,9 +75,8 @@ class RemoveUsesCreateUpdateUrlTest {
         )
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testRemove_withCustomPort_preservesPortInRequestUrl() {
+    fun testRemove_withCustomPort_preservesPortInRequestUrl() = runTest {
         var capturedUrl: String? = null
 
         val service = OnPremiseAuthenticatorService(
@@ -94,7 +91,7 @@ class RemoveUsesCreateUpdateUrlTest {
             })
         )
 
-        runBlocking { service.remove() }
+        service.remove()
 
         assertNotNull("PATCH request must have been sent", capturedUrl)
         val url = capturedUrl!!
@@ -105,9 +102,8 @@ class RemoveUsesCreateUpdateUrlTest {
         )
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testRemove_withDeepTransactionUri_preservesPath() {
+    fun testRemove_withDeepTransactionUri_preservesPath() = runTest {
         var capturedUrl: String? = null
 
         val service = OnPremiseAuthenticatorService(
@@ -122,7 +118,7 @@ class RemoveUsesCreateUpdateUrlTest {
             })
         )
 
-        runBlocking { service.remove() }
+        service.remove()
 
         assertNotNull("PATCH request must have been sent", capturedUrl)
         val url = capturedUrl!!
@@ -136,9 +132,8 @@ class RemoveUsesCreateUpdateUrlTest {
         )
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testRemove_serverError_returnsFailure() {
+    fun testRemove_serverError_returnsFailure() = runTest {
         val service = OnPremiseAuthenticatorService(
             _accessToken = "test_token",
             _refreshUri = URL("https://example.com/refresh"),
@@ -153,14 +148,13 @@ class RemoveUsesCreateUpdateUrlTest {
             })
         )
 
-        val result = runBlocking { service.remove() }
+        val result = service.remove()
 
         assertTrue("Non-2xx response must produce a failure result", result.isFailure)
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testRemove_emptyErrorBody_returnsInvalidDataResponse() {
+    fun testRemove_emptyErrorBody_returnsInvalidDataResponse() = runTest {
         val service = OnPremiseAuthenticatorService(
             _accessToken = "test_token",
             _refreshUri = URL("https://example.com/refresh"),
@@ -170,7 +164,7 @@ class RemoveUsesCreateUpdateUrlTest {
             httpClient = HttpClient(MockEngine { respond("", HttpStatusCode.InternalServerError) })
         )
 
-        val result = runBlocking { service.remove() }
+        val result = service.remove()
 
         assertTrue("Empty-body error must produce a failure result", result.isFailure)
         assertTrue(

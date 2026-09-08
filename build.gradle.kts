@@ -15,8 +15,8 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.9"
-extra["versionCode"] = "127"
+extra["versionName"] = "3.2.10"
+extra["versionCode"] = "128"
 
 allprojects {
     configurations.configureEach {
@@ -37,12 +37,12 @@ allprojects {
     }
 
     val jacksonModules = listOf(
-        "com.fasterxml.jackson.core:jackson-core:2.22.1",
-        "com.fasterxml.jackson.core:jackson-databind:2.22.1",
+        "com.fasterxml.jackson.core:jackson-core:2.22.2",
+        "com.fasterxml.jackson.core:jackson-databind:2.22.2",
         "com.fasterxml.jackson.core:jackson-annotations:2.22",
-        "com.fasterxml.jackson.module:jackson-module-kotlin:2.22.1",
-        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.1",
-        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.22.1"
+        "com.fasterxml.jackson.module:jackson-module-kotlin:2.22.2",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.2",
+        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.22.2"
     )
 
     configurations.matching { it.name.contains("dokka", ignoreCase = true) }.all {
@@ -194,7 +194,8 @@ tasks.register("inspectLibDependencies") {
  */
 tasks.register("listAllModuleDependencies") {
     group = "help"
-    description = "Lists all resolved external dependencies across all leaf modules and the configurations that use them."
+    description =
+        "Lists all resolved external dependencies across all leaf modules and the configurations that use them."
 
     doLast {
         val librariesOnly = providers.gradleProperty("librariesOnly")
@@ -220,7 +221,8 @@ tasks.register("listAllModuleDependencies") {
                         .filterIsInstance<ResolvedDependencyResult>()
                         .mapNotNull { it.selected.moduleVersion }
                         .forEach { moduleVersion ->
-                            val coordinate = "${moduleVersion.group}:${moduleVersion.name}:${moduleVersion.version}"
+                            val coordinate =
+                                "${moduleVersion.group}:${moduleVersion.name}:${moduleVersion.version}"
                             dependencyUsage
                                 .getOrPut(coordinate) { sortedSetOf() }
                                 .add("${p.path}:${config.name}")
@@ -244,6 +246,48 @@ tasks.register("listAllModuleDependencies") {
         if (!librariesOnly) {
             println()
             println("Total unique external dependencies: ${dependencyUsage.size}")
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SDK-wide aggregate test tasks
+//
+//   testSdk                  – runs all JVM unit tests across every :sdk:* module
+//                              equivalent to: ./gradlew :sdk:core:testDebugUnitTest
+//                                                        :sdk:authentication:testDebugUnitTest …
+//
+//   connectedAndroidTestSdk  – runs all instrumented (on-device) tests across every :sdk:* module
+//                              equivalent to: ./gradlew :sdk:core:connectedDebugAndroidTest
+//                                                        :sdk:authentication:connectedDebugAndroidTest …
+//
+// Usage:
+//   ./gradlew testSdk
+//   ./gradlew connectedAndroidTestSdk
+// ---------------------------------------------------------------------------
+
+val testSdkTask = tasks.register("testSdk") {
+    group = "verification"
+    description = "Runs all JVM unit tests for every module under :sdk/*."
+}
+
+val connectedAndroidTestSdkTask = tasks.register("connectedAndroidTestSdk") {
+    group = "verification"
+    description = "Runs all instrumented (on-device) Android tests for every module under :sdk/*."
+}
+
+// Configure task dependencies only after each Android library plugin has created
+// its variant-specific test tasks. This avoids eager task lookups and supports
+// Gradle's configuration cache.
+subprojects {
+    if (!path.startsWith(":sdk:")) return@subprojects
+
+    pluginManager.withPlugin("com.android.library") {
+        testSdkTask.configure {
+            dependsOn(tasks.named("testDebugUnitTest"))
+        }
+        connectedAndroidTestSdkTask.configure {
+            dependsOn(tasks.named("connectedDebugAndroidTest"))
         }
     }
 }

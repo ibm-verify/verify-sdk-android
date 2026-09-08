@@ -4,7 +4,6 @@
 
 package com.ibm.security.verifysdk.mfa.api
 
-import android.annotation.SuppressLint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.ibm.security.verifysdk.authentication.model.TokenInfo
@@ -16,8 +15,14 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -39,9 +44,8 @@ class CloudAuthenticatorServiceTest {
         ContextHelper.init(appContext)
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testHttpClientConstructorInjection() {
+    fun testHttpClientConstructorInjection() = runTest {
         // Verify that httpClient is passed via constructor, not method parameter
         val mockEngine = MockEngine { request ->
             respond(
@@ -62,7 +66,6 @@ class CloudAuthenticatorServiceTest {
             httpClient = httpClient  // Constructor parameter
         )
 
-        runBlocking {
             // refreshToken no longer takes httpClient as parameter
             val result = service.refreshToken(
                 refreshToken = "test_refresh_token",
@@ -72,14 +75,11 @@ class CloudAuthenticatorServiceTest {
             )
 
             assertTrue("refreshToken should succeed", result.isSuccess)
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testTokenPersistenceCallbackBlocking() {
+    fun testTokenPersistenceCallbackBlocking() = runTest {
         // Verify that token persistence callback is invoked and blocks
         var callbackInvoked = false
         var persistedToken: TokenInfo? = null
@@ -115,7 +115,6 @@ class CloudAuthenticatorServiceTest {
             persistenceCallback = callback
         )
 
-        runBlocking {
             val result = service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -127,14 +126,11 @@ class CloudAuthenticatorServiceTest {
             assertTrue("Callback should be invoked", callbackInvoked)
             assertEquals("persisted_token", persistedToken?.accessToken)
             assertEquals("persisted_refresh", persistedToken?.refreshToken)
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testTokenPersistenceFailureCausesRefreshFailure() {
+    fun testTokenPersistenceFailureCausesRefreshFailure() = runTest {
         // Verify that if persistence fails, the entire refresh fails
         val callback = object : TokenPersistenceCallback {
             override suspend fun onTokenRefreshed(
@@ -165,7 +161,6 @@ class CloudAuthenticatorServiceTest {
             persistenceCallback = callback
         )
 
-        runBlocking {
             val result = service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -181,14 +176,86 @@ class CloudAuthenticatorServiceTest {
                     error.message?.contains("persistence failed") == true
                 )
             }
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testImmutableServiceDesign() {
+    fun refreshToken_cancellationDuringRequest_shouldRethrowCancellationException() = runTest {
+        val requestStarted = CompletableDeferred<Unit>()
+        val engine = MockEngine {
+            requestStarted.complete(Unit)
+            awaitCancellation()
+        }
+        val client = HttpClient(engine)
+        val service = CloudAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://example.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://example.com/v1.0/authenticators/transactions"),
+            _authenticatorId = "test_authenticator_id",
+            httpClient = client
+        )
+        var result: Result<TokenInfo>? = null
+        var cancellation: CancellationException? = null
+
+        val job = launch {
+            try {
+                result = service.refreshToken("test_refresh_token", null, null, null)
+            } catch (e: CancellationException) {
+                cancellation = e
+            }
+        }
+
+        requestStarted.await()
+        job.cancel()
+        job.join()
+        client.close()
+
+        assertNotNull("refreshToken must rethrow cancellation", cancellation)
+        assertNull("refreshToken must not return a failure result for cancellation", result)
+    }
+
+    @Test
+    fun refreshToken_cancellationFromPersistenceCallback_shouldRethrowCancellationException() = runTest {
+        val callback = object : TokenPersistenceCallback {
+            override suspend fun onTokenRefreshed(
+                authenticatorId: String,
+                newToken: TokenInfo
+            ): Result<Unit> {
+                throw CancellationException("test persistence cancellation")
+            }
+        }
+        val engine = MockEngine {
+            respond(
+                content = """{"access_token":"new_token","refresh_token":"new_refresh","token_type":"Bearer","expires_in":3600}""",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        val client = HttpClient(engine)
+        val service = CloudAuthenticatorService(
+            _accessToken = "test_access_token",
+            _refreshUri = URL("https://example.com/v1.0/authenticators/refresh"),
+            _transactionUri = URL("https://example.com/v1.0/authenticators/transactions"),
+            _authenticatorId = "test_authenticator_id",
+            httpClient = client,
+            persistenceCallback = callback
+        )
+        var result: Result<TokenInfo>? = null
+        var cancellation: CancellationException? = null
+
+        try {
+            result = service.refreshToken("test_refresh_token", null, null, null)
+        } catch (e: CancellationException) {
+            cancellation = e
+        }
+        client.close()
+
+        assertNotNull("refreshToken must rethrow callback cancellation", cancellation)
+        assertNull("refreshToken must not return a result for callback cancellation", result)
+    }
+
+    @Test
+    fun testImmutableServiceDesign() = runTest {
         // Verify that service properties are immutable
         val mockEngine = MockEngine { request ->
             respond(
@@ -212,7 +279,6 @@ class CloudAuthenticatorServiceTest {
         val originalToken = service.accessToken
         assertEquals("original_token", originalToken)
 
-        runBlocking {
             service.refreshToken(
                 refreshToken = "test_refresh_token",
                 accountName = "test@example.com",
@@ -222,8 +288,6 @@ class CloudAuthenticatorServiceTest {
 
             // Service instance still has original token (immutable)
             assertEquals("original_token", service.accessToken)
-        }
-
         httpClient.close()
     }
 
@@ -256,9 +320,8 @@ class CloudAuthenticatorServiceTest {
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testLoginSuccess() {
+    fun testLoginSuccess() = runTest {
         // Verify successful QR code login
         val mockEngine = MockEngine { request ->
             // Verify request structure
@@ -283,21 +346,17 @@ class CloudAuthenticatorServiceTest {
             httpClient = httpClient
         )
 
-        runBlocking {
             val result = service.login(
                 qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
                 code = "abc123xyz"
             )
 
             assertTrue("Login should succeed", result.isSuccess)
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testLoginUnauthorized() {
+    fun testLoginUnauthorized() = runTest {
         // Verify 401 unauthorized response handling
         val mockEngine = MockEngine { request ->
             respond(
@@ -317,7 +376,6 @@ class CloudAuthenticatorServiceTest {
             httpClient = httpClient
         )
 
-        runBlocking {
             val result = service.login(
                 qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
                 code = "abc123xyz"
@@ -330,14 +388,11 @@ class CloudAuthenticatorServiceTest {
                     error is com.ibm.security.verifysdk.core.AuthorizationException
                 )
             }
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testLoginInvalidCode() {
+    fun testLoginInvalidCode() = runTest {
         // Verify handling of invalid login code
         val mockEngine = MockEngine { request ->
             respond(
@@ -357,7 +412,6 @@ class CloudAuthenticatorServiceTest {
             httpClient = httpClient
         )
 
-        runBlocking {
             val result = service.login(
                 qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
                 code = "invalid_code"
@@ -370,14 +424,11 @@ class CloudAuthenticatorServiceTest {
                     error is com.ibm.security.verifysdk.mfa.MFAServiceException
                 )
             }
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testLoginNetworkError() {
+    fun testLoginNetworkError() = runTest {
         // Verify handling of network errors
         val mockEngine = MockEngine { request ->
             throw Exception("Network connection failed")
@@ -393,7 +444,6 @@ class CloudAuthenticatorServiceTest {
             httpClient = httpClient
         )
 
-        runBlocking {
             val result = service.login(
                 qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
                 code = "abc123xyz"
@@ -410,14 +460,11 @@ class CloudAuthenticatorServiceTest {
                     error.message?.contains("Network connection failed") == true
                 )
             }
-        }
-
         httpClient.close()
     }
 
-    @SuppressLint("DenyListedBlockingApi")
     @Test
-    fun testLoginRequestPayload() {
+    fun testLoginRequestPayload() = runTest {
         // Verify that the request payload is correctly formatted
         var capturedRequestBody: String? = null
 
@@ -441,7 +488,6 @@ class CloudAuthenticatorServiceTest {
             httpClient = httpClient
         )
 
-        runBlocking {
             service.login(
                 qrLoginEndpoint = "https://example.com/v1.0/authenticators/login",
                 code = "test_code_123"
@@ -456,8 +502,6 @@ class CloudAuthenticatorServiceTest {
                 "Request body should be JSON format",
                 capturedRequestBody?.contains("\"code\"") == true
             )
-        }
-
         httpClient.close()
     }
 }
