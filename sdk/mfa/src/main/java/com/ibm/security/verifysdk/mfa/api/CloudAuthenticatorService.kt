@@ -445,6 +445,10 @@ class CloudAuthenticatorService(
             val response = nextTransactionMakeNetworkRequest(uri)
 
             nextTransactionHandleResponse(response)
+        } catch (e: CancellationException) {
+            // Re-throw so structured concurrency is not broken — same pattern as refreshToken.
+            // Without this, a scope cancellation mid-GET is silently wrapped in Result.failure.
+            throw e
         } catch (e: Throwable) {
             Result.failure(e)
         }
@@ -566,6 +570,9 @@ class CloudAuthenticatorService(
                 Log.e(TAG, "Failed to complete transaction ${transaction.id} for authenticator $_authenticatorId: ${response.bodyAsText()}")
                 Result.failure(MFAServiceException.General(response.bodyAsText()))
             }
+        } catch (e: CancellationException) {
+            // Re-throw so structured concurrency is not broken — same pattern as refreshToken.
+            throw e
         } catch (e: Throwable) {
             Log.e(TAG, "Exception completing transaction ${transaction.id} for authenticator $_authenticatorId", e)
             return Result.failure(e)
