@@ -130,13 +130,13 @@ To use any SDK module in your Android project, add the dependency to your `build
 ```kotlin
 dependencies {
     // Core module (required for all other modules)
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.10")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.11")
     
     // Add specific modules as needed
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.10")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.10")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.10")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.10")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.11")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.11")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.11")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.11")
 }
 ```
 

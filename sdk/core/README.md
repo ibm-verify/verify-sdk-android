@@ -1,6 +1,6 @@
 # IBM Verify Core SDK for Android
 
-**Version:** 3.2.10
+**Version:** 3.2.11
 **Package:** `com.ibm.security.verifysdk.core`
 
 The IBM Verify Core SDK for Android provides common functionality and utilities used across all other SDK modules. It includes networking helpers, keystore management, logging extensions, and base exception classes.
@@ -48,7 +48,7 @@ val signature = KeystoreHelper.sign(alias = "my-key", data = dataToSign)
 - **`KeystoreHelper.createKeyPair` extended**: Three new optional parameters — `userAuthenticationTimeout: Int` (seconds key remains authorised after auth; `0` = per-use), `userAuthenticationTypes: Int` (authenticator bitmask; default `AUTH_BIOMETRIC_STRONG or AUTH_DEVICE_CREDENTIAL`), and `unlockedDeviceRequired: Boolean` (`setUnlockedDeviceRequired`; API 28+). All three are backward-compatible.
 - **Jackson `force()` scope fix**: Jackson version constraints are now enforced across every Gradle configuration (not just Dokka), ensuring `jackson-databind:2.22.1` is never resolved transitively.
 - **New `KeystoreHelper` tests**: 7 new tests covering all combinations of the new `createKeyPair` parameters across RSA and EC key types.
-- **Netty Security Update** (v3.2.8): `io.netty:netty-codec-http2`, `netty-codec-compression`, and `netty-handler-proxy` force-pinned to `4.2.17.Final`.
+- **Netty Security Update** (v3.2.11): `io.netty:netty-codec-http2`, `netty-codec-compression`, and `netty-handler-proxy` force-pinned to `4.2.17.Final` (from `4.2.15.Final`).
 - **SSL Certificate Bypass Support**: Two-level security model for on-premise authenticators with self-signed certificates.
 - **Certificate Transparency Support**: Optional CT verification via interceptor method (SDK best practice).
 

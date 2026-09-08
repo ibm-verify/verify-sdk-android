@@ -1,6 +1,6 @@
 # IBM Verify Authentication SDK for Android
 
-![SDK Version](https://img.shields.io/badge/IBM%20Security%20Verify%20Authentication%20SDK-3.2.10-blue.svg)
+![SDK Version](https://img.shields.io/badge/IBM%20Security%20Verify%20Authentication%20SDK-3.2.11-blue.svg)
 ![Android Version](https://img.shields.io/badge/Android-10+-green.svg)
 ![Android Version](https://img.shields.io/badge/Android%20API-29+-green.svg)
 
@@ -15,12 +15,12 @@ The IBM Verify Authentication SDK for Android is a comprehensive implementation 
 - **Password Grant Flow** - Resource Owner Password Credentials grant type
 - **Token Refresh** - Automatic token refresh with refresh tokens
 - **OIDC Discovery** - Automatic endpoint discovery via `.well-known/openid-configuration`
-- **Browser-based Authentication** - Secure authentication via system browser using Android App Links
-- **Custom Tab Support** - Enhanced user experience with Chrome Custom Tabs
+- **Browser-based Authentication** - Secure authentication via the system browser using Android App Links
+- **Custom Tabs Support** - Enhanced user experience with the Android Custom Tabs protocol, supported by Google Chrome, Mozilla Firefox, and Microsoft Edge
 
 ## Recent Improvements (v3.2.10)
 
-- **Ephemeral browser session** (`OAuthProvider.ephemeralSession`): New `Boolean` property (default `false`). When `true`, `authorizeWithBrowser` opens Chrome Custom Tabs in incognito mode via `CustomTabsIntent.Builder.setEphemeralBrowsingEnabled(true)`. `AuthenticationActivity` now uses a per-call builder so the flag applies correctly every time. Requires `androidx.browser` 1.8.0+ and Chrome 107+.
+- **Ephemeral browser session** (`OAuthProvider.ephemeralSession`): New `Boolean` property (default `false`). When `true`, `authorizeWithBrowser` passes `setEphemeralBrowsingEnabled(true)` to `CustomTabsIntent.Builder`, opening the browser in a private/incognito session. `AuthenticationActivity` now uses a per-call builder so the flag applies correctly every time. Requires `androidx.browser` 1.8.0+. Note: `setEphemeralBrowsingEnabled` is a Chrome-specific API (Chrome 107+); other Custom Tabs providers such as Firefox and Edge may ignore the flag.
 - **`CancellationException` propagation hardened**: `authorize` (both overloads) and `refresh` now re-throw `CancellationException` before any `catch (e: Throwable)` handler, preserving Kotlin structured concurrency.
 - **New tests**: 7 new `OAuthProviderTest` cases covering `ephemeralSession` default/setter/independence, `refresh` CE propagation, and both `authorize` CE overloads.
 - **Double-Slash URL Fix** (v3.2.8): `authorizeWithBrowser()` strips the leading `/` from `java.net.URL.getPath()` before calling `Uri.Builder.appendEncodedPath()`.
@@ -297,7 +297,7 @@ data class TokenInfo(
 2. **Secure Storage**: Store tokens securely using Android Keystore or encrypted SharedPreferences
 3. **Token Expiration**: Implement proper token refresh logic before tokens expire
 4. **DPoP**: Consider using DPoP for enhanced token security
-5. **Browser Security**: The SDK uses the system browser for authentication, which provides isolation from the app
+5. **Browser Security**: The SDK uses the Android Custom Tabs protocol for authentication, which provides process isolation from the app. Google Chrome, Mozilla Firefox, and Microsoft Edge all support Custom Tabs on Android including the redirect contract.
 6. **Deep Link Validation**: Validate redirect URIs and authorization codes
 
 ## Examples
@@ -322,6 +322,21 @@ The Authentication SDK depends on:
 - jose4j for JWT/JWE/JWS operations
 
 ## Troubleshooting
+
+### Browser Compatibility — Custom Tabs redirect not working
+
+**Symptom:** `android.content.ActivityNotFoundException: No Activity found to handle Intent` in Logcat. The Custom Tab opens and the user can log in, but the browser never returns the user to the app after the redirect.
+
+**Cause:** The Custom Tabs protocol requires the browser to fire the redirect URI as a standard `VIEW` intent that the registered `AuthenticationActivity` can receive. Not all browsers that support Custom Tabs implement this redirect contract.
+
+**Supported browsers (redirect works correctly):**
+| Browser | Notes |
+|---|---|
+| Google Chrome | Full support including `setEphemeralBrowsingEnabled` |
+| Mozilla Firefox | Full Custom Tabs support; `setEphemeralBrowsingEnabled` may be ignored |
+| Microsoft Edge | Full Custom Tabs support; `setEphemeralBrowsingEnabled` may be ignored |
+
+**Resolution:** Instruct users to set a supported browser as their device default before authenticating. The SDK selects the default browser when launching the Custom Tab; there is no API to override this choice without building a custom browser picker.
 
 ### Authorization Code Not Received
 
