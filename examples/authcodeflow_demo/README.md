@@ -27,6 +27,7 @@ It uses the system browser to run the OAuth authorization code flow rather than 
 
 - **OAuth 2.0 Authorization Code Flow** - Standard OAuth 2.0 authorization
 - **PKCE Support** - Optional Proof Key for Code Exchange for enhanced security
+- **Force Login** - Bypass server-side session caching and always prompt for credentials
 - **OIDC for Open Banking** - Support for OpenID Connect Open Banking endpoints
 - **Dual Endpoint Support**:
   - Standard OAuth: `/v1.0/endpoint/default/authorize` and `/v1.0/endpoint/default/token`
@@ -163,17 +164,16 @@ IBM Verify supports the [hosting of the `assetlinks.json`](https://www.ibm.com/d
 4. If `assetlinks.json` is verified (or bypassed for testing), your app's `AuthenticationActivity` receives the intent
 5. The SDK extracts the authorization code from the URL and completes the flow
 
-If the user already has an authenticated session in the browser, the server will redirect the request immediately.
+If the user already has an authenticated session in the browser, the server will redirect the request immediately. Toggle **Force login** to override this behaviour (see [Usage](#usage)).
 
 ## Usage
 
 1. **Launch the app**
 2. **Review Configuration**
    - View your host, client ID, and redirect URL
-   - The displayed client ID changes based on the selected mode
 3. **Configure Settings**
    - Toggle **Use PKCE** on/off as needed
-   - Toggle **OIDC for Open Banking** to switch between standard OAuth and Open Banking endpoints
+   - Toggle **Force login** to always prompt the user for credentials, even when an active session exists (see below)
 4. **Authenticate**
    - Tap "Authenticate with Browser" to start the flow
    - Complete authentication in the system browser
@@ -181,6 +181,23 @@ If the user already has an authenticated session in the browser, the server will
    - The authorization code will be displayed in the app
    - Check Logcat for detailed debug information
 
+### Force login
+
+When **Force login** is enabled, two things happen on every authentication attempt:
+
+| Effect | Mechanism |
+|--------|-----------|
+| Browser opens in incognito/private mode — no shared cookies or saved credentials from the regular browser profile are visible to the session | `OAuthProvider.ephemeralSession = true` → `CustomTabsIntent.Builder.setEphemeralBrowsingEnabled(true)` |
+| Authorization server is instructed to re-authenticate the user regardless of its own session state | `prompt=login` appended to the authorization request URI |
+
+Both mechanisms are required. The ephemeral browser session alone prevents the browser from reusing its own cookies, but the authorization server may still have an independent session (e.g. a server-side cookie or a signed-in device record). The `prompt=login` parameter is the standard OIDC mechanism that tells the server to discard its session and show the login UI.
+
+**When to use it:**
+- Testing the full login flow without having to sign out of the identity provider between runs
+- Scenarios where users must re-authenticate explicitly (e.g. sensitive operations)
+- Verifying that the login screen appears correctly on first use
+
+> **Note:** `prompt=login` is defined in the [OpenID Connect Core specification (§3.1.2.1)](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest). IBM Verify supports it; confirm support if using a different identity provider.
 
 ### Common Issues
 
