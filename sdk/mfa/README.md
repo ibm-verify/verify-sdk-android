@@ -1,6 +1,6 @@
 # IBM Verify SDK - MFA Module
 
-**Version:** 3.2.8
+**Version:** 3.2.10
 **Package:** `com.ibm.security.verifysdk.mfa`
 
 ## Overview
@@ -13,19 +13,22 @@ The MFA (Multi-Factor Authentication) module provides comprehensive support for 
 - **Biometric Authentication** - Unified biometric factor (fingerprint/face)
 - **User Presence** - Device-based authentication factors
 
-## Recent Improvements (v3.2.8)
+## Recent Improvements (v3.2.10)
+
+- **`CancellationException` propagation hardened**: `nextTransaction`, `completeTransaction`, and `refreshToken` in `OnPremiseAuthenticatorService` (plus `nextTransaction` and `completeTransaction` in `CloudAuthenticatorService`) now re-throw `CancellationException` before any broad `catch (e: Throwable)` handler, preserving Kotlin structured concurrency.
+- **Test hygiene**: All `@SuppressLint("DenyListedBlockingApi")` / `runBlocking` patterns in `CloudAuthenticatorServiceTest`, `OnPremiseAuthenticatorServiceTest`, `RemoveUsesCreateUpdateUrlTest`, and `RefreshTokenSerializationTest` replaced with `runTest`. Duplicate `androidTestImplementation(libs.kotlinx.coroutines.test)` removed from `sdk/mfa/build.gradle.kts`.
+- **New cancellation tests**: `CloudAuthenticatorServiceCancellationTest` (6 tests) and `OnPremiseAuthenticatorServiceCancellationTest` (8 tests) added covering all affected methods.
+
+### (v3.2.9)
+
+- **`createPostBackUrl()` double-slash fix**: When IBM Verify Access returns a `location` with a leading `/` (e.g. `/mga/sps/apiauthsvc?StateId=…`), `Uri.Builder.appendEncodedPath()` was adding another `/`, producing `https://host//mga/…` — which servers reject. Fixed with `.trimStart('/')`, consistent with the existing guard in `createUpdateUrl()` and `OAuthProvider.buildAuthorizeUri()`.
+- **New URL-building test classes**: `CreatePostBackUrlTest` (17 tests), `CreateUpdateUrlTest` (10 tests), and `RemoveUsesCreateUpdateUrlTest` (5 tests) extracted into standalone files — each directly runnable from Android Studio and Gradle. These replaced a previously non-functional JUnit 4 `@Suite` declaration.
+
+### (v3.2.8)
 
 - **SSL Certificate Bypass**: Support for on-premise authenticators with self-signed certificates.
-- **Authenticator ID Fix**: Corrected on-premise authenticator ID handling (`tenant_id` vs `authenticator_id`).
-- **Transaction Filtering**: Enhanced filtering logic using server's `authenticator_id`.
-- **QR Code Options**: Support for parsing options field from QR codes (e.g. `ignoreSslCerts=true`).
-- **Registration Attributes**: Fixed attribute naming to use snake_case (`account_name`, `push_token`).
-- **Enhanced Logging**: Comprehensive debug logging for transaction processing.
-- **Performance Optimizations**: Lazy logging reduces memory allocations in production builds.
+- **Authenticator ID Fix** (v3.2.4): Corrected on-premise authenticator ID handling (`tenant_id` vs `authenticator_id`).
 - **JSON Standardization**: Type-safe parsing with `kotlinx.serialization`.
-- **Improved Test Coverage**: Comprehensive test cases for `TokenPersistenceCallback` and `TransactionData`.
-- **Thread Safety**: Immutable service design ensures thread-safe operations.
-- **Error Handling**: Structured exceptions with better error chaining.
 
 ## Key Components
 
@@ -344,7 +347,7 @@ service.nextTransaction().onSuccess { (transactions, count) ->
 
 ```kotlin
 @Test
-fun `token refresh persists before returning success`() = runBlocking {
+fun `token refresh persists before returning success`() = runTest {
     val mockCallback = mockk<TokenPersistenceCallback>()
     coEvery { mockCallback.onTokenRefreshed(any(), any()) } returns Result.success(Unit)
     
@@ -365,7 +368,7 @@ fun `token refresh persists before returning success`() = runBlocking {
 
 ## Documentation
 
-- **Release Notes:** [`docs/releases/3.2.8.md`](../../docs/releases/3.2.8.md)
+- **Release Notes:** [`docs/releases/3.2.10.md`](../../docs/releases/3.2.10.md)
 
 ## Migration Notes
 
@@ -398,7 +401,6 @@ Debug logs currently use `log.error()` for visibility during development. These 
 
 ---
 
-**Module Version:** 3.2.8
-**Last Updated:** 2026-07-01
+**Module Version:** 3.2.10
 **Minimum Android SDK:** 29
 **Target Android SDK:** 36

@@ -1,6 +1,6 @@
 # IBM Verify FIDO2™ SDK for Android
 
-**Version:** 3.2.8
+**Version:** 3.2.10
 **Package:** `com.ibm.security.verifysdk.fido2`
 
 The IBM Verify FIDO2™ SDK for Android is a native implementation of FIDO attestation and
@@ -26,12 +26,12 @@ This Verify FIDO2 SDK for Android is well suited for developers of pure native m
 that wish to provision only device-bound keys in scenarios where the use of synchronized passkeys
 for example is not suitable.
 
-## Recent Improvements (v3.2.8)
+## Recent Improvements (v3.2.10)
 
-- **Performance Optimizations**: COSEKey lazy initialization provides ~95% performance improvement for cached CBOR serialization.
-- **Shared Resources**: CBORMapper instance shared across all COSEKey instances reduces memory footprint.
-- **Modern APIs**: Updated biometric prompt to use current coroutine continuation APIs; migrated demo app from deprecated Ktor Base64 utilities to Kotlin stdlib `Base64.Default.decode()`.
-- **Thread Safety**: Immutable map usage in COSEKey for better thread safety.
+- **Performance Optimizations** (v3.2.8): COSEKey lazy initialization provides ~95% performance improvement for cached CBOR serialization.
+- **Shared Resources** (v3.2.8): CBORMapper instance shared across all COSEKey instances reduces memory footprint.
+- **Modern APIs** (v3.2.8): Migrated demo app from deprecated Ktor Base64 utilities to Kotlin stdlib `Base64.Default.decode()`.
+- **Thread Safety** (v3.2.8): Immutable map usage in COSEKey for better thread safety.
 
 ## Example
 
@@ -66,8 +66,8 @@ dependencyResolutionManagement {
 
 ```gradle
 dependencies {
-    implementation("com.ibm.security.verifysdk:core:3.2.8")
-    implementation("com.ibm.security.verifysdk:fido2:3.2.8")
+    implementation("com.ibm.security.verifysdk:core:3.2.10")
+    implementation("com.ibm.security.verifysdk:fido2:3.2.10")
     ...
 }
 ```
