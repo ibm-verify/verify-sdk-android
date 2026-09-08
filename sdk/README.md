@@ -130,13 +130,13 @@ To use any SDK module in your Android project, add the dependency to your `build
 ```kotlin
 dependencies {
     // Core module (required for all other modules)
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.0.9")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.10")
     
     // Add specific modules as needed
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.0.9")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.0.9")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.0.9")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.0.9")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.10")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.10")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.10")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.10")
 }
 ```
 
@@ -155,15 +155,16 @@ API documentation for each module is available at:
 
 Complete example applications demonstrating each SDK module are available in the [examples](../examples/) directory:
 
-- [Authorization Code Flow Demo](../examples/authcodeflow_demo/) - OAuth 2.0 with PKCE
+- [Authorization Code Flow Demo](../examples/authcodeflow_demo/) - OAuth 2.0 with PKCE and ephemeral browser session
+- [DPoP Demo](../examples/dpop_demo/) - Demonstrating Proof-of-Possession token binding
 - [MFA Demo](../examples/mfa_demo/) - Multi-factor authentication
 - [FIDO2 Demo](../examples/fido2_demo/) - FIDO2 attestation and assertion
 
 ## Requirements
 
-- **Minimum Android API Level**: 23 (Android 6.0 Marshmallow)
-- **Target Android API Level**: 31+
-- **Kotlin Version**: 1.9+
+- **Minimum Android API Level**: 29 (Android 10.0)
+- **Target Android API Level**: 36 (Android 16)
+- **Kotlin Version**: 2.3+
 - **Build System**: Gradle with Kotlin DSL
 
 ## Common Dependencies

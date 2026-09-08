@@ -1,6 +1,6 @@
 # IBM Verify Core SDK for Android
 
-**Version:** 3.2.8
+**Version:** 3.2.10
 **Package:** `com.ibm.security.verifysdk.core`
 
 The IBM Verify Core SDK for Android provides common functionality and utilities used across all other SDK modules. It includes networking helpers, keystore management, logging extensions, and base exception classes.
@@ -43,17 +43,14 @@ val signature = KeystoreHelper.sign(alias = "my-key", data = dataToSign)
 - `VerifySdkException`: Base exception for all SDK errors
 - `AuthenticationException`: Authentication-specific errors with detailed error codes
 
-## Recent Improvements (v3.2.8)
+## Recent Improvements (v3.2.10)
 
-- **Netty Security Update**: `io.netty:netty-codec-http2`, `netty-codec-compression`, and `netty-handler-proxy` force-pinned to `4.2.15.Final` (from `4.2.5.Final`) in `build.gradle.kts`.
+- **`KeystoreHelper.createKeyPair` extended**: Three new optional parameters — `userAuthenticationTimeout: Int` (seconds key remains authorised after auth; `0` = per-use), `userAuthenticationTypes: Int` (authenticator bitmask; default `AUTH_BIOMETRIC_STRONG or AUTH_DEVICE_CREDENTIAL`), and `unlockedDeviceRequired: Boolean` (`setUnlockedDeviceRequired`; API 28+). All three are backward-compatible.
+- **Jackson `force()` scope fix**: Jackson version constraints are now enforced across every Gradle configuration (not just Dokka), ensuring `jackson-databind:2.22.1` is never resolved transitively.
+- **New `KeystoreHelper` tests**: 7 new tests covering all combinations of the new `createKeyPair` parameters across RSA and EC key types.
+- **Netty Security Update** (v3.2.8): `io.netty:netty-codec-http2`, `netty-codec-compression`, and `netty-handler-proxy` force-pinned to `4.2.17.Final`.
 - **SSL Certificate Bypass Support**: Two-level security model for on-premise authenticators with self-signed certificates.
-- **Enhanced Security Controls**: `allowInsecureSSL` flag and `createInsecureClient()` method with comprehensive documentation.
 - **Certificate Transparency Support**: Optional CT verification via interceptor method (SDK best practice).
-- **Thread-Safe Networking**: Improved HttpClient initialization and lifecycle management.
-- **Performance Optimizations**: Lazy logging to prevent string allocation when logging disabled.
-- **Platform Independence**: Explicit `StandardCharsets.UTF_8` usage for consistent behavior across platforms.
-- **Improved Test Coverage**: Comprehensive test cases for KeystoreHelper and core utilities.
-- **Better Error Handling**: Structured exception hierarchy with error chaining.
 
 ## Certificate Transparency
 
@@ -120,8 +117,8 @@ The Core SDK is a dependency for all other SDK modules:
 
 - **Minimum SDK**: API 29 (Android 10.0)
 - **Target SDK**: API 36 (Android 16)
-- **Kotlin**: 2.1.0+
-- **Ktor**: 3.0.3+
+- **Kotlin**: 2.3+
+- **Ktor**: 3.4+
 
 ## License
 
