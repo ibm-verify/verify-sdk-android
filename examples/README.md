@@ -59,6 +59,7 @@ Demonstrates OAuth 2.0 Authorization Code Flow with PKCE and OIDC using the IBM 
 
 - OAuth 2.0 Authorization Code Flow
 - PKCE (Proof Key for Code Exchange) support
+- **Force Login** — ephemeral browser session (`OAuthProvider.ephemeralSession = true`) combined with `prompt=login` to always prompt for credentials
 - Browser-based authentication via system browser
 - Android App Links for OAuth redirect handling
 - Token exchange

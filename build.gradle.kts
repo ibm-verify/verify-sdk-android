@@ -15,10 +15,19 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.10"
-extra["versionCode"] = "128"
+extra["versionName"] = "3.2.11"
+extra["versionCode"] = "129"
 
 allprojects {
+    val jacksonModules = listOf(
+        "com.fasterxml.jackson.core:jackson-core:2.22.2",
+        "com.fasterxml.jackson.core:jackson-databind:2.22.2",
+        "com.fasterxml.jackson.core:jackson-annotations:2.22",
+        "com.fasterxml.jackson.module:jackson-module-kotlin:2.22.2",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.2",
+        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.22.2"
+    )
+
     configurations.configureEach {
         resolutionStrategy {
             failOnVersionConflict()
@@ -30,23 +39,11 @@ allprojects {
             force("com.google.protobuf:protobuf-java:4.29.3")
             force("com.google.protobuf:protobuf-javalite:4.29.3")
             force("commons-io:commons-io:2.14.0")
-            force("io.netty:netty-codec-http2:4.2.15.Final")
-            force("io.netty:netty-codec-compression:4.2.15.Final")
-            force("io.netty:netty-handler-proxy:4.2.15.Final")
-        }
-    }
-
-    val jacksonModules = listOf(
-        "com.fasterxml.jackson.core:jackson-core:2.22.2",
-        "com.fasterxml.jackson.core:jackson-databind:2.22.2",
-        "com.fasterxml.jackson.core:jackson-annotations:2.22",
-        "com.fasterxml.jackson.module:jackson-module-kotlin:2.22.2",
-        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.2",
-        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.22.2"
-    )
-
-    configurations.matching { it.name.contains("dokka", ignoreCase = true) }.all {
-        resolutionStrategy {
+            force("io.netty:netty-codec-http2:4.2.17.Final")
+            force("io.netty:netty-codec-compression:4.2.17.Final")
+            force("io.netty:netty-handler-proxy:4.2.17.Final")
+            // Force all Jackson modules to 2.22.2 across every configuration,
+            // including transitive pulls from jose4j and other libraries.
             jacksonModules.forEach { force(it) }
         }
     }

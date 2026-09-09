@@ -1,19 +1,18 @@
 # IBM Verify Adaptive SDK for Android
 
-**Version:** 3.2.8
+**Version:** 3.2.11
 **Package:** `com.ibm.security.verifysdk.adaptive`
 **Minimum API:** 29 (Android 10.0)
 **Target API:** 36 (Android 16)
 
 The adaptive component provides device assessment. Based on cloud risk policies, authentication and authorization challenges can be evaluated.
 
-## Recent Improvements (v3.2.8)
+## Recent Improvements (v3.2.10)
 
-- **Modern Lifecycle APIs**: Migrated from deprecated `LifecycleObserver` with `@OnLifecycleEvent` to `DefaultLifecycleObserver` for better type safety and compile-time checking.
-- **Updated Dependencies**: Uses Core SDK 3.2.8 with improved networking and error handling.
+- **Updated Dependencies**: Uses Core SDK 3.2.10 with `KeystoreHelper` extended parameters and Jackson version-constraint fix.
+- **Modern Lifecycle APIs** (v3.2.8): Migrated from deprecated `LifecycleObserver` with `@OnLifecycleEvent` to `DefaultLifecycleObserver` for better type safety and compile-time checking.
 - **Thread Safety**: Benefits from thread-safe `NetworkHelper` singleton.
 - **Better Error Handling**: Structured exception handling from Core SDK.
-- **Performance**: Lazy logging and optimized networking from Core SDK improvements.
 
 ## Getting started
 
