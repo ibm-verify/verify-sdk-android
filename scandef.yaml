@@ -1,0 +1,17 @@
+defaults:
+  gitOrg: ibm-verify
+  gitRepo: SecScans_PRD0010554
+  gitLabels:
+    - "security-scanning"
+  gitAssignees:
+    - isamdev
+
+squads:
+- name: development
+  sourceRepositories:
+  - name: IBM Verify SDK for Android
+    sourceRepos: 
+    - name: github.com/ibm-verify/verify-sdk-android
+      properties:
+      - repository_token_name: github-com-token
+  
