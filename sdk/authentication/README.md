@@ -1,6 +1,6 @@
 # IBM Verify Authentication SDK for Android
 
-![SDK Version](https://img.shields.io/badge/IBM%20Security%20Verify%20Authentication%20SDK-3.2.11-blue.svg)
+![SDK Version](https://img.shields.io/github/v/release/ibm-verify/verify-sdk-android?label=IBM%20Security%20Verify%20Authentication%20SDK)
 ![Android Version](https://img.shields.io/badge/Android-10+-green.svg)
 ![Android Version](https://img.shields.io/badge/Android%20API-29+-green.svg)
 
@@ -18,7 +18,14 @@ The IBM Verify Authentication SDK for Android is a comprehensive implementation 
 - **Browser-based Authentication** - Secure authentication via the system browser using Android App Links
 - **Custom Tabs Support** - Enhanced user experience with the Android Custom Tabs protocol, supported by Google Chrome, Mozilla Firefox, and Microsoft Edge
 
-## Recent Improvements (v3.2.10)
+## Recent Improvements (v3.2.12)
+
+- **`authorizeWithBrowser` launcher lifecycle**: the `ActivityResultLauncher` is now unregistered as soon as a result arrives, results delivered after the call has completed are ignored (no more `IllegalStateException: Already resumed`), and a result that the registry replays during registration (for example after activity recreation) is consumed without launching the browser a second time.
+- **`CancellationException` propagation**: `authorizeWithBrowser` now re-throws `CancellationException` instead of wrapping it in `Result.failure`.
+- **`AuthenticationActivity` state restoration**: `hasAuthenticationStarted` and the received authorization `code` survive activity recreation, so the activity no longer opens a second Custom Tab or loses the code.
+- **New tests**: `AuthorizeWithBrowserTest` (4 Robolectric JVM tests).
+
+### (v3.2.10)
 
 - **Ephemeral browser session** (`OAuthProvider.ephemeralSession`): New `Boolean` property (default `false`). When `true`, `authorizeWithBrowser` passes `setEphemeralBrowsingEnabled(true)` to `CustomTabsIntent.Builder`, opening the browser in a private/incognito session. `AuthenticationActivity` now uses a per-call builder so the flag applies correctly every time. Requires `androidx.browser` 1.8.0+. Note: `setEphemeralBrowsingEnabled` is a Chrome-specific API (Chrome 107+); other Custom Tabs providers such as Firefox and Edge may ignore the flag.
 - **`CancellationException` propagation hardened**: `authorize` (both overloads) and `refresh` now re-throw `CancellationException` before any `catch (e: Throwable)` handler, preserving Kotlin structured concurrency.
@@ -49,7 +56,7 @@ The Authentication SDK API can be reviewed [here](https://ibm-verify.github.io/a
 Initialize the `OAuthProvider` with your client credentials:
 
 ```kotlin
-import com.ibm.security.verifysdk.authentication.OAuthProvider
+import com.ibm.security.verifysdk.authentication.api.OAuthProvider
 
 val oauthProvider = OAuthProvider(
     clientId = "your-client-id",
@@ -118,7 +125,7 @@ After receiving the authorization code from `authorizeWithBrowser`, exchange it 
 ```kotlin
 lifecycleScope.launch {
     oauthProvider.authorize(
-        url = "https://your-server.com/oauth2/token",
+        url = URL("https://your-server.com/oauth2/token"),
         redirectUrl = redirectUri,
         authorizationCode = authorizationCode,
         codeVerifier = codeVerifier
@@ -142,7 +149,7 @@ For scenarios where the authorization code flow is not suitable:
 ```kotlin
 lifecycleScope.launch {
     oauthProvider.authorize(
-        url = "https://your-server.com/oauth2/token",
+        url = URL("https://your-server.com/oauth2/token"),
         username = "user@example.com",
         password = "password123"
     )
@@ -162,7 +169,7 @@ Refresh an expired access token using a refresh token:
 ```kotlin
 lifecycleScope.launch {
     oauthProvider.refresh(
-        url = "https://your-server.com/oauth2/token",
+        url = URL("https://your-server.com/oauth2/token"),
         refreshToken = tokenInfo.refreshToken
     )
         .onSuccess { newTokenInfo ->
@@ -178,16 +185,18 @@ lifecycleScope.launch {
 
 Automatically discover OAuth/OIDC endpoints:
 
+The URL must end with `.well-known/openid-configuration`; otherwise the call fails with a `MalformedURLException`.
+
 ```kotlin
-import com.ibm.security.verifysdk.authentication.OIDCMetadataInfo
+import java.net.URL
 
 lifecycleScope.launch {
-    OIDCMetadataInfo.discover("https://your-server.com")
+    oauthProvider.discover(url = URL("https://your-server.com/.well-known/openid-configuration"))
         .onSuccess { metadata ->
             println("Authorization endpoint: ${metadata.authorizationEndpoint}")
             println("Token endpoint: ${metadata.tokenEndpoint}")
             println("Userinfo endpoint: ${metadata.userinfoEndpoint}")
-            println("Supported scopes: ${metadata.scopesSupported}")
+            println("Issuer: ${metadata.issuer}")
         }
         .onFailure { error ->
             println("Discovery failed: ${error.message}")
@@ -218,7 +227,7 @@ oauthProvider.dpopKeyAlias = "my-custom-dpop-key"
 ```kotlin
 lifecycleScope.launch {
     oauthProvider.authorize(
-        url = tokenEndpointUrl,
+        url = tokenEndpointUrl, // java.net.URL
         redirectUrl = redirectUri,
         authorizationCode = code,
         codeVerifier = codeVerifier
@@ -278,18 +287,24 @@ val method = CodeChallengeMethod.PLAIN
 
 ## Token Information
 
-The `TokenInfo` class contains the OAuth token response:
+The `TokenInfo` class contains the OAuth token response (abridged; see the
+[API documentation](https://ibm-verify.github.io/android/authentication/docs/) for the full definition):
 
 ```kotlin
 data class TokenInfo(
-    val accessToken: String,
-    val refreshToken: String?,
-    val idToken: String?,
-    val tokenType: String,
-    val expiresIn: Int,
-    val scope: String?
+    val accessToken: String = "",
+    val refreshToken: String = "",
+    val idToken: String? = null,
+    val createdOn: Instant,
+    val expiresIn: Int = 0,
+    val expiresOn: Instant,
+    val scope: String = "",
+    val tokenType: String = "",
+    val additionalData: Map<String, Any?>
 )
 ```
+
+Use the `TokenInfo.shouldRefresh()` extension to decide whether the access token is close to expiry.
 
 ## Security Considerations
 
@@ -303,6 +318,7 @@ data class TokenInfo(
 ## Examples
 
 - [Authorization Code Flow Demo](../../examples/authcodeflow_demo/) - Complete example with PKCE and OIDC support
+- [DPoP Demo](../../examples/dpop_demo/) - Token request and validation with DPoP proofs
 - [DPoP Usage Guide](DPOP_USAGE.md) - Comprehensive DPoP implementation guide
 
 ## Requirements
@@ -315,7 +331,7 @@ data class TokenInfo(
 
 The Authentication SDK depends on:
 
-- `com.ibm.security.verifysdk:core` - Core SDK functionality
+- `:sdk:core` (`verify-sdk-core`) - Core SDK functionality
 - AndroidX AppCompat, Biometric, Browser, and Core KTX
 - Ktor for HTTP networking
 - kotlinx-serialization for JSON handling
@@ -352,7 +368,7 @@ The Authentication SDK depends on:
 
 ### DPoP Issues
 
-- Verify device supports Android KeyStore (API 23+)
+- Verify the device supports the Android KeyStore (minimum API 29 for this SDK)
 - Check that authorization server supports DPoP
 - Ensure `htu` and `htm` claims match the request exactly
 
