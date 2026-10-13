@@ -1,6 +1,9 @@
 # IBM Verify SDK - MFA Module
 
-**Version:** 3.2.11
+![SDK Version](https://img.shields.io/github/v/release/ibm-verify/verify-sdk-android?label=IBM%20Security%20Verify%20MFA%20SDK)
+![Android Version](https://img.shields.io/badge/Android-10+-green.svg)
+![Android Version](https://img.shields.io/badge/Android%20API-29+-green.svg)
+
 **Package:** `com.ibm.security.verifysdk.mfa`
 
 ## Overview
@@ -10,10 +13,18 @@ The MFA (Multi-Factor Authentication) module provides comprehensive support for 
 - **Token Management** - OAuth 2.0 token refresh with automatic persistence
 - **Transaction Handling** - Push-based transaction verification
 - **TOTP/HOTP** - Time-based and counter-based one-time passwords
-- **Biometric Authentication** - Unified biometric factor (fingerprint/face)
+- **Biometric Authentication** - Unified biometric factor (fingerprint/face recognition)
 - **User Presence** - Device-based authentication factors
 
-## Recent Improvements (v3.2.10)
+## Recent Improvements (v3.2.12)
+
+- **No MFA SDK production code changed in this release.** Version 3.2.12 hardens the browser-based Authorization Code Flow in the Authentication SDK, which the MFA module depends on, and updates Firebase to BoM 35.0.0 for the push notification dependency shown below.
+
+### (v3.2.11)
+
+- **Dependency updates only.** No MFA SDK production code changed. See [`docs/releases/3.2.11.md`](../../docs/releases/3.2.11.md).
+
+### (v3.2.10)
 
 - **`CancellationException` propagation hardened**: `nextTransaction`, `completeTransaction`, and `refreshToken` in `OnPremiseAuthenticatorService` (plus `nextTransaction` and `completeTransaction` in `CloudAuthenticatorService`) now re-throw `CancellationException` before any broad `catch (e: Throwable)` handler, preserving Kotlin structured concurrency.
 - **Test hygiene**: All `@SuppressLint("DenyListedBlockingApi")` / `runBlocking` patterns in `CloudAuthenticatorServiceTest`, `OnPremiseAuthenticatorServiceTest`, `RemoveUsesCreateUpdateUrlTest`, and `RefreshTokenSerializationTest` replaced with `runTest`. Duplicate `androidTestImplementation(libs.kotlinx.coroutines.test)` removed from `sdk/mfa/build.gradle.kts`.
@@ -64,6 +75,7 @@ val service = OnPremiseAuthenticatorService(
     _transactionUri = authenticator.transactionUri,
     _authenticatorId = authenticator.id,
     _clientId = authenticator.clientId,
+    _serverAuthenticatorId = authenticator.token.additionalData["authenticator_id"] as? String,
     _ignoreSslCertificate = authenticator.ignoreSSLCertificate,
     httpClient = NetworkHelper.getInstance,
     persistenceCallback = repository
@@ -84,6 +96,7 @@ val service = OnPremiseAuthenticatorService(
     _transactionUri = authenticator.transactionUri,
     _authenticatorId = authenticator.id,
     _clientId = authenticator.clientId,
+    _serverAuthenticatorId = authenticator.token.additionalData["authenticator_id"] as? String,
     _ignoreSslCertificate = true,  // From QR code options
     httpClient = NetworkHelper.getInstance,
     persistenceCallback = repository
@@ -100,17 +113,22 @@ val controller = MFARegistrationController(qrCodeData)
 val result = controller.initiate(
     accountName = "user@example.com",
     pushToken = fcmToken,
-    skipTotpEnrollment = false,
-    httpClient = NetworkHelper.getInstance
+    skipTotpEnrollment = false
+    // additionalHeaders: HashMap<String, String>? = null (optional)
 )
 ```
+
+`initiate` returns `Result<MFARegistrationDescriptor<MFAAuthenticatorDescriptor>>`. Biometric, user presence and TOTP enrollment are performed on the returned descriptor.
 
 #### MFAServiceController
 Factory for creating service instances from authenticator descriptors.
 
 ```kotlin
 val controller = MFAServiceController(authenticator)
-val service = controller.initiate()
+val service = controller.initiate(
+    httpClient = NetworkHelper.getInstance,   // default
+    persistenceCallback = repository          // recommended
+)
 ```
 
 ### Interfaces
@@ -281,7 +299,7 @@ dependencies {
     implementation(project(":sdk:mfa"))
     
     // Required for push notifications
-    implementation(platform("com.google.firebase:firebase-bom:34.11.0"))
+    implementation(platform("com.google.firebase:firebase-bom:35.0.0"))
     implementation("com.google.firebase:firebase-messaging")
 }
 ```
@@ -304,16 +322,20 @@ val result = controller.initiate(
     skipTotpEnrollment = false
 )
 
-result.onSuccess { authenticator ->
-    // 4. Save to database
-    database.saveAuthenticator(authenticator)
-    
-    // 5. Enroll biometric (optional)
-    controller.enrollBiometric(
-        activity = this,
-        authenticator = authenticator,
-        factorId = authenticator.biometric?.id
+result.onSuccess { registration ->
+    // 4. Enroll biometric (optional) - shows a BiometricPrompt when required
+    registration.enrollBiometric(
+        activity = this,   // FragmentActivity
+        promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Enroll biometric")
+            .setNegativeButtonText("Cancel")
+            .build()
     )
+
+    // 5. Complete registration and save the authenticator
+    registration.finalize().onSuccess { authenticator ->
+        database.saveAuthenticator(authenticator)
+    }
 }
 ```
 
@@ -368,7 +390,8 @@ fun `token refresh persists before returning success`() = runTest {
 
 ## Documentation
 
-- **Release Notes:** [`docs/releases/3.2.10.md`](../../docs/releases/3.2.10.md)
+- **Release Notes:** [`3.2.12`](../../docs/releases/3.2.12.md), [`3.2.11`](../../docs/releases/3.2.11.md), [`3.2.10`](../../docs/releases/3.2.10.md), [`3.2.9`](../../docs/releases/3.2.9.md), [`3.2.8`](../../docs/releases/3.2.8.md)
+- **SSL Certificate Bypass:** [`docs/SSL_CERTIFICATE_BYPASS.md`](../../docs/SSL_CERTIFICATE_BYPASS.md)
 
 ## Migration Notes
 
@@ -391,8 +414,8 @@ fun `token refresh persists before returning success`() = runTest {
 ## Support
 
 - **Issues:** Report bugs via GitHub Issues
-- **Documentation:** See `/docs` directory
-- **Examples:** See `/examples/mfa_demo` for complete implementation
+- **Documentation:** See the [`docs`](../../docs) directory
+- **Examples:** See [`examples/mfa_demo`](../../examples/mfa_demo) for a complete implementation
 
 ## Known Issues
 
@@ -401,6 +424,5 @@ Debug logs currently use `log.error()` for visibility during development. These 
 
 ---
 
-**Module Version:** 3.2.11
 **Minimum Android SDK:** 29
 **Target Android SDK:** 36

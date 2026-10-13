@@ -40,7 +40,7 @@ The IBM Verify MFA SDK provides multi-factor authentication capabilities for mob
 **Key Features**:
 - TOTP (Time-based One-Time Password) generation
 - HOTP (HMAC-based One-Time Password) support
-- Biometric authentication (Face ID, Fingerprint)
+- Biometric authentication (fingerprint and face recognition)
 - User presence verification
 - Transaction signing
 - Push notification authentication
@@ -51,11 +51,11 @@ The IBM Verify MFA SDK provides multi-factor authentication capabilities for mob
 **Documentation**: API docs available at [ibm-verify.github.io/android/mfa/docs](https://ibm-verify.github.io/android/mfa/docs/)
 
 **On-Premise identifier handling**:
-- [`authenticator.id`](sdk/mfa/src/main/java/com/ibm/security/verifysdk/mfa/api/OnPremiseAuthenticatorService.kt:137) is the client-side authenticator identifier and corresponds to the generated `tenant_id`.
+- `authenticator.id` is the client-side authenticator identifier and corresponds to the generated `tenant_id`.
 - `token.additionalData["authenticator_id"]` is the server-side authenticator identifier returned by the Verify Access server and typically uses a `uuid...` value.
-- These values must be kept distinct. Use the client-side `tenant_id` / [`authenticator.id`](sdk/mfa/src/main/java/com/ibm/security/verifysdk/mfa/api/OnPremiseAuthenticatorService.kt:137) for local persistence lookups and token refresh callbacks.
+- These values must be kept distinct. Use the client-side `tenant_id` / `authenticator.id` for local persistence lookups and token refresh callbacks.
 - Use the server-side `authenticator_id` for server correlation scenarios such as transaction filtering, and preserve it in token additional data across registration and token refresh flows.
-- When creating [`OnPremiseAuthenticatorService`](sdk/mfa/src/main/java/com/ibm/security/verifysdk/mfa/api/OnPremiseAuthenticatorService.kt:109), pass [`authenticator.id`](sdk/mfa/src/main/java/com/ibm/security/verifysdk/mfa/api/OnPremiseAuthenticatorService.kt:137) as `_authenticatorId` and `token.additionalData["authenticator_id"]` as `_serverAuthenticatorId`.
+- When creating [`OnPremiseAuthenticatorService`](mfa/src/main/java/com/ibm/security/verifysdk/mfa/api/OnPremiseAuthenticatorService.kt), pass `authenticator.id` as `_authenticatorId` and `token.additionalData["authenticator_id"]` as `_serverAuthenticatorId`.
 
 **Example**: [MFA Demo](../examples/mfa_demo/)
 
@@ -91,7 +91,7 @@ The IBM Verify Adaptive SDK provides device risk assessment and adaptive authent
 - Factor evaluation (Password, OTP)
 - Session management
 
-**Dependencies**: `core`
+**Dependencies**: None (standalone module; requires the Trusteer SDK)
 
 **Documentation**: [Adaptive README](adaptive/README.md)
 
@@ -110,17 +110,18 @@ The IBM Verify Adaptive SDK provides device risk assessment and adaptive authent
 │  (Networking, Storage, Biometrics, Common Utilities)    │
 └─────────────────────────────────────────────────────────┘
                             │
-        ┌───────────────────┼───────────────────┐
-        │                   │                   │ 
-        ▼                   ▼                   ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────┐
-│Authentication│    │    FIDO2     │    │ Adaptive │
-└──────────────┘    └──────────────┘    └──────────┘
-        │
-        ▼
-┌──────────────┐
-│     MFA      │
-└──────────────┘
+                ┌───────────┴───────────┐
+                │                       │
+                ▼                       ▼
+        ┌──────────────┐        ┌──────────────┐
+        │Authentication│        │    FIDO2     │
+        └──────────────┘        └──────────────┘
+                │
+                ▼
+        ┌──────────────┐        ┌──────────────┐
+        │     MFA      │        │   Adaptive   │
+        └──────────────┘        │ (standalone) │
+                                └──────────────┘
 ```
 
 ## Integration
@@ -129,14 +130,13 @@ To use any SDK module in your Android project, add the dependency to your `build
 
 ```kotlin
 dependencies {
-    // Core module (required for all other modules)
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.11")
-    
-    // Add specific modules as needed
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.11")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.11")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.11")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.11")
+    // Add the modules you need. Core is included transitively by
+    // Authentication, MFA and FIDO2.
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.12")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.12")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.12")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.12")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.12")
 }
 ```
 

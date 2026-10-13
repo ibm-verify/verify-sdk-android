@@ -7,6 +7,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import com.ibm.security.verifysdk.authentication.AuthenticationActivity
 import com.ibm.security.verifysdk.authentication.CodeChallengeMethod
@@ -205,10 +206,17 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
             intent.putExtra("ephemeralSession", ephemeralSession)
 
             suspendCancellableCoroutine { continuation ->
+                // The registry invokes the callback synchronously from register() when a result
+                // is already pending (e.g. after activity recreation), before the launcher is
+                // assigned, so the reference must be nullable.
+                var launcher: ActivityResultLauncher<Intent>? = null
                 val getCode = activity.activityResultRegistry.register(
                     "code",
                     ActivityResultContracts.StartActivityForResult()
                 ) { result ->
+                    launcher?.unregister()
+                    if (!continuation.isActive) return@register
+
                     if (result.resultCode == Activity.RESULT_OK) {
                         result.data?.getStringExtra("code")?.let {
                             continuation.resume(Result.success(it))
@@ -235,12 +243,22 @@ class OAuthProvider(val clientId: String, val clientSecret: String? = null) : Ba
                         )
                     }
                 }
+                launcher = getCode
+
+                if (!continuation.isActive) {
+                    // A pending result was delivered during register(); no need to launch the browser.
+                    getCode.unregister()
+                    return@suspendCancellableCoroutine
+                }
+
                 getCode.launch(intent)
 
                 continuation.invokeOnCancellation {
                     getCode.unregister()
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             Result.failure(e)
         }

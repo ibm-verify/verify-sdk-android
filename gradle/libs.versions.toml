@@ -7,16 +7,16 @@ browser = "1.10.0"
 certificateTransparency = "2.8.20"
 compose-compiler = "1.10.3"
 composeBom = "2026.03.01"
-composeLintChecksVersion = "1.4.2"
+composeLintChecksVersion = "1.6.0"
 constraintlayout = "2.2.1"
 coreKtx = "1.18.0"
 dokka = "2.2.0"
 espressoCore = "3.7.0"
-firebaseAnalytics = "23.2.0"
-firebaseBom = "34.11.0"
-firebaseMessaging = "25.0.1"
+firebaseAnalytics = "24.0.0"
+firebaseBom = "35.0.0"
+firebaseMessaging = "26.0.0"
 fuelAndroid = "2.3.1"
-jackson = "2.22.2"
+jackson = "2.22.3"
 jetbrainsKotlinJvmVersion = "2.3.20"
 jose4j = "0.9.6"
 jsonassert = "2.0-rc1"
@@ -28,12 +28,10 @@ kotlinxDatetime = "0.7.1"
 kotlinxSerializationJson = "1.10.0"
 ksp = "2.3.2"
 ktor = "3.4.2"
-lifecycleLivedata = "2.10.0"
 lifecycleProcess = "2.10.0"
 lintChecksVersion = "0.1.1"
 loggingInterceptor = "5.3.2"
 material3 = "1.4.0"
-material3AdaptiveVersion = "1.2.0"
 materialIconsExtendedVersion = "1.7.8"
 materialVersion = "1.13.0"
 materialx = "1.10.6"
@@ -41,7 +39,7 @@ mockitoKotlin = "6.3.0"
 mockwebserver = "5.3.2"
 navigationComposeVersion = "2.9.7"
 nimbusJoseJwt = "10.8"
-roomVersion = "2.8.4"
+robolectric = "4.15.1"
 rootCoverage = "1.12.0"
 rootbeerLib = "0.1.2"
 rules = "1.7.0"
@@ -68,13 +66,7 @@ androidx-junit-ktx = { group = "androidx.test.ext", name = "junit-ktx", version.
 androidx-lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleProcess" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleProcess" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
-androidx-material3-adaptive-core = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "material3AdaptiveVersion" }
-androidx-material3-adaptive-layout = { group = "androidx.compose.material3.adaptive", name = "adaptive-layout", version.ref = "material3AdaptiveVersion" }
-androidx-material3-adaptive-navigation = { group = "androidx.compose.material3.adaptive", name = "adaptive-navigation", version.ref = "material3AdaptiveVersion" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationComposeVersion" }
-androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "roomVersion" }
-androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomVersion" }
-androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "roomVersion" }
 androidx-rules = { group = "androidx.test", name = "rules", version.ref = "rules" }
 androidx-runtime-livedata = { group = "androidx.compose.runtime", name = "runtime-livedata", version.ref = "runtimeLivedata" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }
@@ -91,8 +83,6 @@ fuel-android = { group = "com.github.kittinunf.fuel", name = "fuel-android", ver
 google-material = { group = "com.google.android.material", name = "material", version.ref = "materialVersion" }
 jackson-core = { group = "com.fasterxml.jackson.core", name = "jackson-core", version.ref = "jackson" }
 jackson-dataformat-cbor = { group = "com.fasterxml.jackson.dataformat", name = "jackson-dataformat-cbor", version.ref = "jackson" }
-jackson-dataformat-xml = { group = "com.fasterxml.jackson.dataformat", name = "jackson-dataformat-xml", version.ref = "jackson" }
-jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin", version.ref = "jackson" }
 jose4j = { group = "org.bitbucket.b_c", name = "jose4j", version.ref = "jose4j" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter" }
@@ -111,7 +101,6 @@ ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref =
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-serialization = { group = "io.ktor", name = "ktor-client-serialization", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycleLivedata" }
 lint-checks = { module = "com.uber.lint-checks:lint-checks", version.ref = "lintChecksVersion" }
 lint-checks-android = { module = "com.uber.lint-checks:lint-checks-android", version.ref = "lintChecksVersion" }
 logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "loggingInterceptor" }
@@ -119,6 +108,7 @@ materialx = { group = "androidx.compose.material", name = "material", version.re
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
 mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "mockwebserver" }
 nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbusJoseJwt" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 rootbeer-lib = { group = "com.scottyab", name = "rootbeer-lib", version.ref = "rootbeerLib" }
 skyscreamer-jsonassert = { group = "org.skyscreamer", name = "jsonassert", version.ref = "jsonassert" }
 slack-lint-checks = { module = "com.slack.lint:slack-lint-checks", version.ref = "slackLintChecksVersion" }

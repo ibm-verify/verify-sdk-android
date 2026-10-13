@@ -1,6 +1,9 @@
 # IBM Verify Core SDK for Android
 
-**Version:** 3.2.11
+![SDK Version](https://img.shields.io/github/v/release/ibm-verify/verify-sdk-android?label=IBM%20Security%20Verify%20Core%20SDK)
+![Android Version](https://img.shields.io/badge/Android-10+-green.svg)
+![Android Version](https://img.shields.io/badge/Android%20API-29+-green.svg)
+
 **Package:** `com.ibm.security.verifysdk.core`
 
 The IBM Verify Core SDK for Android provides common functionality and utilities used across all other SDK modules. It includes networking helpers, keystore management, logging extensions, and base exception classes.
@@ -29,26 +32,39 @@ val insecureClient = NetworkHelper.createInsecureClient()
 Secure key management using the Android Keystore system.
 
 ```kotlin
-// Generate key pair
-val keyPair = KeystoreHelper.generateKeyPair(
-    alias = "my-key",
-    requireUserAuthentication = true
+// Generate a key pair in the Android Keystore and get the public key
+val publicKey = KeystoreHelper.createKeyPair(
+    keyName = "my-key",
+    algorithm = "SHA256withRSA",
+    purpose = KeyProperties.PURPOSE_SIGN,
+    authenticationRequired = false
 )
 
-// Sign data
-val signature = KeystoreHelper.sign(alias = "my-key", data = dataToSign)
+// Sign data (returns the Base64-encoded signature for String input)
+val signature = KeystoreHelper.signData(
+    keyName = "my-key",
+    algorithm = "SHA256withRSA",
+    dataToSign = "data to sign"
+)
 ```
 
 ### Exception Classes
 - `VerifySdkException`: Base exception for all SDK errors
 - `AuthenticationException`: Authentication-specific errors with detailed error codes
 
-## Recent Improvements (v3.2.10)
+## Recent Improvements (v3.2.12)
+
+- **Dependency updates**: Jackson 2.22.3. No Core SDK production code changed in this release.
+
+### (v3.2.11)
+
+- **Netty Security Update**: `io.netty:netty-codec-http2`, `netty-codec-compression`, and `netty-handler-proxy` force-pinned to `4.2.17.Final` (from `4.2.15.Final`).
+
+### (v3.2.10)
 
 - **`KeystoreHelper.createKeyPair` extended**: Three new optional parameters — `userAuthenticationTimeout: Int` (seconds key remains authorised after auth; `0` = per-use), `userAuthenticationTypes: Int` (authenticator bitmask; default `AUTH_BIOMETRIC_STRONG or AUTH_DEVICE_CREDENTIAL`), and `unlockedDeviceRequired: Boolean` (`setUnlockedDeviceRequired`; API 28+). All three are backward-compatible.
 - **Jackson `force()` scope fix**: Jackson version constraints are now enforced across every Gradle configuration (not just Dokka), ensuring `jackson-databind:2.22.1` is never resolved transitively.
 - **New `KeystoreHelper` tests**: 7 new tests covering all combinations of the new `createKeyPair` parameters across RSA and EC key types.
-- **Netty Security Update** (v3.2.11): `io.netty:netty-codec-http2`, `netty-codec-compression`, and `netty-handler-proxy` force-pinned to `4.2.17.Final` (from `4.2.15.Final`).
 - **SSL Certificate Bypass Support**: Two-level security model for on-premise authenticators with self-signed certificates.
 - **Certificate Transparency Support**: Optional CT verification via interceptor method (SDK best practice).
 
@@ -78,8 +94,6 @@ val client = NetworkHelper.getInstance
 - Easy to configure and test
 - Optional (disabled by default for backward compatibility)
 
-See [`docs/SSL_CERTIFICATE_BYPASS.md`](../../docs/SSL_CERTIFICATE_BYPASS.md) for detailed setup instructions.
-
 ## SSL Certificate Bypass (On-Premise Only)
 
 For on-premise deployments with self-signed certificates, the Core SDK provides a controlled SSL bypass mechanism:
@@ -103,7 +117,7 @@ val insecureClient = NetworkHelper.createInsecureClient()
 - Attempting to create insecure client when disabled throws `IllegalStateException`
 - All authenticators use standard SSL certificate validation by default
 
-See [`docs/releases/3.2.8.md`](../../docs/releases/3.2.8.md) for detailed documentation and security considerations.
+See [`docs/SSL_CERTIFICATE_BYPASS.md`](../../docs/SSL_CERTIFICATE_BYPASS.md) for the full security model, and [`docs/releases/3.2.8.md`](../../docs/releases/3.2.8.md) for the release that introduced it.
 
 ## Dependencies
 
@@ -122,4 +136,4 @@ The Core SDK is a dependency for all other SDK modules:
 
 ## License
 
-This SDK is licensed under the Apache License 2.0. See the LICENSE file for details.
+This package contains code licensed under the MIT License (the "License"). You may view the License in the [LICENSE](../../LICENSE) file within this package.

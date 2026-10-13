@@ -186,8 +186,8 @@ DPoPHelper.deleteKey("my-custom-dpop-key")
 
 ## Requirements
 
-- Android API Level 23 (Marshmallow) or higher
-- IBM Verify SDK for Android 3.1.0 or higher
+- Android API Level 29 (Android 10.0) or higher
+- IBM Verify SDK for Android 3.1.0 or higher (3.2.12 recommended)
 - OAuth 2.0 authorization server with DPoP support
 
 ## Example
@@ -199,7 +199,7 @@ See the `dpop_demo` example app for a complete implementation of DPoP with the I
 ### DPoP Token Generation Fails
 
 If DPoP token generation fails, check:
-- Device supports Android KeyStore (API 23+)
+- Device supports Android KeyStore (API 29+)
 - App has necessary permissions
 - KeyStore is not corrupted
 
