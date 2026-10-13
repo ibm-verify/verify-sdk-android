@@ -53,8 +53,19 @@ class AuthenticationActivity : ComponentActivity() {
 
         url = intent.getStringExtra("url") ?: ""
         ephemeralSession = intent.getBooleanExtra("ephemeralSession", false)
-        hasAuthenticationStarted = false
-        code = ""
+        if (savedInstanceState != null) {
+            hasAuthenticationStarted = savedInstanceState.getBoolean(KEY_AUTH_STARTED, false)
+            code = savedInstanceState.getString(KEY_CODE, "")
+        } else {
+            hasAuthenticationStarted = false
+            code = ""
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_AUTH_STARTED, hasAuthenticationStarted)
+        outState.putString(KEY_CODE, code)
     }
 
     override fun onResume() {
@@ -92,5 +103,10 @@ class AuthenticationActivity : ComponentActivity() {
         intent.data?.getQueryParameter("code")?.let {
             code = it
         }
+    }
+
+    companion object {
+        private const val KEY_AUTH_STARTED = "hasAuthenticationStarted"
+        private const val KEY_CODE = "code"
     }
 }
