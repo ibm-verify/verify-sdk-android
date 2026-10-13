@@ -20,7 +20,7 @@ This demo app demonstrates how to integrate IBM Verify SDK's MFA functionality i
 ### Core Functionality
 - **QR Code Registration**: Scan QR codes to register new authenticators
 - **Transaction Management**: Check for pending transactions and approve/deny them
-- **Biometric Authentication**: Support for Face ID and Fingerprint authentication
+- **Biometric Authentication**: Support for fingerprint and face recognition authentication
 - **Authenticator Management**: Delete registered authenticators
 - **Push Notifications**: Receive Firebase Cloud Messaging notifications for MFA transactions
 - **Persistent Storage**: Authenticator data is saved locally using SharedPreferences

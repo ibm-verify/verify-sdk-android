@@ -12,7 +12,7 @@ Demonstrates the MFA (Multi-Factor Authentication) capabilities of the IBM Verif
 
 - QR code-based authenticator registration
 - Transaction verification and approval/denial
-- Biometric authentication (Face ID/Fingerprint)
+- Biometric authentication (fingerprint and face recognition)
 - Support for Cloud and On-Premise authenticators
 - Modern Material Design 3 UI with Jetpack Compose
 
@@ -26,10 +26,9 @@ Demonstrates configuring DPoP (Demonstrating Proof-of-Possession) flows with IBM
 
 **Features:**
 
-- DPoP token generation
-- Proof-of-possession authentication
-- Secure token binding
-- Network request signing
+- Requesting a DPoP-bound access token (`client_credentials` grant)
+- DPoP proof generation with `DPoPHelper`
+- Validating the token against a resource server
 
 **Documentation:** [dpop_demo/README.md](dpop_demo/README.md)
 
@@ -46,6 +45,8 @@ Demonstrates FIDO2 (WebAuthn) authentication capabilities using the IBM Verify S
 - FIDO2 authentication
 - Passwordless authentication
 - Biometric authentication support
+
+**Documentation:** [fido2_demo/README.md](fido2_demo/README.md)
 
 **SDK Module:** `sdk:fido2`
 
