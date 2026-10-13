@@ -16,9 +16,9 @@ This demo works with an IBM Verify Access instance, hosted on https://fidointero
 1. Complete the authentication
 1. When successfully registered, the app redirects to the `Authenticate` screen:
 <br/><img src="./fido2demo-3-authenticate.png" width="30%">
-1. Change the `Transaction message` as you like. Toggle it on and off will automatilly prefill a random text.
+1. Change the `Transaction message` as you like. Toggling it on and off will automatically prefill a random text.
 1. Click on `Authenticate`
-1. You will again be presented with a biometric authentication dialog. This time, the transaction message from the previos step will be displayed in the dialog header.
+1. You will again be presented with a biometric authentication dialog. This time, the transaction message from the previous step will be displayed in the dialog header.
 1. Complete the authentication
 1. When successfully verified, the app displays the result:<br/><img src="./fido2demo-4-close.png" width="30%">
 

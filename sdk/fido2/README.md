@@ -1,6 +1,9 @@
 # IBM Verify FIDO2™ SDK for Android
 
-**Version:** 3.2.11
+![SDK Version](https://img.shields.io/github/v/release/ibm-verify/verify-sdk-android?label=IBM%20Security%20Verify%20FIDO2%20SDK)
+![Android Version](https://img.shields.io/badge/Android-10+-green.svg)
+![Android Version](https://img.shields.io/badge/Android%20API-29+-green.svg)
+
 **Package:** `com.ibm.security.verifysdk.fido2`
 
 The IBM Verify FIDO2™ SDK for Android is a native implementation of FIDO attestation and
@@ -26,7 +29,11 @@ This Verify FIDO2 SDK for Android is well suited for developers of pure native m
 that wish to provision only device-bound keys in scenarios where the use of synchronized passkeys
 for example is not suitable.
 
-## Recent Improvements (v3.2.10)
+## Recent Improvements (v3.2.12)
+
+- No FIDO2 SDK production code changed in this release. See [`docs/releases/3.2.12.md`](../../docs/releases/3.2.12.md).
+
+### (v3.2.10)
 
 - **Performance Optimizations** (v3.2.8): COSEKey lazy initialization provides ~95% performance improvement for cached CBOR serialization.
 - **Shared Resources** (v3.2.8): CBORMapper instance shared across all COSEKey instances reduces memory footprint.
@@ -35,7 +42,7 @@ for example is not suitable.
 
 ## Example
 
-An [example](../../examples/fido2) application is available for the Verify FIDO2 SDK for Android.
+An [example](../../examples/fido2_demo) application is available for the Verify FIDO2 SDK for Android.
 
 ## Getting started
 
@@ -49,7 +56,7 @@ The FIDO2 SDK API can be reviewed [here](https://ibm-verify.github.io/android/fi
 
 ### Add the SDK to your project
 
-1. Add your local Maven repository to the list of repositories in `settings.gradle`:
+1. Add JitPack to the list of repositories in `settings.gradle`:
 
 ```gradle
 dependencyResolutionManagement {
@@ -57,17 +64,17 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        mavenLocal()
+        maven { url = uri("https://jitpack.io") }
     }
 }
 ```
 
-1. Add the libraries to the dependencies list in `build.gradle` (app):
+2. Add the libraries to the dependencies list in `build.gradle` (app). The Core SDK is
+   included transitively by the FIDO2 SDK:
 
 ```gradle
 dependencies {
-    implementation("com.ibm.security.verifysdk:core:3.2.11")
-    implementation("com.ibm.security.verifysdk:fido2:3.2.11")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.12")
     ...
 }
 ```
