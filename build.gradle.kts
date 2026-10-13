@@ -15,8 +15,8 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.11"
-extra["versionCode"] = "129"
+extra["versionName"] = "3.2.12"
+extra["versionCode"] = "130"
 
 allprojects {
     val jacksonModules = listOf(

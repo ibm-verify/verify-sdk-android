@@ -22,6 +22,10 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.logging.interceptor)
 
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.robolectric)
+
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.mockito.kotlin) {
         // Fix issue with byte-buddy and instrumentation tests
