@@ -44,7 +44,7 @@ data class OTPAuthenticator(
                     dictionary[pair[0]] = pair[1].removePercentEncoding()
                 }
             }
-            val secret = dictionary["secret"] ?: return null
+            val secret = dictionary["secret"]?.takeIf { it.isNotBlank() } ?: return null
             val algorithm = HashAlgorithmType.fromString(dictionary["algorithm"] ?: "sha1")
             val digits = dictionary["digits"]?.toIntOrNull()?.takeIf { it == 6 || it == 8 } ?: 6
 
