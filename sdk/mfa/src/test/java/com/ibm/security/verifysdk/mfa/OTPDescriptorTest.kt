@@ -128,6 +128,27 @@ class OTPDescriptorTest {
     }
 
     @Test
+    fun generatePasscode_dashesOnlySecret_throwsMFAServiceExceptionGeneral() {
+        val dashesTotp = TOTPFactorInfo(secret = "---", period = 30)
+
+        val exception = assertThrows(MFAServiceException.General::class.java) {
+            dashesTotp.generatePasscode(fixedTimestamp)
+        }
+
+        assertEquals("general_mfa_error", exception.error.id)
+        assertEquals("Secret key cannot be empty.", exception.error.description)
+    }
+
+    @Test
+    fun fromQRScan_emptyOrBlankSecret_returnsNull() {
+        val emptySecretUri = "otpauth://totp/Test:user?secret=&period=30"
+        val blankSecretUri = "otpauth://totp/Test:user?secret=%20%20&period=30"
+
+        assertEquals(null, OTPAuthenticator.fromQRScan(emptySecretUri))
+        assertEquals(null, OTPAuthenticator.fromQRScan(blankSecretUri))
+    }
+
+    @Test
     fun hotp_generatePasscode_withDashedSecret_generatesCorrectPasscodeAndIncrementsCounter() {
         val standardHotp = HOTPFactorInfo(secret = baseSecret)
         val dashedHotp = HOTPFactorInfo(secret = "JBSW-Y3DP-EHPK-3PXP")

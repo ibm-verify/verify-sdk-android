@@ -164,4 +164,22 @@ class TOTPFactorInfoTest {
         val invalid = TOTPFactorInfo(secret = "JBSWY3DPEHPK3PX8", period = 24)
         invalid.generatePasscode(888888888L)
     }
+
+    @Test(expected = MFAServiceException.General::class)
+    fun generatePasscode_withEmptySecret_shouldThrowMFAServiceException() {
+        val emptySecret = TOTPFactorInfo(secret = "", period = 24)
+        emptySecret.generatePasscode(888888888L)
+    }
+
+    @Test(expected = MFAServiceException.General::class)
+    fun generatePasscode_withBlankSecret_shouldThrowMFAServiceException() {
+        val blankSecret = TOTPFactorInfo(secret = "   \t\n  ", period = 24)
+        blankSecret.generatePasscode(888888888L)
+    }
+
+    @Test(expected = MFAServiceException.General::class)
+    fun generatePasscode_withDashesOnlySecret_shouldThrowMFAServiceException() {
+        val dashesOnlySecret = TOTPFactorInfo(secret = "---", period = 24)
+        dashesOnlySecret.generatePasscode(888888888L)
+    }
 }
