@@ -41,7 +41,8 @@ fun String.snakeToCamelCase(): String {
 /**
  * Decodes a Base32 encoded string into a [ByteArray].
  *
- * This implementation is case-insensitive and supports optional padding.
+ * This implementation is case-insensitive and supports optional padding,
+ * whitespace, and hyphens/dashes.
  * It's based on the RFC 4648 standard.
  *
  * @receiver The Base32 encoded string.
@@ -52,7 +53,9 @@ fun String.decodeBase32(): ByteArray {
     val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
     val lookup = alphabet.withIndex().associate { it.value to it.index.toLong() }
 
-    val cleanInput = this.uppercase(Locale.ROOT).replace("=", "")
+    val cleanInput = this.uppercase(Locale.ROOT).filterNot {
+        it.isWhitespace() || it == '-' || it == '–' || it == '—' || it == '='
+    }
     val bytes = ByteArray(cleanInput.length * 5 / 8)
     var bitIndex = 0
     var byteIndex = 0
