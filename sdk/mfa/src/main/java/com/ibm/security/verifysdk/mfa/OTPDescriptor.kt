@@ -24,12 +24,28 @@ interface OTPDescriptor {
         }
     }
 
+    /**
+     * Generates a one-time passcode for the given counter value.
+     *
+     * @param counter The counter or time step value.
+     * @return The formatted numeric passcode.
+     * @throws MFAServiceException.General if the secret key is invalid or empty.
+     */
     fun generatePasscode(counter: Long): String {
 
         val digitsPower = intArrayOf(1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000)
+        val decodedSecret = try {
+            val bytes = secret.decodeBase32()
+            if (bytes.isEmpty()) {
+                throw MFAServiceException.General("Secret key cannot be empty.")
+            }
+            bytes
+        } catch (e: IllegalArgumentException) {
+            throw MFAServiceException.General("Invalid Base32 secret key.", e)
+        }
         val mac: Mac = Mac.getInstance(algorithm.toString())
         val macKey = SecretKeySpec(
-            (secret.replace(" ".toRegex(), "")).decodeBase32(),
+            decodedSecret,
             algorithm.toString()
         )
         mac.init(macKey)

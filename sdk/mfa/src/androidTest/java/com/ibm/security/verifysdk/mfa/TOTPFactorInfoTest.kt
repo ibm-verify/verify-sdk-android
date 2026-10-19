@@ -126,4 +126,42 @@ class TOTPFactorInfoTest {
         val factor =
             TOTPFactorInfo(secret = secret, period = 301)
     }
+
+    @Test
+    fun generatePasscode_withDashedSecret_shouldMatchStandardSecret() {
+        val standard = TOTPFactorInfo(secret = secret, period = 24)
+        val dashed = TOTPFactorInfo(secret = "JBSW-Y3DP-EHPK-3PXP", period = 24)
+
+        assertEquals(standard.generatePasscode(888888888L), dashed.generatePasscode(888888888L))
+    }
+
+    @Test
+    fun generatePasscode_withSpacedSecret_shouldMatchStandardSecret() {
+        val standard = TOTPFactorInfo(secret = secret, period = 24)
+        val spaced = TOTPFactorInfo(secret = "JBSW Y3DP EHPK 3PXP", period = 24)
+
+        assertEquals(standard.generatePasscode(888888888L), spaced.generatePasscode(888888888L))
+    }
+
+    @Test
+    fun generatePasscode_withLowercaseSecret_shouldMatchStandardSecret() {
+        val standard = TOTPFactorInfo(secret = secret, period = 24)
+        val lowercase = TOTPFactorInfo(secret = "jbswy3dpehpk3pxp", period = 24)
+
+        assertEquals(standard.generatePasscode(888888888L), lowercase.generatePasscode(888888888L))
+    }
+
+    @Test
+    fun generatePasscode_withPaddedSecret_shouldMatchUnpaddedSecret() {
+        val unpadded = TOTPFactorInfo(secret = "MZXW6YTB", period = 30)
+        val padded = TOTPFactorInfo(secret = "MZXW6YTB====", period = 30)
+
+        assertEquals(unpadded.generatePasscode(1580608922L), padded.generatePasscode(1580608922L))
+    }
+
+    @Test(expected = MFAServiceException.General::class)
+    fun generatePasscode_withInvalidSecret_shouldThrowMFAServiceException() {
+        val invalid = TOTPFactorInfo(secret = "JBSWY3DPEHPK3PX8", period = 24)
+        invalid.generatePasscode(888888888L)
+    }
 }
