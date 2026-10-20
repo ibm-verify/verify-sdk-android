@@ -1,9 +1,7 @@
 plugins {
-    alias(libs.plugins.android.library)
+    id("sdk.android.library")
+    id("sdk.publish")
 }
-
-apply(from = "$rootDir/common-config.gradle")
-apply(from = "$rootDir/common-publish.gradle")
 
 dependencies {
     implementation(libs.androidx.core.ktx)
