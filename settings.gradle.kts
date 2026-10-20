@@ -1,5 +1,6 @@
 // Root settings.gradle.kts
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google {
             content {
