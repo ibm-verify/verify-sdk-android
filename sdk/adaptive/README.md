@@ -6,11 +6,15 @@
 
 **Package:** `com.ibm.security.verifysdk.adaptive`
 **Minimum API:** 29 (Android 10.0)
-**Target API:** 36 (Android 16)
+**Compile API:** 37
 
 The adaptive component provides device assessment. Based on cloud risk policies, authentication and authorization challenges can be evaluated.
 
-## Recent Improvements (v3.2.12)
+## Recent Improvements (v3.2.13)
+
+- No Adaptive SDK production code changed in this release. The module's build configuration now uses the `sdk.android.library` and `sdk.publish` convention plugins from [`build-logic`](../../build-logic). See [`docs/releases/3.2.13.md`](../../docs/releases/3.2.13.md).
+
+### (v3.2.12)
 
 - No Adaptive SDK production code changed in this release. See [`docs/releases/3.2.12.md`](../../docs/releases/3.2.12.md).
 
