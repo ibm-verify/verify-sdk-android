@@ -23,12 +23,36 @@ If you want to contribute to the repository, here's a quick guide:
 5. Push to your fork and submit a pull request to the `main` branch
 
 
-## Generating documentation
+## Building the project
 
-To generate the HTML docs for an SDK component, run `./gradlew <component>:dokkaJavadoc` in the project's `sdk` directory. Then view the docs in the `./<component>/build/dokka/javadoc` directory:
+The project uses Gradle with the Kotlin DSL and requires JDK 17. Run all Gradle commands from the repository root using the included wrapper:
 
 ```
-open index.html
+./gradlew assemble                       # build all modules
+./gradlew :sdk:core:assembleDebug        # build a single module
+./gradlew testSdk                        # JVM unit tests of all :sdk:* modules
+./gradlew connectedAndroidTestSdk        # instrumented tests of all :sdk:* modules (device/emulator required)
+```
+
+### Build logic
+
+Shared build configuration is provided by convention plugins in the [`build-logic`](build-logic) included build (registered in `settings.gradle.kts` via `pluginManagement { includeBuild("build-logic") }`). It replaces the former `common-config*.gradle` and `common-publish.gradle` scripts.
+
+| Plugin id | Used by | Purpose |
+|---|---|---|
+| `sdk.android.library` | `sdk/*` | Android library defaults: namespace, SDK levels, build types, packaging, Java/Kotlin 17 toolchain, lint checks and common test dependencies |
+| `sdk.ktor.client` | `sdk/core`, `sdk/authentication`, `sdk/mfa`, `sdk/fido2`, demos | Ktor client dependencies |
+| `sdk.publish` | `sdk/*` | `maven-publish` setup, sources/javadoc JARs and POM metadata |
+| `sdk.android.demo` | `examples/*` | Android application defaults for the demo apps |
+
+A module build file only applies the plugins it needs by id, for example `id("sdk.android.library")`, and adds module-specific settings and dependencies. To change a setting that applies to several modules, edit the matching plugin in `build-logic/src/main/kotlin/`. Dependency versions are managed in `gradle/libs.versions.toml`, and the SDK release version is set in the root `build.gradle.kts` (`extra["versionName"]`).
+
+## Generating documentation
+
+To generate the HTML docs for all SDK components, run `./gradlew dokkaGeneratePublicationHtml` from the repository root. View the docs of a component in its `sdk/<component>/build/dokka/html` directory:
+
+```
+open sdk/<component>/build/dokka/html/index.html
 ```
 
 
