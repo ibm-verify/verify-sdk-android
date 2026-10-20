@@ -1,11 +1,9 @@
 plugins {
-    alias(libs.plugins.android.library)
+    id("sdk.android.library")
+    id("sdk.ktor.client")
+    id("sdk.publish")
     alias(libs.plugins.kotlin.serialization)
 }
-
-apply(from = "$rootDir/common-config.gradle")
-apply(from = "$rootDir/common-config-ktor.gradle")
-apply(from = "$rootDir/common-publish.gradle")
 
 android {
     defaultConfig {
@@ -33,9 +31,7 @@ dependencies {
     // Android instrumented test dependencies
     androidTestImplementation(kotlin("test"))
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.kotlinx.coroutines.test)
-    androidTestImplementation(libs.ktor.client.mock)
     androidTestImplementation(libs.mockito.kotlin) {
         // Fix issue with byte-buddy and instrumentation tests
         exclude(group = "org.mockito", module = "mockito-core")
