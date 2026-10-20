@@ -354,7 +354,7 @@ class MainActivity : FragmentActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         val intentResult: IntentResult? =
             IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
-        if (intentResult != null && intentResult.contents != null) {
+        if (intentResult?.contents != null) {
             val qrCode = intentResult.contents
             log.info("data: $qrCode")
             lifecycleScope.launch {

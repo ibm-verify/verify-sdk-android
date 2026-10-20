@@ -1,12 +1,10 @@
 plugins {
-    alias(libs.plugins.android.application)
+    id("sdk.android.demo")
+    id("sdk.ktor.client")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
     id("com.google.gms.google-services")
 }
-
-apply(from = "$rootDir/common-config-demos.gradle")
-apply(from = "$rootDir/common-config-ktor.gradle")
 
 android {
     namespace = "com.ibm.security.verifysdk.mfa.demoapp"
