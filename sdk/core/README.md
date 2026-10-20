@@ -52,7 +52,13 @@ val signature = KeystoreHelper.signData(
 - `VerifySdkException`: Base exception for all SDK errors
 - `AuthenticationException`: Authentication-specific errors with detailed error codes
 
-## Recent Improvements (v3.2.12)
+## Recent Improvements (v3.2.13)
+
+- **Base32 secret normalization**: `String.decodeBase32()` now strips whitespace, hyphens/dashes (`-`, `–`, `—`) and `=` padding before decoding and remains case-insensitive, so secrets formatted as `ABCD-EFGH-…` or in lowercase no longer throw `IllegalArgumentException`. Invalid characters still throw. See [`docs/releases/3.2.13.md`](../../docs/releases/3.2.13.md).
+- **Build logic**: Module build configuration moved to the `sdk.android.library`, `sdk.ktor.client` and `sdk.publish` convention plugins in [`build-logic`](../../build-logic). No change to the published artifact.
+- **ASM Security Update**: The OW2 ASM family is pinned to `9.11.1` on build and test classpaths (build tooling only, not part of the published artifact). See [`docs/releases/3.2.13.md`](../../docs/releases/3.2.13.md#security-ow2-asm-9111).
+
+### (v3.2.12)
 
 - **Dependency updates**: Jackson 2.22.3. No Core SDK production code changed in this release.
 
@@ -130,8 +136,9 @@ The Core SDK is a dependency for all other SDK modules:
 ## Requirements
 
 - **Minimum SDK**: API 29 (Android 10.0)
-- **Target SDK**: API 36 (Android 16)
+- **Compile SDK**: API 37
 - **Kotlin**: 2.3+
+- **JDK / Kotlin toolchain**: 17 (when building from source)
 - **Ktor**: 3.4+
 
 ## License

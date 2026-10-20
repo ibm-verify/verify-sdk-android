@@ -18,7 +18,11 @@ The IBM Verify Authentication SDK for Android is a comprehensive implementation 
 - **Browser-based Authentication** - Secure authentication via the system browser using Android App Links
 - **Custom Tabs Support** - Enhanced user experience with the Android Custom Tabs protocol, supported by Google Chrome, Mozilla Firefox, and Microsoft Edge
 
-## Recent Improvements (v3.2.12)
+## Recent Improvements (v3.2.13)
+
+- No Authentication SDK production code changed in this release. The module's build configuration now uses the `sdk.android.library`, `sdk.ktor.client` and `sdk.publish` convention plugins from [`build-logic`](../../build-logic). See [`docs/releases/3.2.13.md`](../../docs/releases/3.2.13.md).
+
+### (v3.2.12)
 
 - **`authorizeWithBrowser` launcher lifecycle**: the `ActivityResultLauncher` is now unregistered as soon as a result arrives, results delivered after the call has completed are ignored (no more `IllegalStateException: Already resumed`), and a result that the registry replays during registration (for example after activity recreation) is consumed without launching the browser a second time.
 - **`CancellationException` propagation**: `authorizeWithBrowser` now re-throws `CancellationException` instead of wrapping it in `Result.failure`.
@@ -325,6 +329,7 @@ Use the `TokenInfo.shouldRefresh()` extension to decide whether the access token
 
 - Android API Level 29 (Android 10.0) or higher
 - Kotlin 2.3 or higher
+- JDK 17 (when building from source)
 - AndroidX libraries
 
 ## Dependencies

@@ -16,7 +16,14 @@ The MFA (Multi-Factor Authentication) module provides comprehensive support for 
 - **Biometric Authentication** - Unified biometric factor (fingerprint/face recognition)
 - **User Presence** - Device-based authentication factors
 
-## Recent Improvements (v3.2.12)
+## Recent Improvements (v3.2.13)
+
+- **Recoverable OTP generation errors**: `OTPDescriptor.generatePasscode` validates that the decoded secret is non-empty and converts decoding/cryptography failures into `MFAServiceException.General` instead of crashing with `IllegalArgumentException: Empty key`. HOTP counters are not incremented on failure.
+- **Enrollment validation**: `OTPAuthenticator.fromQRScan` returns `null` for empty or blank `secret=` parameters.
+- **Base32 secrets with formatting** (dashes, spaces, lowercase, padding) are accepted via the Core SDK's `String.decodeBase32()`.
+- **Build logic**: the module now applies the `sdk.android.library`, `sdk.ktor.client` and `sdk.publish` convention plugins (see [Build Configuration](#build-configuration)). See [`docs/releases/3.2.13.md`](../../docs/releases/3.2.13.md).
+
+### (v3.2.12)
 
 - **No MFA SDK production code changed in this release.** Version 3.2.12 hardens the browser-based Authorization Code Flow in the Authentication SDK, which the MFA module depends on, and updates Firebase to BoM 35.0.0 for the push notification dependency shown below.
 
@@ -283,14 +290,29 @@ service.refreshToken(...).fold(
 
 ## Build Configuration
 
+### Shared build logic (`build-logic`)
+
+The module no longer applies the former `common-config*.gradle` / `common-publish.gradle` scripts. Shared Android, Ktor and publishing configuration is provided by the convention plugins in the repository's [`build-logic`](../../build-logic) included build. [`sdk/mfa/build.gradle.kts`](build.gradle.kts) applies them by id:
+
+```kotlin
+plugins {
+    id("sdk.android.library")   // Android library defaults (namespace, SDK levels, toolchain, lint, test deps)
+    id("sdk.ktor.client")       // Ktor client dependencies
+    id("sdk.publish")           // Maven publication and POM
+    alias(libs.plugins.kotlin.serialization)
+}
+```
+
+Only MFA-specific settings (manifest placeholders, module dependencies) remain in the module build file.
+
 ### AGP 9.0+ Compatibility
 
 The MFA module is compatible with Android Gradle Plugin 9.0+:
 
 - ✅ Kotlin support is built into AGP 9.0+ (no separate plugin needed)
 - ✅ Uses `kotlin.jvmToolchain(17)` instead of deprecated `kotlinOptions`
+- ✅ Compile SDK: 37
 - ✅ Minimum SDK: 29 (Android 10.0)
-- ✅ Target SDK: 36 (Android 16)
 
 ### Dependencies
 
@@ -390,7 +412,7 @@ fun `token refresh persists before returning success`() = runTest {
 
 ## Documentation
 
-- **Release Notes:** [`3.2.12`](../../docs/releases/3.2.12.md), [`3.2.11`](../../docs/releases/3.2.11.md), [`3.2.10`](../../docs/releases/3.2.10.md), [`3.2.9`](../../docs/releases/3.2.9.md), [`3.2.8`](../../docs/releases/3.2.8.md)
+- **Release Notes:** [`3.2.13`](../../docs/releases/3.2.13.md), [`3.2.12`](../../docs/releases/3.2.12.md), [`3.2.11`](../../docs/releases/3.2.11.md), [`3.2.10`](../../docs/releases/3.2.10.md), [`3.2.9`](../../docs/releases/3.2.9.md), [`3.2.8`](../../docs/releases/3.2.8.md)
 - **SSL Certificate Bypass:** [`docs/SSL_CERTIFICATE_BYPASS.md`](../../docs/SSL_CERTIFICATE_BYPASS.md)
 
 ## Migration Notes
