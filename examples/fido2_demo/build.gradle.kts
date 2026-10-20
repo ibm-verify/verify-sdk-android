@@ -1,10 +1,8 @@
 plugins {
-    alias(libs.plugins.android.application)
+    id("sdk.android.demo")
+    id("sdk.ktor.client")
     alias(libs.plugins.kotlin.serialization)
 }
-
-apply(from = "$rootDir/common-config-demos.gradle")
-apply(from = "$rootDir/common-config-ktor.gradle")
 
 android {
     namespace = "com.ibm.security.verifysdk.fido2.demoapp"
@@ -21,6 +19,5 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.logging.interceptor)
 
-    androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
