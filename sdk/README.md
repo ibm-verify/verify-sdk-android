@@ -132,11 +132,11 @@ To use any SDK module in your Android project, add the dependency to your `build
 dependencies {
     // Add the modules you need. Core is included transitively by
     // Authentication, MFA and FIDO2.
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.12")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.12")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.12")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.12")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.12")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.13")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.13")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.13")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.13")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.13")
 }
 ```
 
@@ -163,9 +163,11 @@ Complete example applications demonstrating each SDK module are available in the
 ## Requirements
 
 - **Minimum Android API Level**: 29 (Android 10.0)
-- **Target Android API Level**: 36 (Android 16)
+- **Compile SDK**: 37
+- **Target Android API Level** (demo apps): 36 (Android 16)
 - **Kotlin Version**: 2.3+
-- **Build System**: Gradle with Kotlin DSL
+- **JDK / Kotlin toolchain**: 17
+- **Build System**: Gradle with Kotlin DSL; shared configuration is provided by the convention plugins in [`build-logic`](../build-logic) (`sdk.android.library`, `sdk.ktor.client`, `sdk.publish`). See [CONTRIBUTING.md](../CONTRIBUTING.md#building-the-project).
 
 ## Common Dependencies
 
