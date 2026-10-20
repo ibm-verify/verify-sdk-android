@@ -77,7 +77,7 @@ The app uses Android App Links to handle OAuth redirect callbacks. The configura
 
 #### 1. Gradle Build Configuration (`build.gradle.kts`)
 
-The `redirect` URL from `config.properties` is automatically parsed at build time and injected via Gradle into the AndroidManifest file:
+The `redirect` URL from `config.properties` is automatically parsed at build time and injected via Gradle into the AndroidManifest file. Common Android application settings (SDK levels, Java/Kotlin 17 toolchain, shared dependencies) come from the `sdk.android.demo` convention plugin in [`build-logic`](../../build-logic), so the demo's own `build.gradle.kts` only contains the demo-specific configuration:
 
 ```kotlin
 android {

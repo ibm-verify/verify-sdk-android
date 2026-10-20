@@ -50,7 +50,7 @@ cd verify-sdk-android
 
 ### 3. Sync Gradle
 
-Android Studio should automatically sync Gradle. If not:
+Android Studio should automatically sync Gradle (JDK 17 is required; Android Studio's bundled JDK works). Shared build settings come from the convention plugins in [`build-logic`](../../build-logic). If the sync does not start automatically:
 1. Click **File > Sync Project with Gradle Files**
 2. Wait for the sync to complete
 
