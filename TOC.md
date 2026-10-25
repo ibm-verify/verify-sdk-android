@@ -5,7 +5,7 @@
    * [Integrating with your project](README.md#integrating-with-your-project)
       * [Manually from GitHub release](README.md#manually-from-github-release)
    * [Further reading](README.md#further-reading)
-   * [Release notes](./docs/releases/3.2.12.md)
+   * [Release notes](./docs/releases/3.2.13.md)
    * [SSL certificate bypass for on-premise authenticators](./docs/SSL_CERTIFICATE_BYPASS.md)
 ----
 * [IBM Verify Core SDK for Android](./sdk/core/README.md#ibm-verify-core-sdk-for-android)
@@ -13,7 +13,7 @@
       * [NetworkHelper](./sdk/core/README.md#networkhelper)
       * [KeystoreHelper](./sdk/core/README.md#keystorehelper)
       * [Exception Classes](./sdk/core/README.md#exception-classes)
-   * [Recent Improvements (v3.2.12)](./sdk/core/README.md#recent-improvements-v3212)
+   * [Recent Improvements (v3.2.13)](./sdk/core/README.md#recent-improvements-v3213)
    * [Certificate Transparency](./sdk/core/README.md#certificate-transparency)
    * [SSL Certificate Bypass (On-Premise Only)](./sdk/core/README.md#ssl-certificate-bypass-on-premise-only)
    * [Dependencies](./sdk/core/README.md#dependencies)
@@ -22,7 +22,7 @@
 ----
 * [IBM Verify Authentication SDK for Android](./sdk/authentication/README.md#ibm-verify-authentication-sdk-for-android)
    * [Features](./sdk/authentication/README.md#features)
-   * [Recent Improvements (v3.2.12)](./sdk/authentication/README.md#recent-improvements-v3212)
+   * [Recent Improvements (v3.2.13)](./sdk/authentication/README.md#recent-improvements-v3213)
    * [Getting started](./sdk/authentication/README.md#getting-started)
       * [Prerequisites](./sdk/authentication/README.md#prerequisites)
       * [API documentation](./sdk/authentication/README.md#api-documentation)
@@ -46,7 +46,7 @@
 ----
 * [IBM Verify SDK - MFA Module](./sdk/mfa/README.md#ibm-verify-sdk---mfa-module)
    * [Overview](./sdk/mfa/README.md#overview)
-   * [Recent Improvements (v3.2.12)](./sdk/mfa/README.md#recent-improvements-v3212)
+   * [Recent Improvements (v3.2.13)](./sdk/mfa/README.md#recent-improvements-v3213)
    * [Key Components](./sdk/mfa/README.md#key-components)
       * [Services](./sdk/mfa/README.md#services)
       * [Controllers](./sdk/mfa/README.md#controllers)
@@ -65,7 +65,7 @@
    * [Known Issues](./sdk/mfa/README.md#known-issues)
 ----
 * [IBM Verify FIDO2™ SDK for Android](./sdk/fido2/README.md#ibm-verify-fido2-sdk-for-android)
-   * [Recent Improvements (v3.2.12)](./sdk/fido2/README.md#recent-improvements-v3212)
+   * [Recent Improvements (v3.2.13)](./sdk/fido2/README.md#recent-improvements-v3213)
    * [Example](./sdk/fido2/README.md#example)
    * [Getting started](./sdk/fido2/README.md#getting-started)
       * [Integrating with your project](./sdk/fido2/README.md#integrating-with-your-project)
@@ -77,7 +77,7 @@
    * [License](./sdk/fido2/README.md#license)
 ----
 * [IBM Verify Adaptive SDK for Android](./sdk/adaptive/README.md#ibm-verify-adaptive-sdk-for-android)
-   * [Recent Improvements (v3.2.12)](./sdk/adaptive/README.md#recent-improvements-v3212)
+   * [Recent Improvements (v3.2.13)](./sdk/adaptive/README.md#recent-improvements-v3213)
    * [Getting started](./sdk/adaptive/README.md#getting-started)
       * [Prerequisites](./sdk/adaptive/README.md#prerequisites)
       * [API documentation](./sdk/adaptive/README.md#api-documentation)

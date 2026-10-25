@@ -30,6 +30,12 @@ Do not perform broad cleanup, renaming, formatting, dependency upgrades, or arch
 
 ```
 verify-sdk-android/
+├── build-logic/        # Included build with the shared Gradle convention plugins
+│   └── src/main/kotlin/
+│       ├── sdk.android.library.gradle.kts  # Android library defaults for :sdk:* modules
+│       ├── sdk.android.demo.gradle.kts     # Android application defaults for :examples:*
+│       ├── sdk.ktor.client.gradle.kts      # Shared Ktor client dependencies
+│       └── sdk.publish.gradle.kts          # maven-publish / POM configuration
 ├── sdk/
 │   ├── core/          # :sdk:core — Keystore helpers, NetworkHelper, logging, base exceptions
 │   ├── authentication/ # :sdk:authentication — OAuth 2.0 / OIDC
@@ -52,6 +58,39 @@ All Gradle commands must be run from the repository root.
 
 ---
 
+## Build Logic (Convention Plugins)
+
+Shared build configuration lives in the included build [`build-logic/`](build-logic) (registered via `pluginManagement { includeBuild("build-logic") }` in `settings.gradle.kts`). It replaces the former `common-config.gradle`, `common-config-ktor.gradle`, `common-config-demos.gradle` and `common-publish.gradle` scripts, which were applied with `apply(from = "$rootDir/…")`. Those files no longer exist — do not recreate them.
+
+| Plugin id | Applied by | Provides |
+|---|---|---|
+| `sdk.android.library` | `:sdk:*` | `com.android.library`, namespace derived from the module path, `compileSdk`, `minSdk`, `VERSION_NAME` build config field, release/debug build types (coverage enabled in debug), packaging excludes, Java/Kotlin 17 toolchain, lint checks and common test dependencies |
+| `sdk.ktor.client` | `:sdk:core`, `:sdk:authentication`, `:sdk:mfa`, `:sdk:fido2`, and demos that use Ktor directly | Ktor client `implementation` dependencies and `ktor-client-mock` for `androidTest` |
+| `sdk.publish` | all `:sdk:*` modules | `maven-publish`, `androidJavadocJar`, `javaSourcesJar`, and the `release` Maven publication/POM |
+| `sdk.android.demo` | `:examples:*` | `com.android.application`, demo `compileSdk`/`minSdk`/`targetSdk`, demo `versionCode`/`versionName`, Java/Kotlin 17 toolchain and common Compose/AndroidX dependencies |
+
+A module's `build.gradle.kts` therefore only declares its plugins, module-specific `android { }` settings and dependencies, for example:
+
+```kotlin
+plugins {
+    id("sdk.android.library")
+    id("sdk.ktor.client")
+    id("sdk.publish")
+    alias(libs.plugins.kotlin.serialization)
+}
+```
+
+Rules:
+
+- Put settings shared by several modules (SDK levels, packaging, toolchain, common dependencies, publishing) in the matching convention plugin in `build-logic/src/main/kotlin/`, not in individual modules.
+- Convention plugins resolve dependencies through the version catalog (`libs.findLibrary("…")`). Add new versions/aliases to `gradle/libs.versions.toml`; `build-logic` reads the AGP, Kotlin and Dokka versions from the same catalog.
+- The SDK release version (`versionName` / `versionCode`) is defined once in the root `build.gradle.kts` (`extra["versionName"]`) and read by `sdk.android.library` and `sdk.publish`.
+- Dependency-resolution rules (`force(...)` constraints for Jackson, Netty, ASM, etc.), aggregate tasks (`testSdk`, `connectedAndroidTestSdk`) and coverage configuration stay in the root `build.gradle.kts`.
+- The OW2 ASM family (`asm`, `asm-commons`, `asm-tree`, `asm-analysis`, `asm-util`) is pinned to a single fixed version (currently `9.11.1`) because AGP and Robolectric pull in older, vulnerable versions transitively. Keep all five modules on the same version, and change the pin in all three places together: the root `buildscript` constraints, the root `allprojects` `force(...)` rules, and the `constraints` block in `build-logic/build.gradle.kts`.
+- After changing anything in `build-logic/`, verify with `./gradlew help` (configuration) and at least one module build, e.g. `./gradlew :sdk:core:assembleDebug`.
+
+---
+
 ## Technology Stack
 
 | Layer | Technology |
@@ -60,7 +99,7 @@ All Gradle commands must be run from the repository root.
 | Networking | Ktor HttpClient |
 | Serialization | kotlinx.serialization JSON — do not use `org.json` |
 | Security | Android Keystore, Certificate Transparency interceptor |
-| Build | AGP, Gradle, minSdk 29, targetSdk 36 |
+| Build | AGP, Gradle (Kotlin DSL, convention plugins in `build-logic`), compileSdk 37, minSdk 29, targetSdk 36 (demo apps), JDK/Kotlin toolchain 17 |
 
 ---
 
@@ -76,11 +115,20 @@ All Gradle commands must be run from the repository root.
 # Run all unit tests
 ./gradlew test
 
+# Run JVM unit tests of all :sdk:* modules
+./gradlew testSdk
+
 # Run unit tests for a specific module
 ./gradlew :sdk:mfa:testDebugUnitTest
 
 # Run instrumented tests (requires device/emulator)
 ./gradlew connectedAndroidTest
+
+# Run instrumented tests of all :sdk:* modules (requires device/emulator)
+./gradlew connectedAndroidTestSdk
+
+# Generate API documentation (HTML) for all modules
+./gradlew dokkaGeneratePublicationHtml
 ```
 
 ### Required validation

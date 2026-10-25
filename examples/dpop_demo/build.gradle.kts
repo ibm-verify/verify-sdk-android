@@ -1,10 +1,8 @@
 plugins {
-    alias(libs.plugins.android.application)
+    id("sdk.android.demo")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
 }
-
-apply(from = "$rootDir/common-config-demos.gradle")
 
 android {
     namespace = "com.ibm.security.verifysdk.dpop.demoapp"

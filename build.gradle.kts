@@ -1,4 +1,21 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+// Mend: CVE-2026-110262 / CVE-2026-110270 affect OW2 ASM asm-commons before 9.11.
+// AGP 9.3.2 pulls asm-commons 9.9 onto the Gradle buildscript classpath. Constrain the whole
+// ASM family (they must move together) to a fixed version. Build tooling only; ASM is not
+// packaged in any release artifact.
+buildscript {
+    dependencies {
+        constraints {
+            listOf("asm", "asm-commons", "asm-tree", "asm-analysis", "asm-util").forEach {
+                classpath("org.ow2.asm:$it:9.11.1") {
+                    because("CVE-2026-110262, CVE-2026-110270: asm-commons < 9.11")
+                }
+            }
+        }
+    }
+}
+
 plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.android.application) apply false
@@ -15,17 +32,17 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.12"
-extra["versionCode"] = "130"
+extra["versionName"] = "3.2.13"
+extra["versionCode"] = "131"
 
 allprojects {
     val jacksonModules = listOf(
-        "com.fasterxml.jackson.core:jackson-core:2.22.2",
-        "com.fasterxml.jackson.core:jackson-databind:2.22.2",
+        "com.fasterxml.jackson.core:jackson-core:2.22.3",
+        "com.fasterxml.jackson.core:jackson-databind:2.22.3",
         "com.fasterxml.jackson.core:jackson-annotations:2.22",
-        "com.fasterxml.jackson.module:jackson-module-kotlin:2.22.2",
-        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.2",
-        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.22.2"
+        "com.fasterxml.jackson.module:jackson-module-kotlin:2.22.3",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.3",
+        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.22.3"
     )
 
     configurations.configureEach {
@@ -34,7 +51,7 @@ allprojects {
             preferProjectModules()
             // Force versions not covered by BOM
             force("com.fasterxml.woodstox:woodstox-core:6.6.2")
-            force("com.google.guava:guava:32.0.1-jre")
+            force("com.google.guava:guava:33.7.2-jre")
             // Updated to protobuf 4.x for AGP 9.1.0 compatibility
             force("com.google.protobuf:protobuf-java:4.29.3")
             force("com.google.protobuf:protobuf-javalite:4.29.3")
@@ -42,6 +59,12 @@ allprojects {
             force("io.netty:netty-codec-http2:4.2.17.Final")
             force("io.netty:netty-codec-compression:4.2.17.Final")
             force("io.netty:netty-handler-proxy:4.2.17.Final")
+            // CVE-2026-110262 / CVE-2026-110270: asm-commons < 9.11 (Robolectric test classpaths)
+            force("org.ow2.asm:asm:9.11.1")
+            force("org.ow2.asm:asm-commons:9.11.1")
+            force("org.ow2.asm:asm-tree:9.11.1")
+            force("org.ow2.asm:asm-analysis:9.11.1")
+            force("org.ow2.asm:asm-util:9.11.1")
             // Force all Jackson modules to 2.22.2 across every configuration,
             // including transitive pulls from jose4j and other libraries.
             jacksonModules.forEach { force(it) }

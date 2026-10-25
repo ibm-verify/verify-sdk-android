@@ -4,6 +4,8 @@ This directory contains demonstration Android applications showcasing various ca
 
 ## Available Examples
 
+All example apps are part of the repository's Gradle build and are built from the repository root (JDK 17), for example `./gradlew :examples:mfa_demo:assembleDebug`. They apply the `sdk.android.demo` convention plugin from [`build-logic`](../build-logic) for shared application settings (SDK levels, toolchain, common dependencies) and, where needed, `sdk.ktor.client` for the Ktor dependencies.
+
 ### 1. MFA Demo (`mfa_demo/`)
 
 Demonstrates the MFA (Multi-Factor Authentication) capabilities of the IBM Verify SDK.

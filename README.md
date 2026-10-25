@@ -11,6 +11,7 @@ Each Software Development Kit (SDK) is separate for you to choose from instead o
 * The SDK is written in Kotlin.
 * To use the `mfa` SDK an [IBM Verify](https://www.ibm.com/products/verify-for-consumer-iam) tenant or [IBM Verify Identity Access](https://www.ibm.com/au-en/products/verify-access) is required.
 * Minimum Android API level 29 (Android 10.0).
+* To build the SDK from source: JDK 17 and the included Gradle wrapper (`./gradlew`). Shared build configuration is provided by the convention plugins in [`build-logic`](build-logic); see [Contributing](CONTRIBUTING.md#building-the-project).
 
 ## Software Development Kits
 
@@ -48,15 +49,15 @@ To include an IBM Verify SDK modules in your Android project, follow these steps
 
     ```kotlin
     dependencies {
-        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.12")
-        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.12")
-        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.12")
-        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.12")
-        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.12")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.13")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.13")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.13")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.13")
+        implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.13")
     }
     ```
 
-   Replace `3.2.12` with `main-SNAPSHOT` for the latest development snapshot. You can generate entries for other modules [here](https://jitpack.io/#ibm-verify/verify-sdk-android/).
+   Replace `3.2.13` with `main-SNAPSHOT` for the latest development snapshot. You can generate entries for other modules [here](https://jitpack.io/#ibm-verify/verify-sdk-android/).
 
 3. Sync and build
 
@@ -68,7 +69,7 @@ Download the required SDK files from https://github.com/ibm-verify/verify-sdk-an
 
 ## Further reading
 
-* [Release notes](docs/releases/3.2.12.md)
+* [Release notes](docs/releases/3.2.13.md)
 * [SSL certificate bypass for on-premise authenticators](docs/SSL_CERTIFICATE_BYPASS.md)
 * [Example applications](examples/README.md)
 * [Contributing](CONTRIBUTING.md)

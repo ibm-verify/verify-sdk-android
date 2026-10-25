@@ -1,11 +1,9 @@
 plugins {
-    alias(libs.plugins.android.library)
+    id("sdk.android.library")
+    id("sdk.ktor.client")
+    id("sdk.publish")
     alias(libs.plugins.kotlin.serialization)
 }
-
-apply(from = "$rootDir/common-config.gradle")
-apply(from = "$rootDir/common-config-ktor.gradle")
-apply(from = "$rootDir/common-publish.gradle")
 
 dependencies {
 

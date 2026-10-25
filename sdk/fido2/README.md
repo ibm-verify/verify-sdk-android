@@ -29,7 +29,11 @@ This Verify FIDO2 SDK for Android is well suited for developers of pure native m
 that wish to provision only device-bound keys in scenarios where the use of synchronized passkeys
 for example is not suitable.
 
-## Recent Improvements (v3.2.12)
+## Recent Improvements (v3.2.13)
+
+- No FIDO2 SDK production code changed in this release. The module's build configuration now uses the `sdk.android.library`, `sdk.ktor.client` and `sdk.publish` convention plugins from [`build-logic`](../../build-logic). See [`docs/releases/3.2.13.md`](../../docs/releases/3.2.13.md).
+
+### (v3.2.12)
 
 - No FIDO2 SDK production code changed in this release. See [`docs/releases/3.2.12.md`](../../docs/releases/3.2.12.md).
 
@@ -56,9 +60,9 @@ The FIDO2 SDK API can be reviewed [here](https://ibm-verify.github.io/android/fi
 
 ### Add the SDK to your project
 
-1. Add JitPack to the list of repositories in `settings.gradle`:
+1. Add JitPack to the list of repositories in `settings.gradle.kts`:
 
-```gradle
+```kotlin
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -69,12 +73,12 @@ dependencyResolutionManagement {
 }
 ```
 
-2. Add the libraries to the dependencies list in `build.gradle` (app). The Core SDK is
+2. Add the libraries to the dependencies list in `build.gradle.kts` (app). The Core SDK is
    included transitively by the FIDO2 SDK:
 
-```gradle
+```kotlin
 dependencies {
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.12")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.13")
     ...
 }
 ```

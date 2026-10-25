@@ -187,7 +187,7 @@ DPoPHelper.deleteKey("my-custom-dpop-key")
 ## Requirements
 
 - Android API Level 29 (Android 10.0) or higher
-- IBM Verify SDK for Android 3.1.0 or higher (3.2.12 recommended)
+- IBM Verify SDK for Android 3.1.0 or higher (3.2.13 recommended)
 - OAuth 2.0 authorization server with DPoP support
 
 ## Example

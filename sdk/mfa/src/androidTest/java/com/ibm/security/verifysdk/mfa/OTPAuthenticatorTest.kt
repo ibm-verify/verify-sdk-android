@@ -162,6 +162,30 @@ class OTPAuthenticatorTest {
     }
 
     @Test
+    fun fromQRScan_withEmptySecret_shouldReturnNull() {
+        // Given
+        val qrCode = "otpauth://totp/TestService:user@example.com?secret=&algorithm=SHA1&digits=6&period=30"
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(qrCode)
+
+        // Then
+        assertNull(authenticator)
+    }
+
+    @Test
+    fun fromQRScan_withBlankSecret_shouldReturnNull() {
+        // Given
+        val qrCode = "otpauth://totp/TestService:user@example.com?secret=%20%20&algorithm=SHA1&digits=6&period=30"
+
+        // When
+        val authenticator = OTPAuthenticator.fromQRScan(qrCode)
+
+        // Then
+        assertNull(authenticator)
+    }
+
+    @Test
     fun fromQRScan_withSHA256Algorithm_shouldCreateAuthenticator() {
         // Given
         val qrCode = "otpauth://totp/TestService:user@example.com?secret=JBSWY3DPEHPK3PXP&algorithm=SHA256&digits=6&period=30"

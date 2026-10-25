@@ -4,13 +4,11 @@ import java.util.Properties
 import java.net.URI
 
 plugins {
-    alias(libs.plugins.android.application)
+    id("sdk.android.demo")
+    id("sdk.ktor.client")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
 }
-
-apply(from = "$rootDir/common-config-demos.gradle")
-apply(from = "$rootDir/common-config-ktor.gradle")
 
 val configPropertiesFile = file("src/main/assets/config.properties")
 val configProperties = Properties()
@@ -106,9 +104,6 @@ dependencies {
 
     // IBM Verify SDK authentication module
     implementation(project(":sdk:authentication"))
-
-    // SLF4J Simple logger for SLF4J 2.x (outputs to System.err which Android redirects to Logcat)
-    implementation(libs.slf4j.simple)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

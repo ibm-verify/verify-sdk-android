@@ -215,7 +215,7 @@ class OnPremiseAuthenticatorService(
                                 )
                             )
                         }
-                        log.error("Token persisted successfully for authenticator $_authenticatorId")
+                        log.debug("Token persisted successfully for authenticator $_authenticatorId")
                     }
                 }
             }
@@ -238,11 +238,11 @@ class OnPremiseAuthenticatorService(
 
         return try {
             log.entering()
-            log.error("nextTransaction called with transactionID: $transactionID")
-            log.error("nextTransaction - _authenticatorId: $_authenticatorId")
-            log.error("nextTransaction - _serverAuthenticatorId: $_serverAuthenticatorId")
-            log.error("nextTransaction - transactionUri: $transactionUri")
-            log.error("nextTransaction - accessToken length: ${accessToken.length}")
+            log.debug("nextTransaction called with transactionID: $transactionID")
+            log.debug("nextTransaction - _authenticatorId: $_authenticatorId")
+            log.debug("nextTransaction - _serverAuthenticatorId: $_serverAuthenticatorId")
+            log.debug("nextTransaction - transactionUri: $transactionUri")
+            log.debug("nextTransaction - accessToken length: ${accessToken.length}")
 
             val response = httpClient.get {
                 url(transactionUri.toString())
@@ -250,36 +250,34 @@ class OnPremiseAuthenticatorService(
                 bearerAuth(accessToken)
             }
 
-            log.error("nextTransaction - HTTP response status: ${response.status}")
-            log.error("nextTransaction - HTTP response body length: ${response.bodyAsText().length}")
+            log.debug("nextTransaction - HTTP response status: ${response.status}")
+            log.debug("nextTransaction - HTTP response body length: ${response.bodyAsText().length}")
 
             if (response.status.isSuccess()) {
                 val responseBody = response.bodyAsText()
-                log.error("nextTransaction - Response body: $responseBody")
 
                 val transactionResult = decoder.decodeFromString(
                     TransactionResult.TransactionResultSerializer,
                     responseBody
                 )
 
-                log.error("nextTransaction - Decoded transactions count: ${transactionResult.transactions.size}")
+                log.debug("nextTransaction - Decoded transactions count: ${transactionResult.transactions.size}")
                 transactionResult.transactions.forEachIndexed { index, txn ->
-                    log.error("nextTransaction - Transaction[$index] transactionId: ${txn.transactionId}")
-                    log.error("nextTransaction - Transaction[$index] creationTime: ${txn.creationTime}")
-                    log.error("nextTransaction - Transaction[$index] requestUrl: ${txn.requestUrl}")
-                    log.error("nextTransaction - Transaction[$index] authnPolicyUri: ${txn.authnPolicyUri}")
+                    log.debug("nextTransaction - Transaction[$index] transactionId: ${txn.transactionId}")
+                    log.debug("nextTransaction - Transaction[$index] creationTime: ${txn.creationTime}")
+                    log.debug("nextTransaction - Transaction[$index] requestUrl: ${txn.requestUrl}")
+                    log.debug("nextTransaction - Transaction[$index] authnPolicyUri: ${txn.authnPolicyUri}")
                 }
 
                 if (transactionResult.transactions.isEmpty()) {
-                    log.error("nextTransaction - No transactions from server, returning empty list")
+                    log.debug("nextTransaction - No transactions from server, returning empty list")
                     Result.success(NextTransactionInfo(emptyList(), 0))
                 } else {
-                    log.error("nextTransaction - Calling createPendingTransactions with transactionID: $transactionID")
+                    log.debug("nextTransaction - Calling createPendingTransactions with transactionID: $transactionID")
                     val transactions = createPendingTransactions(transactionResult, transactionID)
-                    log.error("nextTransaction - createPendingTransactions returned ${transactions.size} transactions")
+                    log.debug("nextTransaction - createPendingTransactions returned ${transactions.size} transactions")
                     transactions.forEachIndexed { index, pending ->
-                        log.error("nextTransaction - PendingTransaction[$index] id: ${pending.id}")
-                        log.error("nextTransaction - PendingTransaction[$index] message: ${pending.message}")
+                        log.debug("nextTransaction - PendingTransaction[$index] id: ${pending.id}")
                     }
 
                     val result = Result.success(
@@ -288,7 +286,7 @@ class OnPremiseAuthenticatorService(
                             transactionResult.transactions.count()
                         )
                     )
-                    log.error("nextTransaction - Returning success with ${transactions.size} pending, ${transactionResult.transactions.count()} total")
+                    log.debug("nextTransaction - Returning success with ${transactions.size} pending, ${transactionResult.transactions.count()} total")
                     result
                 }
             } else {
@@ -515,29 +513,29 @@ class OnPremiseAuthenticatorService(
         transactionResult: TransactionResult,
         transactionId: String? = null
     ): List<PendingTransactionInfo> {
-        log.error("=== createPendingTransactions START ===")
-        log.error("Requested specific transaction: ${transactionId ?: "ALL"}")
-        log.error("Client authenticator ID (_authenticatorId): $_authenticatorId")
-        log.error("Server authenticator ID (_serverAuthenticatorId): $_serverAuthenticatorId")
+        log.debug("=== createPendingTransactions START ===")
+        log.debug("Requested specific transaction: ${transactionId ?: "ALL"}")
+        log.debug("Client authenticator ID (_authenticatorId): $_authenticatorId")
+        log.debug("Server authenticator ID (_serverAuthenticatorId): $_serverAuthenticatorId")
 
         // Use server's authenticator_id for filtering transactions
         // If not available, return empty list as transactions won't match tenant_id
         val filterAuthenticatorId = _serverAuthenticatorId
 
         if (filterAuthenticatorId == null) {
-            log.error("❌ No server authenticator_id available for filtering transactions")
-            log.error("=== createPendingTransactions END: 0 transactions ===")
+            log.debug("❌ No server authenticator_id available for filtering transactions")
+            log.debug("=== createPendingTransactions END: 0 transactions ===")
             return emptyList()
         }
 
-        log.error("Using filter authenticator ID: $filterAuthenticatorId")
+        log.debug("Using filter authenticator ID: $filterAuthenticatorId")
 
         // Log all authenticator IDs in the transaction result
         val allAuthenticatorIds = transactionResult.attributes
             .filter { it.uri == "mmfa:request:authenticator:id" }
-        log.error("Found ${allAuthenticatorIds.size} authenticator ID attributes in transaction result:")
+        log.debug("Found ${allAuthenticatorIds.size} authenticator ID attributes in transaction result:")
         allAuthenticatorIds.forEach { attr ->
-            log.error("  - Transaction ${attr.transactionId}: ${attr.values.joinToString(", ")}")
+            log.debug("  - Transaction ${attr.transactionId}: ${attr.values.joinToString(", ")}")
         }
 
         // Get identifiers for this authenticator
@@ -545,14 +543,14 @@ class OnPremiseAuthenticatorService(
             it.uri == "mmfa:request:authenticator:id" && it.values.contains(filterAuthenticatorId)
         }
 
-        log.error("Matched ${identifiers.size} identifier(s) for authenticator $filterAuthenticatorId")
+        log.debug("Matched ${identifiers.size} identifier(s) for authenticator $filterAuthenticatorId")
         identifiers.forEach { id ->
-            log.error("  - Matched transaction: ${id.transactionId}")
+            log.debug("  - Matched transaction: ${id.transactionId}")
         }
 
         // Get all transaction IDs for this authenticator
         val transactionIds = if (transactionId != null) {
-            log.error("Specific transaction requested: $transactionId")
+            log.debug("Specific transaction requested: $transactionId")
             // If specific transaction requested, validate it belongs to this authenticator first
             val belongsToThisAuthenticator = transactionResult.attributes.any {
                 it.transactionId == transactionId &&
@@ -560,16 +558,16 @@ class OnPremiseAuthenticatorService(
                         it.values.contains(filterAuthenticatorId)
             }
             if (belongsToThisAuthenticator) {
-                log.error("✓ Transaction $transactionId belongs to this authenticator")
+                log.debug("✓ Transaction $transactionId belongs to this authenticator")
                 listOf(transactionId)
             } else {
-                log.error("❌ Transaction $transactionId does not belong to authenticator $filterAuthenticatorId")
+                log.debug("❌ Transaction $transactionId does not belong to authenticator $filterAuthenticatorId")
                 emptyList()
             }
         } else if (identifiers.isNotEmpty()) {
             // Get all transactions for this authenticator
             val ids = identifiers.map { it.transactionId }
-            log.error(
+            log.debug(
                 "✓ Found ${ids.size} transaction(s) for this authenticator: ${
                     ids.joinToString(
                         ", "
@@ -580,41 +578,41 @@ class OnPremiseAuthenticatorService(
         } else {
             // No transactions for this authenticator - return empty list
             // This prevents attempting to process transactions that belong to other authenticators
-            log.error("❌ No transactions found for authenticator $filterAuthenticatorId")
+            log.debug("❌ No transactions found for authenticator $filterAuthenticatorId")
             emptyList()
         }
 
-        log.error("Processing ${transactionIds.size} transaction ID(s)")
+        log.debug("Processing ${transactionIds.size} transaction ID(s)")
 
         val now = Clock.System.now()
-        log.error("Current time: $now")
+        log.debug("Current time: $now")
 
         val pendingTransactions = transactionIds.mapNotNull { txnId ->
-            log.error("Creating pending transaction for ID: $txnId")
+            log.debug("Creating pending transaction for ID: $txnId")
             val result = createPendingTransaction(transactionResult, txnId)
             result.fold(
                 onSuccess = { transaction ->
-                    log.error("✓ Successfully created transaction object for $txnId")
+                    log.debug("✓ Successfully created transaction object for $txnId")
                     // Filter out expired transactions
                     transaction.expiryTime?.let { expiry ->
-                        log.error("  Transaction expiry: $expiry")
+                        log.debug("  Transaction expiry: $expiry")
                         if (now > expiry) {
-                            log.error("  ❌ Transaction $txnId is EXPIRED (now: $now > expiry: $expiry)")
+                            log.debug("  ❌ Transaction $txnId is EXPIRED (now: $now > expiry: $expiry)")
                             return@mapNotNull null
                         } else {
-                            log.error("  ✓ Transaction $txnId is NOT expired")
+                            log.debug("  ✓ Transaction $txnId is NOT expired")
                         }
-                    } ?: log.error("  ℹ Transaction $txnId has no expiry time")
+                    } ?: log.debug("  ℹ Transaction $txnId has no expiry time")
                     transaction
                 },
                 onFailure = { error ->
-                    log.error("❌ Failed to create transaction object for $txnId: ${error.message}")
+                    log.debug("❌ Failed to create transaction object for $txnId: ${error.message}")
                     null
                 }
             )
         }
 
-        log.error("=== createPendingTransactions END: ${pendingTransactions.size} transaction(s) ===")
+        log.debug("=== createPendingTransactions END: ${pendingTransactions.size} transaction(s) ===")
         return pendingTransactions
     }
 
