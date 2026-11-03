@@ -14,7 +14,7 @@ android {
         buildConfig = true
     }
 
-    val versionName = rootProject.extra.properties["versionName"] as? String ?: "3.2.13"
+    val versionName = rootProject.extra.properties["versionName"] as? String ?: "3.2.14"
 
     defaultConfig {
         minSdk = 29

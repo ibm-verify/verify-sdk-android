@@ -29,7 +29,11 @@ This Verify FIDO2 SDK for Android is well suited for developers of pure native m
 that wish to provision only device-bound keys in scenarios where the use of synchronized passkeys
 for example is not suitable.
 
-## Recent Improvements (v3.2.13)
+## Recent Improvements (v3.2.14)
+
+- **Jackson 2.22.4**: the `jackson-core` and `jackson-dataformat-cbor` dependencies of this module are raised from 2.22.3 to 2.22.4 (patch release; includes the `jackson-core` fix for CVE-2026-89425). No FIDO2 SDK production code changed. See [`docs/releases/3.2.14.md`](../../docs/releases/3.2.14.md).
+
+### (v3.2.13)
 
 - No FIDO2 SDK production code changed in this release. The module's build configuration now uses the `sdk.android.library`, `sdk.ktor.client` and `sdk.publish` convention plugins from [`build-logic`](../../build-logic). See [`docs/releases/3.2.13.md`](../../docs/releases/3.2.13.md).
 
@@ -78,7 +82,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.13")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.14")
     ...
 }
 ```

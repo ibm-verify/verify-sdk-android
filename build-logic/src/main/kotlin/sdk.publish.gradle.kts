@@ -25,7 +25,7 @@ tasks.register<Jar>("javaSourcesJar") {
 }
 
 afterEvaluate {
-    val releaseVersionName = rootProject.extra.properties["versionName"] as? String ?: "3.2.13"
+    val releaseVersionName = rootProject.extra.properties["versionName"] as? String ?: "3.2.14"
     configure<PublishingExtension> {
         publications {
             register<MavenPublication>("release") {

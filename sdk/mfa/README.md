@@ -16,7 +16,11 @@ The MFA (Multi-Factor Authentication) module provides comprehensive support for 
 - **Biometric Authentication** - Unified biometric factor (fingerprint/face recognition)
 - **User Presence** - Device-based authentication factors
 
-## Recent Improvements (v3.2.13)
+## Recent Improvements (v3.2.14)
+
+- **Jackson 2.22.4**: the `jackson-core` and `jackson-dataformat-cbor` dependencies of this module are raised from 2.22.3 to 2.22.4 (patch release; includes the `jackson-core` fix for CVE-2026-89425). No MFA SDK production code changed. See [`docs/releases/3.2.14.md`](../../docs/releases/3.2.14.md).
+
+### (v3.2.13)
 
 - **Recoverable OTP generation errors**: `OTPDescriptor.generatePasscode` validates that the decoded secret is non-empty and converts decoding/cryptography failures into `MFAServiceException.General` instead of crashing with `IllegalArgumentException: Empty key`. HOTP counters are not incremented on failure.
 - **Enrollment validation**: `OTPAuthenticator.fromQRScan` returns `null` for empty or blank `secret=` parameters.
