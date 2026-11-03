@@ -52,7 +52,11 @@ val signature = KeystoreHelper.signData(
 - `VerifySdkException`: Base exception for all SDK errors
 - `AuthenticationException`: Authentication-specific errors with detailed error codes
 
-## Recent Improvements (v3.2.13)
+## Recent Improvements (v3.2.14)
+
+- **No Core SDK production code changed in this release.** Version 3.2.14 updates security-patched versions of build-tooling dependencies (Bouncy Castle, Jackson, Netty, FreeMarker, jsoup, Guava) in the root `build.gradle.kts`; none of them is a dependency of this module. See [`docs/releases/3.2.14.md`](../../docs/releases/3.2.14.md).
+
+### (v3.2.13)
 
 - **Base32 secret normalization**: `String.decodeBase32()` now strips whitespace, hyphens/dashes (`-`, `–`, `—`) and `=` padding before decoding and remains case-insensitive, so secrets formatted as `ABCD-EFGH-…` or in lowercase no longer throw `IllegalArgumentException`. Invalid characters still throw. See [`docs/releases/3.2.13.md`](../../docs/releases/3.2.13.md).
 - **Build logic**: Module build configuration moved to the `sdk.android.library`, `sdk.ktor.client` and `sdk.publish` convention plugins in [`build-logic`](../../build-logic). No change to the published artifact.

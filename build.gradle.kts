@@ -12,6 +12,37 @@ buildscript {
                     because("CVE-2026-110262, CVE-2026-110270: asm-commons < 9.11")
                 }
             }
+            // Mend HIGH/CRITICAL findings on build-tooling transitives (AGP lint / sdk-common and
+            // the Dokka plugin). Build classpath only; none of these are packaged in a release artifact.
+            listOf("bcprov-jdk18on", "bcpkix-jdk18on", "bcutil-jdk18on").forEach {
+                classpath("org.bouncycastle:$it:1.86") {
+                    because("CVE-2025-14813, CVE-2026-5598, CVE-2026-71888, CVE-2026-71889 and others: Bouncy Castle < 1.86")
+                }
+            }
+            listOf("jackson-core", "jackson-databind").forEach {
+                classpath("com.fasterxml.jackson.core:$it:2.22.4") {
+                    because("CVE-2026-110879 (jackson-databind CRITICAL) and CVE-2026-89425 (jackson-core)")
+                }
+            }
+            // Keep the rest of the Jackson family aligned with core/databind (annotations is versioned 2.22).
+            classpath("com.fasterxml.jackson.core:jackson-annotations:2.22") {
+                because("Must match jackson-databind 2.22.x")
+            }
+            classpath("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.4") {
+                because("Must match jackson-databind 2.22.x")
+            }
+            classpath("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.4") {
+                because("Must match jackson-databind 2.22.x")
+            }
+            classpath("org.freemarker:freemarker:2.3.35") {
+                because("CVE-2026-84939: freemarker < 2.3.35")
+            }
+            classpath("org.jsoup:jsoup:1.23.2") {
+                because("CVE-2026-75140: jsoup < 1.23.2")
+            }
+            classpath("com.google.guava:guava:33.7.2-jre") {
+                because("CVE-2026-102554: guava < 33.7.2")
+            }
         }
     }
 }
@@ -32,17 +63,18 @@ plugins {
 }
 
 // used for release naming and in MFA SDK
-extra["versionName"] = "3.2.13"
-extra["versionCode"] = "131"
+extra["versionName"] = "3.2.14"
+extra["versionCode"] = "132"
 
 allprojects {
     val jacksonModules = listOf(
-        "com.fasterxml.jackson.core:jackson-core:2.22.3",
-        "com.fasterxml.jackson.core:jackson-databind:2.22.3",
+        "com.fasterxml.jackson.core:jackson-core:2.22.4",
+        "com.fasterxml.jackson.core:jackson-databind:2.22.4",
         "com.fasterxml.jackson.core:jackson-annotations:2.22",
-        "com.fasterxml.jackson.module:jackson-module-kotlin:2.22.3",
-        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.3",
-        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.22.3"
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.22.4",
+        "com.fasterxml.jackson.module:jackson-module-kotlin:2.22.4",
+        "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.22.4",
+        "com.fasterxml.jackson.module:jackson-module-jaxb-annotations:2.22.4"
     )
 
     configurations.configureEach {
@@ -56,18 +88,27 @@ allprojects {
             force("com.google.protobuf:protobuf-java:4.29.3")
             force("com.google.protobuf:protobuf-javalite:4.29.3")
             force("commons-io:commons-io:2.14.0")
-            force("io.netty:netty-codec-http2:4.2.17.Final")
-            force("io.netty:netty-codec-compression:4.2.17.Final")
-            force("io.netty:netty-handler-proxy:4.2.17.Final")
+            force("io.netty:netty-codec-http2:4.2.20.Final")
+            force("io.netty:netty-codec-compression:4.2.20.Final")
+            force("io.netty:netty-handler-proxy:4.2.20.Final")
+            // Bouncy Castle >= 1.86 (CVE-2026-71888 / CVE-2026-71889 and others)
+            force("org.bouncycastle:bcprov-jdk18on:1.86")
+            force("org.bouncycastle:bcpkix-jdk18on:1.86")
+            force("org.bouncycastle:bcutil-jdk18on:1.86")
             // CVE-2026-110262 / CVE-2026-110270: asm-commons < 9.11 (Robolectric test classpaths)
             force("org.ow2.asm:asm:9.11.1")
             force("org.ow2.asm:asm-commons:9.11.1")
             force("org.ow2.asm:asm-tree:9.11.1")
             force("org.ow2.asm:asm-analysis:9.11.1")
             force("org.ow2.asm:asm-util:9.11.1")
-            // Force all Jackson modules to 2.22.2 across every configuration,
+            // Force all Jackson modules to 2.22.4 across every configuration,
             // including transitive pulls from jose4j and other libraries.
             jacksonModules.forEach { force(it) }
+            // Dokka generator classpaths (documentation tooling only, not packaged in any artifact).
+            if (name.contains("dokka", ignoreCase = true)) {
+                force("org.freemarker:freemarker:2.3.35") // CVE-2026-84939
+                force("org.jsoup:jsoup:1.23.2") // CVE-2026-75140
+            }
         }
     }
 }

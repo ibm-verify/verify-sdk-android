@@ -132,11 +132,11 @@ To use any SDK module in your Android project, add the dependency to your `build
 dependencies {
     // Add the modules you need. Core is included transitively by
     // Authentication, MFA and FIDO2.
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.13")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.13")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.13")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.13")
-    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.13")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-core:3.2.14")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-authentication:3.2.14")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-mfa:3.2.14")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-fido2:3.2.14")
+    implementation("com.github.ibm-verify.verify-sdk-android:verify-sdk-adaptive:3.2.14")
 }
 ```
 

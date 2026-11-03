@@ -18,7 +18,11 @@ The IBM Verify Authentication SDK for Android is a comprehensive implementation 
 - **Browser-based Authentication** - Secure authentication via the system browser using Android App Links
 - **Custom Tabs Support** - Enhanced user experience with the Android Custom Tabs protocol, supported by Google Chrome, Mozilla Firefox, and Microsoft Edge
 
-## Recent Improvements (v3.2.13)
+## Recent Improvements (v3.2.14)
+
+- No Authentication SDK production code changed in this release. See [`docs/releases/3.2.14.md`](../../docs/releases/3.2.14.md).
+
+### (v3.2.13)
 
 - No Authentication SDK production code changed in this release. The module's build configuration now uses the `sdk.android.library`, `sdk.ktor.client` and `sdk.publish` convention plugins from [`build-logic`](../../build-logic). See [`docs/releases/3.2.13.md`](../../docs/releases/3.2.13.md).
 
